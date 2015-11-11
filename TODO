@@ -1,0 +1,17 @@
+Find better word for "endpoint"
+Implement file watching "endpoint"
+Implement soap client node
+Implement soap server endpoint
+Implement mllp server endpoint
+Implement mllp client node
+Implement sql querier node
+Implement sql saver node
+Implement http requester node
+Implement iterator node
+Implement MessageBroker
+Nodes should be classes to be configured ?
+Implement esb reloading on change for dev mode (in prod mode too ?)
+Think about testing channel
+Find more nodes
+
+

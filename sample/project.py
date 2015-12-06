@@ -1,5 +1,7 @@
-import channels
-import nodes
+from pypeman import channels
+from pypeman import nodes
+
+print('Project loading...')
 
 c = channels.HttpChannel(method='*', url='/{name}')
 

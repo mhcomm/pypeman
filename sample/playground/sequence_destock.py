@@ -10,7 +10,7 @@ class Destock(Sequence):
     inpoint = nodes.MLLP(port=32222, auto_ack=False).source('ack')
 
     outpoint = nodes.FileWriter(path="A/B/C").source(inpoint.output)
-    ack = "test"
+    ack = "sample"
 
 class Destock2(Sequence):
     def __init__(self):
@@ -25,7 +25,7 @@ class Destock2(Sequence):
 # something like
 
 # endpoints.MLLP(views.Destock3, port=23412)
-# endpoints.HTTP(views.Destock3, url="/test/toto")
+# endpoints.HTTP(views.Destock3, url="/sample/toto")
 # endpoints.Timer(views.Destock3, period="30m")
 
 

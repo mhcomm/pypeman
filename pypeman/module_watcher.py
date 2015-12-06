@@ -3,7 +3,6 @@
 # Watch for any changes in a module or package, and reload it automatically
 
 import pyinotify
-import imp
 import importlib
 import os
 
@@ -30,14 +29,14 @@ class ModuleWatcher(pyinotify.ProcessEvent):
     def watch_module(self, name):
         "Load a module, determine which files it uses, and watch them"
 
-        if imp.is_builtin(name) != 0:
+        if importlib.is_builtin(name) != 0:
             # Pretty pointless to watch built-in modules
             return
 
-        (fd, pathname, description) = imp.find_module(name)
+        (fd, pathname, description) = importlib.find_module(name)
 
         try:
-            mod = imp.load_module(name, fd, pathname, description)
+            mod = importlib.load_module(name, fd, pathname, description)
             if fd:
                 self._watch_file(fd.name, name)
             else:
@@ -74,9 +73,9 @@ class ModuleWatcher(pyinotify.ProcessEvent):
         modname = self.mod_map[event.path]
 
         # Reload the module
-        (fd, pathname, description) = imp.find_module(modname)
+        (fd, pathname, description) = importlib.find_module(modname)
         try:
-            imp.load_module(modname, fd, pathname, description)
+            importlib.load_module(modname, fd, pathname, description)
         finally:
             if fd:
                 fd.close()

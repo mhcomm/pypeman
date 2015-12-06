@@ -2,15 +2,13 @@
 
 import asyncio
 import aiohttp
-import json
-from aiohttp import web
 
 # chain, jobs, receiver, cage, node, endpoint, payload,
 # message, data, channel, pipeline, line
 
 @asyncio.coroutine
 def post_page(client, url):
-    response = yield from client.post(url, data = b'{"test":1}')
+    response = yield from client.post(url, data = b'{"sample":1}')
     assert response.status == 200
     content = yield from response.read()
     return content

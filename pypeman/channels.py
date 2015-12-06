@@ -1,11 +1,10 @@
 import asyncio
 import datetime
 
-
 from aiocron import crontab
 from aiohttp import web
 
-import endpoints
+from pypeman import endpoints
 
 all = []
 

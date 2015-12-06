@@ -30,5 +30,5 @@ class PythonToJson(Node):
 
 class Add1(Node):
     def process(self, msg):
-        msg['test'] += 1
+        msg['sample'] += 1
         return msg

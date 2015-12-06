@@ -7,8 +7,6 @@ from aiohttp import web
 
 # chain, jobs, receiver, cage, node, endpoint, payload,
 # message, data, channel, pipeline, line
-import asyncio
-import aiohttp
 
 @asyncio.coroutine
 def post_page(client, url):

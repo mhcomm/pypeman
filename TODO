@@ -9,9 +9,10 @@ Implement sql saver node
 Implement http requester node
 Implement iterator node
 Implement MessageBroker
-Nodes should be classes to be configured ?
+Nodes should be classes to be configured and inherited ?
 Implement esb reloading on change for dev mode (in prod mode too ?)
 Think about testing channel
 Find more nodes
+Channel spliting and joining ?
 
 

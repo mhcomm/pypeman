@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import sys
 import asyncio
 
@@ -9,21 +10,20 @@ from pypeman import endpoints
 def main():
     print('Start...')
 
-    sys.path.append('./')
+    sys.path.append(os.getcwd())
+    print(sys.path)
     try:
         import project
-    except:
+    except Exception as e:
+        print(e)    
         print('Missing "project" module !')
         sys.exit(-1)
 
     loop = asyncio.get_event_loop()
-
     for chan in channels.all:
         loop.run_until_complete(chan.start())
-
     for end in endpoints.all:
         loop.run_until_complete(end.start())
-
 
     try:
         print('Waiting for connection...')

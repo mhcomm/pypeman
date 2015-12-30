@@ -12,23 +12,25 @@ class Node:
 
 class Log(Node):
     def process(self, msg):
-        print(msg)
+        print(msg.payload)
         return msg
 
 
 class JsonToPython(Node):
     def process(self, msg):
-        result = json.loads(msg)
-        return result
+        msg.payload = json.loads(msg.payload)
+        msg.content_type = 'application/python'
+        return msg
 
 
 class PythonToJson(Node):
     def process(self, msg):
-        result = json.dumps(msg)
-        return result
+        msg.payload = json.dumps(msg.payload)
+        msg.content_type = 'application/json'
+        return msg
 
 
 class Add1(Node):
     def process(self, msg):
-        msg['sample'] += 1
+        msg.payload['sample'] += 1
         return msg

@@ -4,7 +4,8 @@ import datetime
 from aiocron import crontab
 from aiohttp import web
 
-from pypeman import endpoints
+from pypeman import endpoints, message
+
 
 all = []
 
@@ -23,13 +24,11 @@ class Channel:
         result = message
         for node in self._nodes:
             result = yield from node.handle(result)
-
         return result
 
 
 class HttpChannel(Channel):
     app = None
-
     def __init__(self, method='*', url='/'):
         super().__init__()
         self.method = method
@@ -42,12 +41,12 @@ class HttpChannel(Channel):
     @asyncio.coroutine
     def handle(self, request):
         content = yield from request.text()
-        text = yield from self.process(content)
-        return web.Response(body=text.encode('utf-8'))
+        msg = message.Message(content_type='http_request', payload=content, meta={'method': request.method})
+        result = yield from self.process(msg)
+        return web.Response(body=result.payload.encode('utf-8'))
 
 
 class TimeChannel(Channel):
-
     def __init__(self, cron=''):
         super().__init__()
         self.cron = cron

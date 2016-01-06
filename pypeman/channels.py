@@ -9,7 +9,7 @@ from pypeman import endpoints, message
 
 all = []
 
-class Channel:
+class BaseChannel:
     def __init__(self):
         all.append(self)
         self._nodes = []
@@ -27,7 +27,7 @@ class Channel:
         return result
 
 
-class HttpChannel(Channel):
+class HttpChannel(BaseChannel):
     app = None
     def __init__(self, method='*', url='/'):
         super().__init__()
@@ -46,7 +46,7 @@ class HttpChannel(Channel):
         return web.Response(body=result.payload.encode('utf-8'))
 
 
-class TimeChannel(Channel):
+class TimeChannel(BaseChannel):
     def __init__(self, cron=''):
         super().__init__()
         self.cron = cron

@@ -17,8 +17,8 @@ def main():
     try:
         importlib.import_module('project')
     except:
-        print(traceback.format_exc())
         print("Can't import 'project' module !")
+        print(traceback.format_exc())
         sys.exit(-1)
 
     loop = asyncio.get_event_loop()

@@ -3,6 +3,8 @@
 import os
 import sys
 import asyncio
+import traceback
+import importlib
 
 from pypeman import channels
 from pypeman import endpoints
@@ -13,10 +15,10 @@ def main():
     sys.path.append(os.getcwd())
     print(sys.path)
     try:
-        import project
-    except Exception as e:
-        print(e)    
-        print('Missing "project" module !')
+        importlib.import_module('project')
+    except:
+        print(traceback.format_exc())
+        print("Can't import 'project' module !")
         sys.exit(-1)
 
     loop = asyncio.get_event_loop()

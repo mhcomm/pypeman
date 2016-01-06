@@ -16,11 +16,18 @@ def main():
     print(sys.path)
     try:
         importlib.import_module('project')
-    except:
-        print("Can't import 'project' module !")
-        print(traceback.format_exc())
-        sys.exit(-1)
-
+    except ImportError as exc:
+        msg = str(exc)
+        if not 'No module' in msg:
+            print("IMPORT ERROR project")
+            raise
+        if not 'project' in msg:
+            print("IMPORT ERROR project")
+            raise
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        raise
     loop = asyncio.get_event_loop()
     for chan in channels.all:
         loop.run_until_complete(chan.start())

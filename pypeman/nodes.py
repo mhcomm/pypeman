@@ -1,5 +1,10 @@
 import json
 import asyncio
+import functools
+from concurrent.futures import ThreadPoolExecutor
+
+loop = asyncio.get_event_loop()
+
 
 class BaseNode:
     @asyncio.coroutine
@@ -34,3 +39,12 @@ class Add1(BaseNode):
     def process(self, msg):
         msg.payload['sample'] += 1
         return msg
+
+
+class ThreadNode(BaseNode):
+
+    @asyncio.coroutine
+    def handle(self, msg):
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            result = yield from loop.run_in_executor(executor, self.process, msg)
+            return result

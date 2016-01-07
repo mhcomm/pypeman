@@ -1,5 +1,6 @@
 import asyncio
 from aiohttp import web
+from pypeman.conf import settings
 
 class HTTPEndpoint:
     def __init__(self, adress, port):
@@ -22,6 +23,6 @@ class HTTPEndpoint:
         else:
             print("No HTTP route.")
 
-http_endpoint = HTTPEndpoint('127.0.0.1', 8080)
+http_endpoint = HTTPEndpoint(*settings.HTTP_ENDPOINT_CONFIG)
 
 all = [http_endpoint]

@@ -2,14 +2,15 @@ import json
 import asyncio
 import functools
 from concurrent.futures import ThreadPoolExecutor
-from .channels import Acknowledge, Nacknowledge
+from pypeman.message import Message
 
 loop = asyncio.get_event_loop()
 
 
 
 class BaseNode:
-
+    """ Base of all Node
+    """
     def __init__(self, *args, **kwargs):
         self.blocking = kwargs.pop('blocking', True)
         self.immediate_ack = kwargs.pop('immediate_ack', False)
@@ -18,9 +19,6 @@ class BaseNode:
     def handle(self, msg):
         if not self.blocking:
             asyncio.async(asyncio.coroutine(self.process)(msg))
-
-            if self.immediate_ack:
-                raise Acknowledge()
 
             result = msg
         else:
@@ -38,10 +36,6 @@ class Log(BaseNode):
         return msg
 
 
-class AcknowledgeNode(BaseNode):
-    pass
-
-
 class JsonToPython(BaseNode):
     def process(self, msg):
         msg.payload = json.loads(msg.payload)
@@ -55,6 +49,9 @@ class PythonToJson(BaseNode):
         msg.content_type = 'application/json'
         return msg
 
+class Empty(BaseNode):
+    def process(self, msg):
+        return Message()
 
 class Add1(BaseNode):
     def process(self, msg):

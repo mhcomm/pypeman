@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import copy
+import uuid
 
 from aiocron import crontab
 from aiohttp import web
@@ -12,6 +13,7 @@ all = []
 
 class BaseChannel:
     def __init__(self):
+        self.uuid = uuid.uuid4()
         all.append(self)
         self._nodes = []
 
@@ -21,6 +23,7 @@ class BaseChannel:
 
     def add(self, *args):
         for node in args:
+            node.channel = self
             self._nodes.append(node)
         return self
 
@@ -36,8 +39,7 @@ class BaseChannel:
 
         for node in self._nodes:
             if isinstance(node, SubChannel):
-                clone = copy.deepcopy(result)
-                asyncio.async(node.process(clone))
+                asyncio.async(node.process(result.copy()))
             else:
                 result = yield from node.handle(result)
 
@@ -65,7 +67,11 @@ class HttpChannel(BaseChannel):
     def handle(self, request):
         content = yield from request.text()
         msg = message.Message(content_type='http_request', payload=content, meta={'method': request.method})
-        result = yield from self.process(msg)
+        try:
+            result = yield from self.process(msg)
+        except Exception as e:
+            return web.Response(body=str(e).encode('utf-8'), status=503)
+
         return web.Response(body=result.payload.encode('utf-8'))
 
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import datetime
 import uuid
+import copy
 
 
 class Message():
@@ -10,3 +11,6 @@ class Message():
         self.uuid = uuid.uuid4()
         self.payload = payload
         self.meta = meta
+
+    def copy(self):
+        return copy.deepcopy(self)

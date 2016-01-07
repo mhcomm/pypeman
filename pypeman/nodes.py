@@ -14,6 +14,7 @@ class BaseNode:
     def __init__(self, *args, **kwargs):
         self.blocking = kwargs.pop('blocking', True)
         self.immediate_ack = kwargs.pop('immediate_ack', False)
+        self.channel = None
 
     @asyncio.coroutine
     def handle(self, msg):
@@ -30,9 +31,14 @@ class BaseNode:
         return msg
 
 
+class RaiseError(BaseNode):
+    def process(self, msg):
+        raise Exception("Test node")
+
+
 class Log(BaseNode):
     def process(self, msg):
-        print(msg.payload)
+        print(self.channel.uuid, msg.payload)
         return msg
 
 

@@ -11,6 +11,13 @@ from pypeman import endpoints, message
 all = []
 
 
+class Dropped(Exception):
+    pass
+
+
+class Break(Exception):
+    pass
+
 class BaseChannel:
     def __init__(self):
         self.uuid = uuid.uuid4()
@@ -32,6 +39,9 @@ class BaseChannel:
         self._nodes.append(s)
         return s
 
+    '''def join(self, node):
+        self._nodes.append(node.new_input())'''
+
     @asyncio.coroutine
     def process(self, message):
         # TODO Save message here at start
@@ -41,7 +51,10 @@ class BaseChannel:
             if isinstance(node, SubChannel):
                 asyncio.async(node.process(result.copy()))
             else:
-                result = yield from node.handle(result)
+                try:
+                    result = yield from node.handle(result)
+                except Break:
+                    break
 
         return result
 
@@ -69,10 +82,12 @@ class HttpChannel(BaseChannel):
         msg = message.Message(content_type='http_request', payload=content, meta={'method': request.method})
         try:
             result = yield from self.process(msg)
+        except Dropped:
+            return web.Response(body="Dropped".encode('utf-8'), status=200)
         except Exception as e:
             return web.Response(body=str(e).encode('utf-8'), status=503)
 
-        return web.Response(body=result.payload.encode('utf-8'))
+        return web.Response(body=result.payload.encode('utf-8'), status=result.meta.get('status', 200))
 
 
 class TimeChannel(BaseChannel):

@@ -3,6 +3,7 @@ import asyncio
 import functools
 from concurrent.futures import ThreadPoolExecutor
 from pypeman.message import Message
+from pypeman.channels import Dropped, Break
 
 loop = asyncio.get_event_loop()
 
@@ -19,8 +20,7 @@ class BaseNode:
     @asyncio.coroutine
     def handle(self, msg):
         if not self.blocking:
-            asyncio.async(asyncio.coroutine(self.process)(msg))
-
+            asyncio.async(asyncio.coroutine(self.process)(msg.copy()))
             result = msg
         else:
             result = yield from asyncio.coroutine(self.process)(msg)
@@ -34,6 +34,16 @@ class BaseNode:
 class RaiseError(BaseNode):
     def process(self, msg):
         raise Exception("Test node")
+
+
+class DropNode(BaseNode):
+    def process(self, msg):
+        raise Dropped()
+
+
+class BreakNode(BaseNode):
+    def process(self, msg):
+        raise Break()
 
 
 class Log(BaseNode):
@@ -64,6 +74,14 @@ class Add1(BaseNode):
         msg.payload['sample'] += 1
         return msg
 
+'''class JoinNode(BaseNode):
+
+    def add_input(self):
+        pass
+
+    def process(self, msg):
+        # TODO wait for others inputs
+        return msg'''
 
 class ThreadNode(BaseNode):
     # Todo create class ThreadPool

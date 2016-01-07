@@ -6,13 +6,22 @@ from aiohttp import web
 
 from pypeman import endpoints, message
 
-
 all = []
+
+class Acknowledge(Exception):
+    pass
+
+class Nacknowledge(Exception):
+    pass
 
 class BaseChannel:
     def __init__(self):
         all.append(self)
         self._nodes = []
+
+    def append(self, *args):
+        for node in args:
+            self._nodes.append(node)
 
     def add(self, *args):
         for node in args:
@@ -21,6 +30,19 @@ class BaseChannel:
     @asyncio.coroutine
     def process(self, message):
         # TODO Save message here at start
+        result = message
+        for node in self._nodes:
+            result = yield from node.handle(result)
+
+        return result
+
+
+class SubChannel(BaseChannel):
+    @asyncio.coroutine
+    def handle(self, msg):
+        return self.process(msg)
+
+    def process(self, msg):
         result = message
         for node in self._nodes:
             result = yield from node.handle(result)

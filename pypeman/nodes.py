@@ -2,14 +2,31 @@ import json
 import asyncio
 import functools
 from concurrent.futures import ThreadPoolExecutor
+from .channels import Acknowledge, Nacknowledge
 
 loop = asyncio.get_event_loop()
 
 
+
 class BaseNode:
+
+    def __init__(self, *args, **kwargs):
+        self.blocking = kwargs.pop('blocking', True)
+        self.immediate_ack = kwargs.pop('immediate_ack', False)
+
     @asyncio.coroutine
     def handle(self, msg):
-        return self.process(msg)
+        if not self.blocking:
+            asyncio.async(asyncio.coroutine(self.process)(msg))
+
+            if self.immediate_ack:
+                raise Acknowledge()
+
+            result = msg
+        else:
+            result = yield from asyncio.coroutine(self.process)(msg)
+
+        return result
 
     def process(self, msg):
         return msg
@@ -19,6 +36,10 @@ class Log(BaseNode):
     def process(self, msg):
         print(msg.payload)
         return msg
+
+
+class AcknowledgeNode(BaseNode):
+    pass
 
 
 class JsonToPython(BaseNode):
@@ -42,6 +63,7 @@ class Add1(BaseNode):
 
 
 class ThreadNode(BaseNode):
+    # Todo create class ThreadPool
 
     @asyncio.coroutine
     def handle(self, msg):

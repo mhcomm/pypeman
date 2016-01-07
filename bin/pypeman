@@ -24,7 +24,7 @@ def main():
         if not 'project' in msg:
             print("IMPORT ERROR project")
             raise
-    except Exception as exc:
+    except:
         import traceback
         traceback.print_exc()
         raise

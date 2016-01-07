@@ -65,14 +65,17 @@ class PythonToJson(BaseNode):
         msg.content_type = 'application/json'
         return msg
 
+
 class Empty(BaseNode):
     def process(self, msg):
         return Message()
+
 
 class Add1(BaseNode):
     def process(self, msg):
         msg.payload['sample'] += 1
         return msg
+
 
 '''class JoinNode(BaseNode):
 
@@ -82,6 +85,7 @@ class Add1(BaseNode):
     def process(self, msg):
         # TODO wait for others inputs
         return msg'''
+
 
 class ThreadNode(BaseNode):
     # Todo create class ThreadPool

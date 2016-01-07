@@ -39,6 +39,12 @@ class BaseChannel:
         self._nodes.append(s)
         return s
 
+    def when(self, condition):
+        s = ConditionSubChannel(condition)
+        self._nodes.append(s)
+        return s
+
+
     '''def join(self, node):
         self._nodes.append(node.new_input())'''
 
@@ -50,6 +56,10 @@ class BaseChannel:
         for node in self._nodes:
             if isinstance(node, SubChannel):
                 asyncio.async(node.process(result.copy()))
+            elif isinstance(node, ConditionSubChannel):
+                if node.test_condition(result):
+                    result = yield from node.process(result)
+                    return result
             else:
                 try:
                     result = yield from node.handle(result)
@@ -64,6 +74,17 @@ class SubChannel(BaseChannel):
     """
     pass
 
+class ConditionSubChannel(BaseChannel):
+    """ Subchannel used for fork
+    """
+    def __init__(self, condition):
+        super().__init__()
+        self.condition = condition
+
+    def test_condition(self, msg):
+        if callable(self.condition):
+            self.condition(msg)
+        return True
 
 class HttpChannel(BaseChannel):
     app = None

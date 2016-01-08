@@ -74,6 +74,7 @@ class SubChannel(BaseChannel):
     """
     pass
 
+
 class ConditionSubChannel(BaseChannel):
     """ Subchannel used for fork
     """
@@ -85,6 +86,7 @@ class ConditionSubChannel(BaseChannel):
         if callable(self.condition):
             self.condition(msg)
         return True
+
 
 class HttpChannel(BaseChannel):
     app = None
@@ -122,5 +124,11 @@ class TimeChannel(BaseChannel):
 
     @asyncio.coroutine
     def handle(self):
-        result = yield from self.process(datetime.datetime.now())
+        msg = message.Message()
+        msg.payload = datetime.datetime.now()
+        result = yield from self.process(msg)
         return result
+
+
+class MLLPChannel(BaseChannel):
+    pass

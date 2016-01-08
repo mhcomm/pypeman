@@ -95,3 +95,4 @@ class ThreadNode(BaseNode):
         with ThreadPoolExecutor(max_workers=1) as executor:
             result = yield from loop.run_in_executor(executor, self.process, msg)
             return result
+

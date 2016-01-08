@@ -97,3 +97,73 @@ if __name__ == '__main__':
     finally:
         mw.stop_watching()
         sys.exit(0)
+
+
+
+
+
+'''class FileCheckerThread(threading.Thread):
+    """ Interrupt main-thread as soon as a changed module file is detected,
+        the lockfile gets deleted or gets to old. """
+
+    def __init__(self, lockfile, interval, mainloop):
+        threading.Thread.__init__(self)
+        self.daemon = True
+        self.lockfile, self.interval = lockfile, interval
+        #: Is one of 'reload', 'error' or 'exit'
+        self.status = None
+        self.mainloop = mainloop
+
+    def run(self):
+        print(ident(), 'file watch thread start')
+        exists = os.path.exists
+        mtime = lambda p: os.stat(p).st_mtime
+        files = dict()
+
+        for module in list(sys.modules.values()):
+            path = getattr(module, '__file__', '')
+            if path[-4:] in ('.pyo', '.pyc'): path = path[:-1]
+            if path and exists(path): files[path] = mtime(path)
+
+        while not self.status:
+            #print(ident(), 'file watch')
+            #print(self.mainloop.is_running())
+            if not exists(self.lockfile) or mtime(self.lockfile) < time.time() - self.interval - 5:
+                self.status = 'error'
+                thread.interrupt_main()
+            for path, lmtime in list(files.items()):
+                if 'pypema' in path:
+                    pass #print(path)
+                if not exists(path) or mtime(path) > lmtime:
+                    self.status = 'reload'
+                    print(ident(), 'need reload')
+                    thread.interrupt_main()
+                    break
+            time.sleep(self.interval)
+        print(ident(), 'end thread')
+
+    def __enter__(self):
+        self.start()
+
+    def __exit__(self, exc_type, *_):
+        if not self.status:
+            self.status = 'exit'  # silent exit
+        self.join()
+        return exc_type is not None and issubclass(exc_type, KeyboardInterrupt)'''
+
+
+'''print(ident(), "child")
+        if reloader and False:
+            lockfile = os.environ.get('PROCESS_LOCKFILE')
+            bgcheck = FileCheckerThread(lockfile, interval, asyncio.get_event_loop())
+            with bgcheck:
+                print(ident(), "start call")
+                to_call()
+                print("end call")
+            print (ident(), 'reload two')
+
+            if bgcheck.status == 'reload':
+                sys.exit(3)
+        else:
+            print('normal')
+            to_call()'''

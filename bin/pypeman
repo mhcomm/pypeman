@@ -7,6 +7,7 @@ import tempfile
 import asyncio
 import traceback
 import importlib
+import begin
 
 from pypeman import channels
 from pypeman import endpoints
@@ -134,5 +135,13 @@ def reloader_opt(to_call, reloader, interval):
         sys.exit(3)
 
 
-if __name__ == '__main__':
-    reloader_opt(main, True, 3)
+@begin.subcommand
+def start(reload: 'Make server autoreload (Dev only)'=False):
+    """ Start server. """
+    reloader_opt(main, reload, 3)
+
+
+@begin.start
+def run():
+    "Pypeman is a minimalistic but pragmatic ESB/ETL in python"
+    pass

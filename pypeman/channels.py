@@ -1,6 +1,6 @@
 import asyncio
 import datetime
-import copy
+import os
 import uuid
 
 from aiocron import crontab
@@ -70,14 +70,12 @@ class BaseChannel:
 
 
 class SubChannel(BaseChannel):
-    """ Subchannel used for fork
-    """
+    """ Subchannel used for fork """
     pass
 
 
 class ConditionSubChannel(BaseChannel):
-    """ Subchannel used for fork
-    """
+    """ ConditionSubchannel used for make alternative path """
     def __init__(self, condition):
         super().__init__()
         self.condition = condition
@@ -111,6 +109,37 @@ class HttpChannel(BaseChannel):
             return web.Response(body=str(e).encode('utf-8'), status=503)
 
         return web.Response(body=result.payload.encode('utf-8'), status=result.meta.get('status', 200))
+
+
+class WatchFileChannel(BaseChannel):
+    def __init__(self, path='', regex='*', interval=1):
+        super().__init__()
+        self.path = path
+        self.regex = regex
+        self.interval = interval
+        self.found = os.path.exists(path)
+        self.mtime = os.stat(path).st_mtime if self.found else None
+        self.loop = asyncio.get_event_loop()
+
+    @asyncio.coroutine
+    def start(self):
+        asyncio.async(self.watch_for_file())
+
+    def watch_for_file(self):
+        # TODO watch multiple files
+        # TODO Use pyinotify see -> https://pypi.python.org/pypi/butter
+
+        if (not self.found and os.path.exists(self.path) or
+            self.found and os.stat(self.path).st_mtime > self.mtime):
+            self.found = True
+            self.mtime = os.stat(self.path).st_mtime
+            with open(self.path) as file:
+                msg = message.Message()
+                msg.payload = file.read()
+                yield from self.process(msg)
+
+        yield from asyncio.sleep(self.interval)
+        asyncio.async(self.watch_for_file())
 
 
 class TimeChannel(BaseChannel):

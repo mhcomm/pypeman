@@ -47,7 +47,6 @@ def main():
         loop.close()
 
 
-
 @asyncio.coroutine
 def check_for_newerfile(future, lockfile, interval):
     exists = os.path.exists

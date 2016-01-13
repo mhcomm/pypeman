@@ -1,4 +1,12 @@
+# Mandatory
+begins
+
+# Channel related
+aioftp==0.4.1
 aiohttp
 aiocron
-begins
+
+# Node related
+xmltodict
+
 #asyncio-pysimplesoap

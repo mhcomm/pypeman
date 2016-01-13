@@ -1,7 +1,9 @@
 import json
 import asyncio
-import functools
 from concurrent.futures import ThreadPoolExecutor
+
+import xmltodict
+
 from pypeman.message import Message
 from pypeman.channels import Dropped, Break
 
@@ -13,18 +15,11 @@ class BaseNode:
     """ Base of all Node
     """
     def __init__(self, *args, **kwargs):
-        self.blocking = kwargs.pop('blocking', True)
-        self.immediate_ack = kwargs.pop('immediate_ack', False)
         self.channel = None
 
     @asyncio.coroutine
     def handle(self, msg):
-        if not self.blocking:
-            asyncio.async(asyncio.coroutine(self.process)(msg.copy()))
-            result = msg
-        else:
-            result = yield from asyncio.coroutine(self.process)(msg)
-
+        result = yield from asyncio.coroutine(self.process)(msg)
         return result
 
     def process(self, msg):
@@ -71,9 +66,35 @@ class Empty(BaseNode):
         return Message()
 
 
-class Add1(BaseNode):
+class ThreadNode(BaseNode):
+    # Todo create class ThreadPool
+
+    @asyncio.coroutine
+    def handle(self, msg):
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            result = yield from loop.run_in_executor(executor, self.process, msg)
+            return result
+
+
+class XMLToPython(BaseNode):
+    def __init__(self, *args, **kwargs):
+        self.process_namespaces = kwargs.pop('process_namespaces', False)
+        super().__init__(*args, **kwargs)
+
     def process(self, msg):
-        msg.payload['sample'] += 1
+        msg.payload = xmltodict.parse(msg.payload, process_namespaces=self.process_namespaces)
+        msg.content_type = 'application/python'
+        return msg
+
+
+class PythonToXML(BaseNode):
+    def __init__(self, *args, **kwargs):
+        self.pretty = kwargs.pop('pretty', False)
+        super().__init__(*args, **kwargs)
+
+    def process(self, msg):
+        msg.payload = xmltodict.unparse(msg.payload, pretty=self.pretty)
+        msg.content_type = 'application/xml'
         return msg
 
 
@@ -86,13 +107,4 @@ class Add1(BaseNode):
         # TODO wait for others inputs
         return msg'''
 
-
-class ThreadNode(BaseNode):
-    # Todo create class ThreadPool
-
-    @asyncio.coroutine
-    def handle(self, msg):
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            result = yield from loop.run_in_executor(executor, self.process, msg)
-            return result
 

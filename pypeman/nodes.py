@@ -67,7 +67,7 @@ class Empty(BaseNode):
 
 
 class ThreadNode(BaseNode):
-    # Todo create class ThreadPool
+    # TODO create class ThreadPool ?
 
     @asyncio.coroutine
     def handle(self, msg):
@@ -98,13 +98,35 @@ class PythonToXML(BaseNode):
         return msg
 
 
-'''class JoinNode(BaseNode):
-
-    def add_input(self):
-        pass
+class Encode(BaseNode):
+    def __init__(self, *args, **kwargs):
+        self.encoding = kwargs.pop('encoding', 'utf-8')
+        super().__init__(*args, **kwargs)
 
     def process(self, msg):
-        # TODO wait for others inputs
-        return msg'''
+        msg.payload = msg.payload.encode(self.encoding)
+        return msg
+
+
+class Decode(BaseNode):
+    def __init__(self, *args, **kwargs):
+        self.encoding = kwargs.pop('encoding', 'utf-8')
+        super().__init__(*args, **kwargs)
+
+    def process(self, msg):
+        msg.payload = msg.payload.decode(self.encoding)
+        return msg
+
+
+class FileWriter(ThreadNode):
+    def __init__(self, *args, **kwargs):
+        self.path = kwargs.pop('path')
+        self.binary_mode = kwargs.pop('binary_mode', False)
+        super().__init__(*args, **kwargs)
+
+    def process(self, msg):
+        with open(self.path, 'w' + ('b' if self.binary_mode else '')) as file:
+            file.write(msg.payload)
+        return msg
 
 

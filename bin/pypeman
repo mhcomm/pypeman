@@ -137,7 +137,7 @@ def reloader_opt(to_call, reloader, interval):
 @begin.subcommand
 def start(reload: 'Make server autoreload (Dev only)'=False):
     """ Start server. """
-    reloader_opt(main, reload, 3)
+    reloader_opt(main, reload, 2)
 
 
 @begin.start

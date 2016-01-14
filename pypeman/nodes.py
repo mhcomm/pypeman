@@ -12,8 +12,7 @@ loop = asyncio.get_event_loop()
 
 
 class BaseNode:
-    """ Base of all Node
-    """
+    """ Base of all Node """
     def __init__(self, *args, **kwargs):
         self.channel = None
 

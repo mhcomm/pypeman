@@ -2,7 +2,7 @@
 begins
 
 # Channel related
-aioftp==0.4.1
+aioftp==0.3.1
 aiohttp
 aiocron
 

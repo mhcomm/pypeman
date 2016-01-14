@@ -5,7 +5,7 @@ import uuid
 
 from aiocron import crontab
 from aiohttp import web
-#import aioftp
+import aioftp
 
 from pypeman import endpoints, message
 
@@ -146,33 +146,6 @@ class FileWatcherChannel(BaseChannel):
 
         yield from asyncio.sleep(self.interval)
         asyncio.async(self.watch_for_file())
-
-
-class FTPFileWatcherChannel(BaseChannel):
-    def __init__(self, path='', host='', credentials=None, interval=1):
-        super().__init__()
-        self.path = path
-        self.host = host
-        self.credentials = credentials
-        self.interval = interval
-        self.found = False
-        self.mtime = None
-
-
-    @asyncio.coroutine
-    def watch_for_file(self):
-
-        client = aioftp.Client()
-        yield from client.connect(self.host)
-        yield from client.login(*self.credentials)
-
-        client.exists(self.path)
-        #client.
-
-        for path, info in (yield from client.list(recursive=True)):
-
-            if info["type"] == "file" and path.suffix == ".mp3":
-                yield from client.download(path)
 
 
 class TimeChannel(BaseChannel):

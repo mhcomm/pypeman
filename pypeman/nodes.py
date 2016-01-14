@@ -10,7 +10,6 @@ from pypeman.channels import Dropped, Break
 loop = asyncio.get_event_loop()
 
 
-
 class BaseNode:
     """ Base of all Node """
     def __init__(self, *args, **kwargs):

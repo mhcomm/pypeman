@@ -140,7 +140,36 @@ def start(reload: 'Make server autoreload (Dev only)'=False):
     reloader_opt(main, reload, 2)
 
 
+@begin.subcommand
+def graph():
+    """ Show channel graph. """
+
+    sys.path.append(os.getcwd())
+    try:
+        project = importlib.import_module('project')
+    except ImportError as exc:
+        msg = str(exc)
+        if not 'No module' in msg:
+            print("IMPORT ERROR project")
+            raise
+        if not 'project' in msg:
+            print("IMPORT ERROR project")
+            raise
+    except:
+        import traceback
+
+        traceback.print_exc()
+        raise
+
+    for channel in channels.all:
+        if not issubclass(channel.__class__, channels.SubChannel) and not issubclass(channel.__class__, channels.ConditionSubChannel):
+            print(channel.__class__.__name__)
+            channel.graph()
+            print('|-> out')
+            print()
+
+
 @begin.start
 def run():
-    "Pypeman is a minimalistic but pragmatic ESB/ETL in python"
+    """ Pypeman is a minimalistic but pragmatic ESB/ETL in python """
     pass

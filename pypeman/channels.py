@@ -74,6 +74,19 @@ class BaseChannel:
 
         return result
 
+    def graph(self, prefix=''):
+        for node in self._nodes:
+            if isinstance(node, SubChannel):
+                print(prefix + '|—\\')
+                node.graph(prefix= '|  ' + prefix)
+            elif isinstance(node, ConditionSubChannel):
+                print(prefix + '|?\\')
+                node.graph(prefix='|  ' + prefix)
+                print(prefix + '|  -> Out')
+            else:
+                print(prefix + '|-' + node.__class__.__name__)
+
+
 
 class SubChannel(BaseChannel):
     """ Subchannel used for fork """

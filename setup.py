@@ -2,8 +2,8 @@ from setuptools import setup
 
 setup(name='pypeman',
       version='0.1',
-      description='Minimalistic but pragmatic ESB/ETL in python',
-      long_description="""Log desc to be done""",
+      description='Minimalistic but pragmatic ESB/ETL in Python',
+      long_description="""Long desc to be done""",
       classifiers=[
         'Development Status :: 1 - Alpha',
         'License :: OSI Approved :: Apache licence',

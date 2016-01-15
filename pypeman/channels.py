@@ -20,6 +20,7 @@ class Dropped(Exception):
 class Break(Exception):
     pass
 
+
 class BaseChannel:
 
     dependencies = [] # List of module requirements

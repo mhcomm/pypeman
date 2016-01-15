@@ -16,39 +16,50 @@ import sys
 import importlib
 import traceback
 import os
+import pypeman.default_settings as default_settings
 
+NOT_FOUND = object()
 class Settings():
 
     def __init__(self):
         self.__dict__['_settings_mod'] = None
-        self.__dict__['SETTINGS_MODULE'] = 'settings'
+        self.__dict__['SETTINGS_MODULE'] = os.environ.get('PYPEMAN_SETTINGS_MODULE', 'settings')
 
     def _init_settings(self):
         try:
             # TODO way be not the best way to do ?
             sys.path.append(os.getcwd())
-            self.__dict__['_settings_mod'] = importlib.import_module(self.SETTINGS_MODULE)
+            settings_mod = self.__dict__['_settings_mod'] = importlib.import_module(self.SETTINGS_MODULE)
         except:
-            print("Can't import 'settings' module !")
-            print(traceback.format_exc())
+            print("Can't import 'settings' module !", file=sys.stderr)
+            print(traceback.format_exc(), file=sys.stderr)
             sys.exit(-1)
 
+        # populate entire dict with values. helpful e.g. for iupython tab completion
+        default_vals = [ (key, val) for (key, val) in default_settings.__dict__.items()
+                if 'A' <= key[0] <= 'Z']
+        self.__dict__.update(default_vals)
+        mod_vals = [ (key, val) for (key, val) in settings_mod.__dict__.items()
+                if 'A' <= key[0] <= 'Z']
+        self.__dict__.update(mod_vals)
+
     def __getattr__(self, name):
-         if name in self.__dict__:
-             return self.__dict__[name]
+        if name in self.__dict__:
+            return self.__dict__[name]
 
-         if not self.__dict__.get('_settings_mod'):
-             self._init_settings()
+        if not self.__dict__['_settings_mod']:
+            self._init_settings()
 
-         return getattr(self.__dict__['_settings_mod'], name)
+        return self.__dict__[name]
+
 
     def __setattr__(self, name, value):
-         if name in self.__dict__:
+        """ make sure nobody tries to modify settings manually """
+        if name in self.__dict__:
              self.__dict__[name] = value
-         else:
+        else:
              print(name,value)
              raise Exception("Settings are not editable !")
 
 
 settings = Settings()
-

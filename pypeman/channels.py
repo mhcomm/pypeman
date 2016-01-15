@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import os
 import uuid
+import logging
 
 from aiocron import crontab
 from aiohttp import web
@@ -20,12 +21,19 @@ class Break(Exception):
     pass
 
 class BaseChannel:
+
     dependencies = [] # List of module requirements
 
-    def __init__(self):
+
+    def __init__(self, name=None):
         self.uuid = uuid.uuid4()
         all.append(self)
         self._nodes = []
+        if name:
+            self.name = name
+        else:
+            self.name = self.__class__.__name__ + str(len(all))
+        self.logger = logging.getLogger(self.name)
 
     def requirements(self):
         """ List dependencies of modules if any """

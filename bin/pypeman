@@ -174,4 +174,3 @@ def graph():
 @begin.start
 def run():
     """ Pypeman is a minimalistic but pragmatic ESB/ETL in python """
-    pass

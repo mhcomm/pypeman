@@ -6,7 +6,7 @@
 """
    Summary    :  TBD...
 """
-# from __future__ import absolute_import
+from __future__ import absolute_import
 
 __author__ = "jeremie"
 __copyright__ = "(C) 2016 by MHComm. All rights reserved"
@@ -29,7 +29,11 @@ class Settings():
         try:
             # TODO way be not the best way to do ?
             sys.path.append(os.getcwd())
-            settings_mod = self.__dict__['_settings_mod'] = importlib.import_module(self.SETTINGS_MODULE)
+            settings_module = self.__dict__['SETTINGS_MODULE']
+            import logging as lg ; l = lg.getLogger(__name__) ; 
+            l.warning('m:%r:f %r', __name__, __file__)
+            l.warning('sm:%r', settings_module)
+            settings_mod = self.__dict__['_settings_mod'] = importlib.import_module(settings_module)
         except:
             print("Can't import 'settings' module !", file=sys.stderr)
             print(traceback.format_exc(), file=sys.stderr)

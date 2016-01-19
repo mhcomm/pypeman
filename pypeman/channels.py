@@ -20,16 +20,20 @@ class Break(Exception):
     pass
 
 class BaseChannel:
+    dependencies = [] # List of module requirements
+
     def __init__(self):
         self.uuid = uuid.uuid4()
         all.append(self)
         self._nodes = []
 
     def requirements(self):
-        """
-        :return: List of required external libraries for this channel.
-        """
-        return []
+        """ List dependencies of modules if any """
+        return self.dependencies
+
+    def import_modules(self):
+        """ Use this method to import specific external modules listed in requirements """
+        pass
 
     @asyncio.coroutine
     def start(self):
@@ -85,7 +89,6 @@ class BaseChannel:
                 print(prefix + '|  -> Out')
             else:
                 print(prefix + '|-' + node.__class__.__name__)
-
 
 
 class SubChannel(BaseChannel):

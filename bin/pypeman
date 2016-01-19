@@ -34,7 +34,9 @@ def main():
 
 
     loop = asyncio.get_event_loop()
+
     for chan in channels.all:
+        chan.import_modules()
         loop.run_until_complete(chan.start())
     for end in endpoints.all:
         loop.run_until_complete(end.start())

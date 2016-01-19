@@ -24,7 +24,7 @@ class BinPypemanTestCase(unittest.TestCase):
         """ option -h is working """
         logger.warning("FILE = %r / NAME = %r", __file__, __name__)
         # disable next line for testing. till pypeman works with option '-h'
-        os.environ['PYPEMAN_SETTINGS_MODULE'] = 'pypeman.tst_helpers.test_setting_1'
+        #os.environ['PYPEMAN_SETTINGS_MODULE'] = 'pypeman.tst_helpers.test_setting_1'
         cmd = self.cmd + [ '-h' ]
         out_fname = mktempfname()
         with open(out_fname, 'wb') as fout:

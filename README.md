@@ -15,8 +15,11 @@ Create a "settings.py" file with config in it
 
 Create a "project.py" file in any folder containing for example:
 
+  from pypeman import endpoints
   from pypeman import channels
   from pypeman import nodes
+  
+  http = endpoints.HTTPEndpoint(adress='localhost', port='8080')
   
   c = channels.HttpChannel(method='*', url='/{name}')
   c.add(nodes.Log())

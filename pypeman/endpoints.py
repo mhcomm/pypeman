@@ -3,11 +3,21 @@ import re
 from aiohttp import web
 from pypeman.conf import settings
 
-class HTTPEndpoint:
-    def __init__(self, adress, port):
+all = []
+
+
+class BaseEndpoint:
+    def __init__(self):
+        all.append(self)
+
+
+class HTTPEndpoint(BaseEndpoint):
+    def __init__(self, adress='127.0.0.1', port='8080'):
+        super().__init__()
         self._app = None
         self.adress = adress
         self.port = port
+
 
     def add_route(self,*args, **kwargs):
         if not self._app:
@@ -21,8 +31,10 @@ class HTTPEndpoint:
             loop = asyncio.get_event_loop()
             srv = yield from loop.create_server(self._app.make_handler(), self.adress, self.port)
             print("Server started at http://{}:{}".format(self.adress, self.port))
+            return srv
         else:
             print("No HTTP route.")
+
 
 
 
@@ -198,11 +210,10 @@ class MLLPProtocol(asyncio.Protocol):
         server.close()
 
 
-class MLLPEndpoint:
-    def __init__(self, adress, port):
+class MLLPEndpoint(BaseEndpoint):
+    def __init__(self):
+        super().__init__()
         self._app = None
-        self.adress = adress
-        self.port = port
 
     def add_listener(self, *args, **kwargs):
         self._app = True
@@ -214,14 +225,9 @@ class MLLPEndpoint:
 
     @asyncio.coroutine
     def start(self):
-
+        adress, port = settings.MLLP_ENDPOINT_CONFIG
         loop = asyncio.get_event_loop()
-        server = loop.run_until_complete(loop.create_server(MLLPProtocol, self.adress, self.port))
+        server = loop.run_until_complete(loop.create_server(MLLPProtocol, adress, port))
         loop.run_until_complete(server.wait_closed())
-        print("Server started at http://{}:{}".format(self.adress, self.port))
+        print("Server started at http://{}:{}".format(adress, port))
 
-
-mllp_endpoint = MLLPEndpoint('0.0.0.0', 8081)
-http_endpoint = HTTPEndpoint(*settings.HTTP_ENDPOINT_CONFIG)
-
-all = [http_endpoint]

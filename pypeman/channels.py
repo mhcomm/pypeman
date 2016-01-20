@@ -6,7 +6,6 @@ import logging
 
 from aiocron import crontab
 from aiohttp import web
-import aioftp
 
 from pypeman import endpoints, message
 
@@ -41,11 +40,12 @@ class BaseChannel:
         return self.dependencies
 
     def import_modules(self):
-        """ Use this method to import specific external modules listed in requirements """
+        """ Use this method to import specific external modules listed in dependencies """
         pass
 
     @asyncio.coroutine
     def start(self):
+        """ Start the channel """
         pass
 
     def add(self, *args):
@@ -75,6 +75,7 @@ class BaseChannel:
         for node in self._nodes:
             if isinstance(node, SubChannel):
                 asyncio.async(node.process(result.copy()))
+
             elif isinstance(node, ConditionSubChannel):
                 if node.test_condition(result):
                     result = yield from node.process(result)
@@ -119,14 +120,15 @@ class ConditionSubChannel(BaseChannel):
 
 class HttpChannel(BaseChannel):
     app = None
-    def __init__(self, method='*', url='/'):
+    def __init__(self, endpoint=None, method='*', url='/'):
         super().__init__()
         self.method = method
         self.url = url
+        self.http_endpoint = endpoint
 
     @asyncio.coroutine
     def start(self):
-        endpoints.http_endpoint.add_route(self.method, self.url, self.handle)
+        self.http_endpoint.add_route(self.method, self.url, self.handle)
 
     @asyncio.coroutine
     def handle(self, request):

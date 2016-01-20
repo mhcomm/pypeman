@@ -1,5 +1,4 @@
 Find better word for "endpoint"
-Implement file watching "endpoint"
 Implement soap client node
 Implement soap server endpoint
 Implement mllp server endpoint
@@ -15,4 +14,8 @@ Find more nodes
 Channel joining ?
 Way to print pretty graph of each channels
 Write Documentation
+Better reload
+Start project command
+List dependencies command
+Add multi message to nodes
 

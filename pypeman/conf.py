@@ -16,7 +16,10 @@ import sys
 import importlib
 import traceback
 import os
+import logging
+import logging.config
 import pypeman.default_settings as default_settings
+
 
 NOT_FOUND = object()
 class Settings():
@@ -46,6 +49,8 @@ class Settings():
         mod_vals = [ (key, val) for (key, val) in settings_mod.__dict__.items()
                 if 'A' <= key[0] <= 'Z']
         self.__dict__.update(mod_vals)
+
+        logging.config.dictConfig(self.__dict__['LOGGING'])
 
     def __getattr__(self, name):
         if name in self.__dict__:

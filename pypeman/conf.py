@@ -16,10 +16,9 @@ import sys
 import importlib
 import traceback
 import os
+import pypeman.default_settings as default_settings
 import logging
 import logging.config
-import pypeman.default_settings as default_settings
-
 
 NOT_FOUND = object()
 class Settings():
@@ -31,9 +30,9 @@ class Settings():
     def _init_settings(self):
         try:
             # TODO way be not the best way to do ?
-            sys.path.append(os.getcwd())
+            sys.path.insert(0, os.getcwd())
             settings_module = self.__dict__['SETTINGS_MODULE']
-            import logging as lg ; l = lg.getLogger(__name__) ; 
+            import logging as lg ; l = lg.getLogger(__name__) ;
             l.warning('m:%r:f %r', __name__, __file__)
             l.warning('sm:%r', settings_module)
             settings_mod = self.__dict__['_settings_mod'] = importlib.import_module(settings_module)
@@ -46,6 +45,7 @@ class Settings():
         default_vals = [ (key, val) for (key, val) in default_settings.__dict__.items()
                 if 'A' <= key[0] <= 'Z']
         self.__dict__.update(default_vals)
+
         mod_vals = [ (key, val) for (key, val) in settings_mod.__dict__.items()
                 if 'A' <= key[0] <= 'Z']
         self.__dict__.update(mod_vals)

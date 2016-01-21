@@ -2,12 +2,17 @@
 
 import os
 import sys
+
+# Keep this import
+sys.path.insert(0, os.getcwd())
+
 import time
 import tempfile
 import asyncio
 import traceback
 import importlib
 import begin
+
 
 from pypeman import channels
 from pypeman import endpoints
@@ -16,7 +21,6 @@ from pypeman import endpoints
 def main():
     print('Start...')
 
-    sys.path.append(os.getcwd())
     try:
         project = importlib.import_module('project')
     except ImportError as exc:

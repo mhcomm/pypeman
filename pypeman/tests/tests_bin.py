@@ -23,17 +23,56 @@ class BinPypemanTestCase(unittest.TestCase):
     def test_01_can_call_help(self):
         """ option -h is working """
         logger.warning("FILE = %r / NAME = %r", __file__, __name__)
+
         # disable next line for testing. till pypeman works with option '-h'
         #os.environ['PYPEMAN_SETTINGS_MODULE'] = 'pypeman.tst_helpers.test_setting_1'
         cmd = self.cmd + [ '-h' ]
         out_fname = mktempfname()
+
         with open(out_fname, 'wb') as fout:
             proc = subprocess.Popen(cmd, stdout=fout, stderr=fout)
             proc.wait()
         ret_code = proc.returncode
+
         if ret_code:
             with open(out_fname, 'rb') as fin:
                 data = fin.read()
             nose.tools.eq_(ret_code, 0, data)
+
         os.unlink(out_fname)
 
+    def test_can_call_graph(self):
+        """ subcommand graph is working """
+
+        cmd = self.cmd + ['graph']
+        out_fname = mktempfname()
+
+        with open(out_fname, 'wb') as fout:
+            proc = subprocess.Popen(cmd, stdout=fout, stderr=fout)
+            proc.wait()
+        ret_code = proc.returncode
+
+        if ret_code:
+            with open(out_fname, 'rb') as fin:
+                data = fin.read()
+            nose.tools.eq_(ret_code, 0, data)
+
+        os.unlink(out_fname)
+
+    def test_can_call_requirements(self):
+        """ subcommand requirements is working """
+
+        cmd = self.cmd + ['requirements']
+        out_fname = mktempfname()
+
+        with open(out_fname, 'wb') as fout:
+            proc = subprocess.Popen(cmd, stdout=fout, stderr=fout)
+            proc.wait()
+        ret_code = proc.returncode
+
+        if ret_code:
+            with open(out_fname, 'rb') as fin:
+                data = fin.read()
+            nose.tools.eq_(ret_code, 0, data)
+
+        os.unlink(out_fname)

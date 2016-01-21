@@ -10,14 +10,11 @@ Implement iterator node
 Implement MessageBroker
 Implement esb reloading on change for dev mode (in prod mode too ?)
 Think about testing channel
-Find more nodes
 Channel joining ?
 Way to print pretty graph of each channels
 Write Documentation
 Better reload
 Start project command
-List dependencies command
 Add multi message to nodes
-Create module for reloader
 Find better way to handle external dependencies without breaking dep checking
 

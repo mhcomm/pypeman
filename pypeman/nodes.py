@@ -2,18 +2,33 @@ import json
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
-import xmltodict
-
 from pypeman.message import Message
 from pypeman.channels import Dropped, Break
 
 loop = asyncio.get_event_loop()
 
+# All declared nodes register here
+all = []
+
+# used to share external dependencies
+ext = {}
+
 
 class BaseNode:
     """ Base of all Node """
+    dependencies = []
+
     def __init__(self, *args, **kwargs):
         self.channel = None
+        all.append(self)
+
+    def requirements(self):
+        """ List dependencies of modules if any """
+        return self.dependencies
+
+    def import_modules(self):
+        """ Use this method to import specific external modules listed in dependencies """
+        pass
 
     @asyncio.coroutine
     def handle(self, msg):
@@ -75,23 +90,37 @@ class ThreadNode(BaseNode):
 
 
 class XMLToPython(BaseNode):
+    dependencies = ['xmltodict']
+
     def __init__(self, *args, **kwargs):
         self.process_namespaces = kwargs.pop('process_namespaces', False)
         super().__init__(*args, **kwargs)
 
+    def import_modules(self):
+        if 'xmltodict' not in ext:
+            import xmltodict
+            ext['xmltodict'] = xmltodict
+
     def process(self, msg):
-        msg.payload = xmltodict.parse(msg.payload, process_namespaces=self.process_namespaces)
+        msg.payload = ext['xmltodict'].parse(msg.payload, process_namespaces=self.process_namespaces)
         msg.content_type = 'application/python'
         return msg
 
 
 class PythonToXML(BaseNode):
+    dependencies = ['xmltodict']
+
     def __init__(self, *args, **kwargs):
         self.pretty = kwargs.pop('pretty', False)
         super().__init__(*args, **kwargs)
 
+    def import_modules(self):
+        if 'xmltodict' not in ext:
+            import xmltodict
+            ext['xmltodict'] = xmltodict
+
     def process(self, msg):
-        msg.payload = xmltodict.unparse(msg.payload, pretty=self.pretty)
+        msg.payload = ext['xmltodict'].unparse(msg.payload, pretty=self.pretty)
         msg.content_type = 'application/xml'
         return msg
 

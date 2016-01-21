@@ -4,12 +4,13 @@ import os
 import uuid
 import logging
 
-from aiocron import crontab
-from aiohttp import web
-
 from pypeman import endpoints, message
 
+# List all channel registered
 all = []
+
+# used to share external dependencies
+ext = {}
 
 
 class Dropped(Exception):
@@ -21,9 +22,7 @@ class Break(Exception):
 
 
 class BaseChannel:
-
     dependencies = [] # List of module requirements
-
 
     def __init__(self, name=None):
         self.uuid = uuid.uuid4()
@@ -119,12 +118,20 @@ class ConditionSubChannel(BaseChannel):
 
 
 class HttpChannel(BaseChannel):
+    dependencies = ['aiohttp']
     app = None
+
     def __init__(self, endpoint=None, method='*', url='/'):
         super().__init__()
         self.method = method
         self.url = url
         self.http_endpoint = endpoint
+
+    def import_modules(self):
+        if 'aiohttp_web' not in ext:
+            from aiohttp import web
+
+            ext['aiohttp_web'] = web
 
     @asyncio.coroutine
     def start(self):
@@ -137,11 +144,11 @@ class HttpChannel(BaseChannel):
         try:
             result = yield from self.process(msg)
         except Dropped:
-            return web.Response(body="Dropped".encode('utf-8'), status=200)
+            return ext['aiohttp_web'].Response(body="Dropped".encode('utf-8'), status=200)
         except Exception as e:
-            return web.Response(body=str(e).encode('utf-8'), status=503)
+            return ext['aiohttp_web'].Response(body=str(e).encode('utf-8'), status=503)
 
-        return web.Response(body=result.payload.encode('utf-8'), status=result.meta.get('status', 200))
+        return ext['aiohttp_web'].Response(body=result.payload.encode('utf-8'), status=result.meta.get('status', 200))
 
 
 class FileWatcherChannel(BaseChannel):
@@ -176,13 +183,21 @@ class FileWatcherChannel(BaseChannel):
 
 
 class TimeChannel(BaseChannel):
+    dependencies = ['aiocron']
+
     def __init__(self, cron=''):
         super().__init__()
         self.cron = cron
 
+    def import_modules(self):
+        if 'aiocron_crontab' not in ext:
+            from aiocron import crontab
+
+            ext['aiocron_crontab'] = crontab
+
     @asyncio.coroutine
     def start(self):
-        crontab(self.cron, func=self.handle, start=True)
+        ext['aiocron_crontab'](self.cron, func=self.handle, start=True)
 
     @asyncio.coroutine
     def handle(self):

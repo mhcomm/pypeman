@@ -15,6 +15,7 @@ import begin
 
 
 from pypeman import channels
+from pypeman import nodes
 from pypeman import endpoints
 
 
@@ -22,7 +23,7 @@ def main():
     print('Start...')
 
     try:
-        project = importlib.import_module('project')
+        importlib.import_module('project')
     except ImportError as exc:
         msg = str(exc)
         if not 'No module' in msg:
@@ -36,15 +37,20 @@ def main():
         traceback.print_exc()
         raise
 
-
     loop = asyncio.get_event_loop()
 
+    # Import modules for nodes
+    for node in nodes.all:
+        node.import_modules()
+
+    # Start channels
     for chan in channels.all:
         chan.import_modules()
         loop.run_until_complete(chan.start())
+
+    # And endpoints
     for end in endpoints.all:
         loop.run_until_complete(end.start())
-
 
     print('Waiting for connection...')
     try:
@@ -150,9 +156,10 @@ def start(reload: 'Make server autoreload (Dev only)'=False):
 def graph():
     """ Show channel graph. """
 
+    # TODO  DRY
     sys.path.append(os.getcwd())
     try:
-        project = importlib.import_module('project')
+        importlib.import_module('project')
     except ImportError as exc:
         msg = str(exc)
         if not 'No module' in msg:
@@ -173,6 +180,39 @@ def graph():
             channel.graph()
             print('|-> out')
             print()
+
+
+@begin.subcommand
+def requirements():
+    """ Show channel graph. """
+
+    # TODO  DRY
+    sys.path.append(os.getcwd())
+    try:
+        importlib.import_module('project')
+    except ImportError as exc:
+        msg = str(exc)
+        if not 'No module' in msg:
+            print("IMPORT ERROR project")
+            raise
+        if not 'project' in msg:
+            print("IMPORT ERROR project")
+            raise
+    except:
+        import traceback
+
+        traceback.print_exc()
+        raise
+
+    dep = set()
+
+    for channel in channels.all:
+        dep |= set(channel.requirements())
+
+    for node in nodes.all:
+        dep |= set(node.requirements())
+
+    [print(d) for d in dep]
 
 
 @begin.start

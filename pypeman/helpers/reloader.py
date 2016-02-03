@@ -3,6 +3,7 @@ import sys
 import time
 import asyncio
 import tempfile
+import traceback
 
 
 @asyncio.coroutine

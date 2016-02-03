@@ -125,6 +125,8 @@ class HttpChannel(BaseChannel):
         super().__init__()
         self.method = method
         self.url = url
+        if endpoint is None:
+            raise TypeError('Missing "endpoint" argument')
         self.http_endpoint = endpoint
 
     def import_modules(self):

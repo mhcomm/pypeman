@@ -11,7 +11,7 @@ Minimalist but pragmatic ESB / ETL in python
 
 # Usage
 
-Create a "settings.py" file with config in it
+Create a "settings.py" file with config in it.
 
 Create a "project.py" file in any folder containing for example:
 
@@ -21,7 +21,7 @@ Create a "project.py" file in any folder containing for example:
   
   http = endpoints.HTTPEndpoint(adress='localhost', port='8080')
   
-  c = channels.HttpChannel(method='*', url='/{name}')
+  c = channels.HttpChannel(endpoint=http, method='*', url='/{name}')
   c.add(nodes.Log())
   
   c2 = c.fork()
@@ -33,4 +33,18 @@ Create a "project.py" file in any folder containing for example:
   
 then execute:
 
-  pypeman start
+  pypeman start # You can use --reload option for auto-reloading on changes
+  
+# Commands
+
+For creating fresh project (non implemented):
+
+  pypeman startproject
+  
+For showing channel graph:
+
+  pypeman graph
+
+For list optionnal dependencies:
+ 
+  pypeman requirements

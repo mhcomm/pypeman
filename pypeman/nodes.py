@@ -1,8 +1,12 @@
 import os
 import json
 import asyncio
+<<<<<<< HEAD
 from urllib import parse
 
+=======
+import os
+>>>>>>> add mapping nodes
 from concurrent.futures import ThreadPoolExecutor
 
 from pypeman.message import Message
@@ -248,5 +252,61 @@ class PythonToHL7(BaseNode):
         return msg
 
 
+class SaveFile(BaseNode):
+    def __init__(self, fileName=None, filePath=None, *args, **kwargs):
+        self.fileName = fileName
+        self.filePath = filePath
+        super().__init__(*args, **kwargs)
+
+    def process(self, msg):
+        if self.fileName:
+            name = self.fileName
+        else:
+            name = msg.meta['fileName']
+        if self.filePath:
+            path = self.filePath
+        else:
+            path = msg.meta['filePath']
+        sav = os.path.join(path, name)
+        with open(sav, 'w') as file_:
+            file_.write(msg.payload)
+        return msg
 
 
+class MappingNode(BaseNode):
+    def __init__(self, *args, **kwargs):
+        self.mapping = kwargs.pop('mapping')
+        self.recopy = kwargs.pop('recopy')
+        super().__init__(*args, **kwargs)
+
+    def process(self, msg):
+        oldDict = msg.payload
+        newDict = {}
+        for mapItem in self.mapping:
+            mapItem.conv(oldDict, newDict, msg)
+        if self.recopy:
+            newDict.update(oldDict)
+        msg.payload = newDict
+        return msg
+
+
+class SubMappingNode(MappingNode):
+    def __init__(self, *args, **kwargs):
+        self.key = kwargs.pop('key')
+        super().__init__(*args, **kwargs)
+
+    def process(self, msg):
+        if isinstance(msg.payload, dict):
+            oldDict = msg.payload[self.key]
+        else:
+            oldDict = getattr(msg.payload, key)
+        newDict = {}
+        for mapItem in self.mapping:
+            mapItem.conv(oldDict, newDict, msg)
+        if self.recopy:
+            newDict.append(oldDict)
+        if isinstance(msg.payload, dict):
+            msg.payload[self.key] = newDict
+        else:
+            setattr(msg.payload, key, newDict)
+        return msg

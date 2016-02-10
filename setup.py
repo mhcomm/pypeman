@@ -16,7 +16,9 @@ setup(name='pypeman',
       author_email='jeremie.pardou@mhcomm.fr',
       license='Apache License',
       packages=['pypeman', 'pypeman.helpers', 'pypeman.tst_helpers'],
-      scripts=['bin/pypeman'],
+      entry_points = { 'console_scripts': [
+            'pypeman = pypeman.commands:main',
+        ]},
       test_suite='nose.collector',
       install_requires=[
           'aiohttp',

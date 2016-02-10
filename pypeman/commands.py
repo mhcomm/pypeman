@@ -1,7 +1,17 @@
 #!/usr/bin/env python
 
+# ############################################################################
+# This is the code for THE pypeman command line program
+# and all it's related commands
+# after installing the module pypeman, all this functionality can be obtained 
+# by calling 'pypeman' from the command line
+# ############################################################################
+
 import os
 import sys
+
+# workaround for allowing this script to be called as pypeman
+__name__ =  '__main__'
 
 # Keep this import
 sys.path.insert(0, os.getcwd())
@@ -85,7 +95,7 @@ def graph():
 
 @begin.subcommand
 def requirements():
-    """ List optionnal python dependencies """
+    """ List optional python dependencies """
 
     load_project()
 

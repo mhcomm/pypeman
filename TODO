@@ -16,5 +16,18 @@ Write Documentation
 Better reload
 Start project command
 Add multi message to nodes
+(Use generators ?
+>>> import types
+>>> types.GeneratorType
+<class 'generator'>
+>>> gen = (i for i in range(10))
+>>> isinstance(gen, types.GeneratorType)
+True
+
+or
+
+https://docs.python.org/2/library/inspect.html#inspect.isgenerator
+
+)
 Find better way to handle external dependencies without breaking dep checking
 

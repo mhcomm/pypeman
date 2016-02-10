@@ -1,21 +1,34 @@
 import asyncio
 import re
+import sys
 from aiohttp import web
 from pypeman.conf import settings
 
 all = []
 
+# used to share external dependencies
+ext = {}
 
 class BaseEndpoint:
+    dependencies = [] # List of module requirements
+
     def __init__(self):
         all.append(self)
+
+    def requirements(self):
+        """ List dependencies of modules if any """
+        return self.dependencies
+
+    def import_modules(self):
+        """ Use this method to import specific external modules listed in dependencies """
+        pass
 
 
 class HTTPEndpoint(BaseEndpoint):
     def __init__(self, adress='127.0.0.1', port='8080'):
         super().__init__()
         self._app = None
-        self.adress = adress
+        self.address = adress
         self.port = port
 
 
@@ -29,76 +42,32 @@ class HTTPEndpoint(BaseEndpoint):
     def start(self):
         if self._app is not None:
             loop = asyncio.get_event_loop()
-            srv = yield from loop.create_server(self._app.make_handler(), self.adress, self.port)
-            print("Server started at http://{}:{}".format(self.adress, self.port))
+            srv = yield from loop.create_server(self._app.make_handler(), self.address, self.port)
+            print("Server started at http://{}:{}".format(self.address, self.port))
             return srv
         else:
             print("No HTTP route.")
 
-
-
-
-
-"""
-        self.sb = "\x0b"
-        self.eb = "\x1c"
-        self.cr = "\x0d"
-        self.validator = re.compile(self.sb + "(([^\r]+\r)*([^\r]+\r?))" + self.eb + self.cr)
-        self.handlers = self.server.handlers
-        self.timeout = self.server.timeout
-
-        StreamRequestHandler.setup(self)
-
-    def handle(self):
-        end_seq = "{}{}".format(self.eb, self.cr)
-        try:
-            line = self.request.recv(3)
-        except socket.timeout:
-            self.request.close()
-            return
-
-        if line[0] != self.sb:  # First MLLP char
-            self.request.close()
-            return
-
-        while line[-2:] != end_seq:
-            try:
-                char = self.rfile.read(1)
-                if not char:
-                    break
-                line += char
-            except socket.timeout:
-                self.request.close()
-                return
-
-        message = self._extract_hl7_message(line)
-        if message is not None:
-            try:
-                response = self._route_message(message)
-            except Exception:
-                self.request.close()
-            else:
-                # encode the response
-                self.wfile.write(response)
-        self.request.close()
-
-"""
-
-
-
 class MLLPProtocol(asyncio.Protocol):
+    """
+    Minimal Lower-Layer Protocol (MLLP) takes the form:
+        <VT>[HL7 Message]<FS><CR>
+    References:
+    .. [1] http://www.hl7standards.com/blog/2007/05/02/hl7-mlp-minimum-layer-protocol-defined/
+    .. [2] http://www.hl7standards.com/blog/2007/02/01/ack-message-original-mode-acknowledgement/
+    """
 
-    def __init__(self):
+    def __init__(self, handler, encoding='utf-8'):
         super().__init__()
-        self._buffer = ''
-        self.start_block = '\x0b'  # <VT>, vertical tab
-        self.end_block = '\x1c'  # <FS>, file separator
-        self.carriage_return = '\x0d'  # <CR>, \r
+        self._buffer = b''
+        self.start_block = b'\x0b'  # <VT>, vertical tab
+        self.end_block = b'\x1c'  # <FS>, file separator
+        self.carriage_return = b'\x0d'  # <CR>, \r
+        self.handler = handler
 
-        """self.sb = "\x0b"
-        self.eb = "\x1c"
-        self.cr = "\x0d"
-        self.validator = re.compile(self.sb + "(([^\r]+\r)*([^\r]+\r?))" + self.eb + self.cr)"""
+        if encoding is None:
+            encoding = sys.getdefaultencoding()
+        self.encoding = encoding
 
     def connection_made(self, transport):
         """
@@ -115,12 +84,7 @@ class MLLPProtocol(asyncio.Protocol):
         Called when some data is received.
         The argument is a bytes object.
         """
-        print(data)
-
-        # success callback
-        def onSuccess(message):
-            self.writeMessage(message)
-
+        print("Data received")
         # try to find a complete message(s) in the combined the buffer and data
         messages = (self._buffer + data).split(self.end_block)
         # whatever is in the last chunk is an uncompleted message, so put back
@@ -133,71 +97,28 @@ class MLLPProtocol(asyncio.Protocol):
 
             # only pass messages with data
             if len(raw_message) > 0:
-                # convert into unicode, parseMessage expects decoded string
-                #if isinstance(value, str):
-                #    return value.decode(self.encoding, self.encoding_errors)
-                #return unicode(value)
-                #raw_message = self.factory.decode(raw_message)
-                raw_message = raw_message.decode('utf-8')
+                # convert into unicode
+                raw_message = raw_message.decode(self.encoding)
 
-                message_container = self.factory.parseMessage(raw_message)
+                print(raw_message)
+                print(self.handler)
 
-                # error callback (defined here, since error depends on
-                # current message).  rejects the message
-                def onError(err):
-                    reject = message_container.err(err)
-                    self.writeMessage(reject)
-                    return err
+                #result = yield from self.handler(raw_message)
 
-                # have the factory create a deferred and pass the message
-                # to the approriate IHL7Receiver instance
-                d = self.factory.handleMessage(message_container)
+                #self.writeMessage(result)
+                self.writeMessage("Ok")
+
+                # May be auto hack later
+                #h = ext['hl7'].parse(raw_message)
+                #ack = h.create_ack('AA')
+
 
     def writeMessage(self, message):
-        if message is None:
-            return
         # convert back to a byte string
-        message = self.factory.encode(message)
+        message = str(message).encode(self.encoding)
         # wrap message in payload container
-        self.transport.write(
-            self.start_block + message + self.end_block + self.carriage_return
-        )
+        self.transport.write(self.start_block + message + self.end_block + self.carriage_return)
 
-
-        """end_seq = "{}{}".format(self.eb, self.cr)
-        try:
-            line = self.request.recv(3)
-        except socket.timeout:
-            self.request.close()
-            return
-
-        if line[0] != self.sb:  # First MLLP char
-            self.request.close()
-            return
-
-        while line[-2:] != end_seq:
-            try:
-                char = self.rfile.read(1)
-                if not char:
-                    break
-                line += char
-            except socket.timeout:
-                self.request.close()
-                return
-
-        message = self._extract_hl7_message(line)
-        if message is not None:
-            try:
-                response = self._route_message(message)
-            except Exception:
-                self.request.close()
-            else:
-                # encode the response
-                self.wfile.write(response)
-        self.request.close()"""
-
-        #self.transport.write(b'echo:')
-        #self.transport.write(data)
 
     def connection_lost(self, exc):
         """
@@ -207,27 +128,35 @@ class MLLPProtocol(asyncio.Protocol):
         aborted or closed).
         """
         print("Connection lost! Closing server...")
-        server.close()
+        super().connection_lost(exc)
 
 
 class MLLPEndpoint(BaseEndpoint):
-    def __init__(self):
+    dependencies = ['hl7']
+
+    def __init__(self, address='127.0.0.1', port='2100', encoding='utf-8'):
         super().__init__()
-        self._app = None
+        self.handlers = []
+        self.address = address
+        self.port = port
+        self.encoding = encoding
 
-    def add_listener(self, *args, **kwargs):
-        self._app = True
-        if not self._app:
-            loop = asyncio.get_event_loop()
-            self._app = web.Application(loop=loop)
+    def import_modules(self):
+        if 'hl7' not in ext:
+            import hl7
+            ext['hl7'] = hl7
 
-        self._app.router.add_route(*args, **kwargs)
+    def set_handler(self, handler):
+        self.handler = handler
 
     @asyncio.coroutine
     def start(self):
-        adress, port = settings.MLLP_ENDPOINT_CONFIG
-        loop = asyncio.get_event_loop()
-        server = loop.run_until_complete(loop.create_server(MLLPProtocol, adress, port))
-        loop.run_until_complete(server.wait_closed())
-        print("Server started at http://{}:{}".format(adress, port))
+        if self.handler:
+            loop = asyncio.get_event_loop()
+            srv = yield from loop.create_server(lambda: MLLPProtocol(self.handler, self.encoding), self.address, self.port)
+            print("MLLP server started at http://{}:{}".format(self.address, self.port))
+            return srv
+        else:
+            print("No MLLP handlers.")
+
 

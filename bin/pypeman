@@ -53,6 +53,7 @@ def main():
 
     # And endpoints
     for end in endpoints.all:
+        end.import_modules()
         loop.run_until_complete(end.start())
 
     print('Waiting for connection...')
@@ -84,7 +85,7 @@ def graph():
 
 @begin.subcommand
 def requirements():
-    """ List optionnal dependencies """
+    """ List optionnal python dependencies """
 
     load_project()
 
@@ -95,6 +96,9 @@ def requirements():
 
     for node in nodes.all:
         dep |= set(node.requirements())
+
+    for end in endpoints.all:
+        dep |= set(end.requirements())
 
     [print(d) for d in dep]
 

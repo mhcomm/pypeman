@@ -210,4 +210,27 @@ class TimeChannel(BaseChannel):
 
 
 class MLLPChannel(BaseChannel):
-    pass
+
+    def __init__(self, endpoint=None):
+        super().__init__()
+        if endpoint is None:
+            raise TypeError('Missing "endpoint" argument')
+        self.mllp_endpoint = endpoint
+
+    @asyncio.coroutine
+    def start(self):
+        self.mllp_endpoint.set_handler(handler=self.handle)
+
+    @asyncio.coroutine
+    def handle(self, hl7_message):
+        print("oto")
+        content = hl7_message
+        msg = message.Message(content_type='text/hl7', payload=content, meta={})
+        try:
+            result = yield from self.process(msg)
+        except Dropped:
+            return 'ACK'
+        except Exception as e:
+            return 'NACK ' + str(e)
+
+        return result

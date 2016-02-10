@@ -11,6 +11,7 @@ import os
 import sys
 
 # workaround for allowing this script to be called as pypeman
+# TODO: might set __name__ only if called from pypeman wrapper
 __name__ =  '__main__'
 
 # Keep this import
@@ -77,6 +78,7 @@ def main():
 def start(reload: 'Make server autoreload (Dev only)'=False):
     """ Start pypeman """
     reloader_opt(main, reload, 2)
+    sys.exit(0) # workaround till we know, why new wrapper always waits for connections
 
 
 @begin.subcommand
@@ -91,6 +93,7 @@ def graph():
             channel.graph()
             print('|-> out')
             print()
+    sys.exit(0) # workaround till we know, why new wrapper always waits for connections
 
 
 @begin.subcommand
@@ -111,6 +114,13 @@ def requirements():
         dep |= set(end.requirements())
 
     [print(d) for d in dep]
+    sys.exit(0) # workaround till we know, why new wrapper always waits for connections
+
+@begin.subcommand
+def startproject(dirname : "name of dir to install project to"):
+    """ creates a pypeman project from scrach """
+    os.makedirs(dirname)
+    sys.exit(0) # workaround till we know, why new wrapper always waits for connections
 
 
 @begin.subcommand

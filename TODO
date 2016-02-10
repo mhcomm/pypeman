@@ -1,3 +1,5 @@
+Fix Error if pypeman is started without command
+fix pypeman starts even without a project and doesn't even warn
 Find better word for "endpoint"
 Implement soap client node
 Implement soap server endpoint

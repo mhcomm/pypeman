@@ -17,7 +17,7 @@ class BinPypemanTestCase(unittest.TestCase):
     """ tests for the bin/pypeman cli """
 
     def setUp(self):
-        pypeman = os.path.join(os.path.dirname(__file__), '..', '..', 'bin', 'pypeman')
+        pypeman = os.path.join(os.path.dirname(__file__), '..', '..', 'pypeman', 'commands.py')
         self.cmd = [ sys.executable, pypeman ] 
     
     def test_01_can_call_help(self):

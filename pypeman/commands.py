@@ -119,7 +119,9 @@ def requirements():
 @begin.subcommand
 def startproject(dirname : "name of dir to install project to"):
     """ creates a pypeman project from scrach """
-    os.makedirs(dirname)
+    from pypeman.pjt_templates import new_project
+    new_project(dirname)
+    
     sys.exit(0) # workaround till we know, why new wrapper always waits for connections
 
 

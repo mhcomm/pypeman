@@ -1,3 +1,4 @@
+import os
 import json
 import asyncio
 from urllib import parse
@@ -146,36 +147,6 @@ class Decode(BaseNode):
         msg.payload = msg.payload.decode(self.encoding)
         return msg
 
-# TODO put stores in specific file ?
-class NullStoreBackend():
-    def store(self, message):
-        pass
-
-
-class FileStoreBackend():
-    def __init__(self, path):
-        self.path = path
-
-    def store(self, message):
-        with open(message.meta[self.path], 'wb') as file:
-            file.write(message.payload)
-
-
-class MessageStore(ThreadNode):
-    def __init__(self, *args, **kwargs):
-        self.uri = kwargs.pop('uri')
-        parsed = parse.urlparse(self.uri)
-        print(parsed)
-        if parsed.scheme == 'file':
-            self.backend = FileStoreBackend(path=parsed.path)
-        else:
-            self.backend = NullStoreBackend()
-        super().__init__(*args, **kwargs)
-
-    def process(self, msg):
-        self.backend.store(msg)
-        return msg
-
 
 class FileWriter(ThreadNode):
     def __init__(self, *args, **kwargs):
@@ -187,5 +158,95 @@ class FileWriter(ThreadNode):
         with open(self.path, 'w' + ('b' if self.binary_mode else '')) as file:
             file.write(msg.payload)
         return msg
+
+
+# TODO put stores in specific file ?
+class NullStoreBackend():
+    """ For testing purpose """
+    def store(self, message):
+        pass
+
+
+class FileStoreBackend():
+    def __init__(self, path, filename):
+        self.path = path
+        self.filename = filename
+        self.counter = 0
+
+    def store(self, message):
+        from datetime import date
+
+        today = date.today()
+
+        context = {'counter':self.counter,
+                   'year': today.year,
+                   'month': today.month,
+                   'day': today.day
+                   }
+
+        filename = os.path.join(self.path, self.filename % context)
+        print(filename)
+
+        with open(filename, 'wb') as file:
+            file.write(message.payload)
+
+        self.counter += 1
+
+
+class MessageStore(ThreadNode):
+    def __init__(self, *args, **kwargs):
+
+        self.uri = kwargs.pop('uri')
+        parsed = parse.urlparse(self.uri)
+        print(parsed)
+
+        if parsed.scheme == 'file':
+            filename = parsed.query.split('=')[1]
+
+            self.backend = FileStoreBackend(path=parsed.path, filename=filename)
+        else:
+            self.backend = NullStoreBackend()
+
+        super().__init__(*args, **kwargs)
+
+    def process(self, msg):
+        self.backend.store(msg)
+        return msg
+
+
+class HL7ToPython(BaseNode):
+    dependencies = ['hl7']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def import_modules(self):
+        if 'hl7' not in ext:
+            import hl7
+            ext['hl7'] = hl7
+
+    def process(self, msg):
+        msg.payload = ext['hl7'].parse(msg.payload)
+        msg.content_type = 'application/python'
+        return msg
+
+
+class PythonToHL7(BaseNode):
+    dependencies = ['hl7']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def import_modules(self):
+        if 'hl7' not in ext:
+            import hl7
+            ext['hl7'] = hl7
+
+    def process(self, msg):
+        msg.payload = str(msg.payload)
+        msg.content_type = 'text/hl7'
+        return msg
+
+
 
 

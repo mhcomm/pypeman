@@ -16,6 +16,8 @@ ext = {}
 class Dropped(Exception):
     pass
 
+class Rejected(Exception):
+    pass
 
 class Break(Exception):
     pass
@@ -210,6 +212,7 @@ class TimeChannel(BaseChannel):
 
 
 class MLLPChannel(BaseChannel):
+    dependencies = ['hl7']
 
     def __init__(self, endpoint=None):
         super().__init__()
@@ -217,20 +220,28 @@ class MLLPChannel(BaseChannel):
             raise TypeError('Missing "endpoint" argument')
         self.mllp_endpoint = endpoint
 
+    def import_modules(self):
+        if 'hl7' not in ext:
+            import hl7
+            ext['hl7'] = hl7
+
     @asyncio.coroutine
     def start(self):
         self.mllp_endpoint.set_handler(handler=self.handle)
 
     @asyncio.coroutine
     def handle(self, hl7_message):
-        print("oto")
         content = hl7_message
         msg = message.Message(content_type='text/hl7', payload=content, meta={})
         try:
             result = yield from self.process(msg)
+            return result.payload
         except Dropped:
-            return 'ACK'
-        except Exception as e:
-            return 'NACK ' + str(e)
-
-        return result
+            ack = ext['hl7'].parse(content)
+            return ack.create_ack('AA')
+        except Rejected:
+            ack = ext['hl7'].parse(content)
+            return str(ack.create_ack('AR'))
+        except Exception:
+            ack = ext['hl7'].parse(content)
+            return str(ack.create_ack('AE'))

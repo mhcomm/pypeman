@@ -113,6 +113,12 @@ def requirements():
     [print(d) for d in dep]
 
 
+@begin.subcommand
+def debug():
+    """ Used for development purpose """
+    pass
+
+
 @begin.start
 def run():
     """ Pypeman is a minimalistic but pragmatic ESB/ETL in python """

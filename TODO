@@ -10,7 +10,6 @@ Implement sql saver node
 Implement http requester node
 Implement iterator node
 Implement MessageBroker
-Implement esb reloading on change for dev mode (in prod mode too ?)
 Think about testing channel
 Channel joining ?
 Way to print pretty graph of each channels

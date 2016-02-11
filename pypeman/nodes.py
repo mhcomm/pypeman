@@ -1,5 +1,7 @@
 import json
 import asyncio
+from urllib import parse
+
 from concurrent.futures import ThreadPoolExecutor
 
 from pypeman.message import Message
@@ -142,6 +144,36 @@ class Decode(BaseNode):
 
     def process(self, msg):
         msg.payload = msg.payload.decode(self.encoding)
+        return msg
+
+# TODO put stores in specific file ?
+class NullStoreBackend():
+    def store(self, message):
+        pass
+
+
+class FileStoreBackend():
+    def __init__(self, path):
+        self.path = path
+
+    def store(self, message):
+        with open(message.meta[self.path], 'wb') as file:
+            file.write(message.payload)
+
+
+class MessageStore(ThreadNode):
+    def __init__(self, *args, **kwargs):
+        self.uri = kwargs.pop('uri')
+        parsed = parse.urlparse(self.uri)
+        print(parsed)
+        if parsed.scheme == 'file':
+            self.backend = FileStoreBackend(path=parsed.path)
+        else:
+            self.backend = NullStoreBackend()
+        super().__init__(*args, **kwargs)
+
+    def process(self, msg):
+        self.backend.store(msg)
         return msg
 
 

@@ -76,15 +76,21 @@ class MLLPProtocol(asyncio.Protocol):
         To receive data, wait for data_received() calls.
         When the connection is closed, connection_lost() is called.
         """
-        print("Connection received!")
         self.transport = transport
+
+    def process_response(self, future):
+        self.writeMessage(future.result())
+
+        # May be auto hack later
+        # h = ext['hl7'].parse(raw_message)
+        # ack = h.create_ack('AA')
+
 
     def data_received(self, data):
         """
         Called when some data is received.
         The argument is a bytes object.
         """
-        print("Data received")
         # try to find a complete message(s) in the combined the buffer and data
         messages = (self._buffer + data).split(self.end_block)
         # whatever is in the last chunk is an uncompleted message, so put back
@@ -100,17 +106,8 @@ class MLLPProtocol(asyncio.Protocol):
                 # convert into unicode
                 raw_message = raw_message.decode(self.encoding)
 
-                print(raw_message)
-                print(self.handler)
-
-                #result = yield from self.handler(raw_message)
-
-                #self.writeMessage(result)
-                self.writeMessage("Ok")
-
-                # May be auto hack later
-                #h = ext['hl7'].parse(raw_message)
-                #ack = h.create_ack('AA')
+                result = asyncio.async(self.handler(raw_message))
+                result.add_done_callback(self.process_response)
 
 
     def writeMessage(self, message):
@@ -127,7 +124,6 @@ class MLLPProtocol(asyncio.Protocol):
         meaning a regular EOF is received or the connection was
         aborted or closed).
         """
-        print("Connection lost! Closing server...")
         super().connection_lost(exc)
 
 

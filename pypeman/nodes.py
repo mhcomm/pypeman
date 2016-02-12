@@ -1,17 +1,16 @@
 import os
 import json
 import asyncio
-<<<<<<< HEAD
+import logging
+
 from urllib import parse
 
-=======
-import os
->>>>>>> add mapping nodes
 from concurrent.futures import ThreadPoolExecutor
 
 from pypeman.message import Message
 from pypeman.channels import Dropped, Break
 
+logger = logging.getLogger(__name__)
 loop = asyncio.get_event_loop()
 
 # All declared nodes register here
@@ -62,8 +61,14 @@ class BreakNode(BaseNode):
 
 
 class Log(BaseNode):
+    def __init__(self, *args, **kwargs):
+        self.lvl = kwargs.pop('level', logging.DEBUG)
+        super().__init__(*args, **kwargs)
+
     def process(self, msg):
-        print(self.channel.uuid, msg.payload)
+        self.channel.logger.log(self.lvl, 'Uid channel: %r', self.channel.uuid)
+        self.channel.logger.log(self.lvl, 'Uid message: %r', msg.uuid)
+        self.channel.logger.log(self.lvl, 'Payload: %r', msg.payload)
         return msg
 
 
@@ -277,36 +282,41 @@ class MappingNode(BaseNode):
     def __init__(self, *args, **kwargs):
         self.mapping = kwargs.pop('mapping')
         self.recopy = kwargs.pop('recopy')
+        path = kwargs.pop('path', None)
+
+        self.path = 'payload'
+        if path:
+            self.path += '.' + path
+
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
-        oldDict = msg.payload
-        newDict = {}
+        current = msg
+        parts = self.path.split('.')
+        for part in parts:
+            try:
+                current = current[part]
+            except (TypeError, KeyError):
+                current = getattr(current, part)
+
+        old_dict = current
+        new_dict = {}
+
         for mapItem in self.mapping:
-            mapItem.conv(oldDict, newDict, msg)
+            mapItem.conv(old_dict, new_dict, msg)
         if self.recopy:
-            newDict.update(oldDict)
-        msg.payload = newDict
-        return msg
+            newDict.update(old_dict)
 
+        dest = msg
+        for part in parts[:-1]:
+            try:
+                dest = dest[part]
+            except (TypeError, KeyError):
+                dest = getattr(dest, part)
 
-class SubMappingNode(MappingNode):
-    def __init__(self, *args, **kwargs):
-        self.key = kwargs.pop('key')
-        super().__init__(*args, **kwargs)
+        try:
+            dest[parts[-1]] = new_dict
+        except KeyError:
+            setattr(dest, parts[-1], new_dict)
 
-    def process(self, msg):
-        if isinstance(msg.payload, dict):
-            oldDict = msg.payload[self.key]
-        else:
-            oldDict = getattr(msg.payload, key)
-        newDict = {}
-        for mapItem in self.mapping:
-            mapItem.conv(oldDict, newDict, msg)
-        if self.recopy:
-            newDict.append(oldDict)
-        if isinstance(msg.payload, dict):
-            msg.payload[self.key] = newDict
-        else:
-            setattr(msg.payload, key, newDict)
         return msg

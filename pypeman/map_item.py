@@ -1,9 +1,45 @@
 import time
 import logging
+import collections
 
 logger = logging.getLogger(__name__)
 
 class MapItem:
+    def __init__(self, old=None, new=None, default=None, transform=None):
+        self.old = old
+        self.new = new if new else old
+        if isinstance(transform, collections.Callable):
+            self.transform = transform
+        else:
+            self.transform = lambda x, y:x
+        self.default = default
+
+    def conv(self, oldDict, newDict, msg):
+        value = oldDict
+        if self.old:
+            for part in self.old.split('.'):
+                value = oldDict.get(part)
+
+            value = self.transform(value, msg)
+
+        if (not self.old or not value) and self.default is not None:
+            value = self.default
+
+        dest = newDict
+        parts = self.new.split('.')
+        for part in parts[:-1]:
+            dest = dest[part]
+
+        dest[parts[-1]] = value
+
+
+def first_value(values, msg):
+    for v in values:
+        if v:
+            return v
+    return None
+
+"""class MapItem:
     def __init__(self, old, new=None, default=None):
         self.old = old
         self.new = new
@@ -63,12 +99,15 @@ class MultipleRenameMapItem(MapItem):
                 return
 
 
+
+
+
 class AddMapItem(MapItem):
     def __init__(self, new, value):
         self.value = value
         super().__init__(old=None, new=new)
     def conv(self, oldDict, newDict, msg):
-        newDict[self.new] = self.value
+        newDict[self.new] = self.value"""
 
 
 class ConvDateMapItem(MapItem):

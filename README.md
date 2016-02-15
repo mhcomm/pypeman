@@ -15,21 +15,22 @@ Create a "settings.py" file with config in it.
 
 Create a "project.py" file in any folder containing for example:
 
-  `from pypeman import endpoints
-  from pypeman import channels
-  from pypeman import nodes
+```python
+ from pypeman import endpoints
+ from pypeman import channels
+ from pypeman import nodes
   
-  http = endpoints.HTTPEndpoint(adress='localhost', port='8080')
+ http = endpoints.HTTPEndpoint(adress='localhost', port='8080')
   
-  c = channels.HttpChannel(endpoint=http, method='*', url='/{name}')
-  c.add(nodes.Log())
+ c = channels.HttpChannel(endpoint=http, method='*', url='/{name}')
+ c.add(nodes.Log())
   
-  c2 = c.fork()
+ c2 = c.fork()
   
-  c2.add(nodes.JsonToPython(), nodes.Add1(), nodes.Add1(), nodes.Log())
+ c2.add(nodes.JsonToPython(), nodes.Add1(), nodes.Add1(), nodes.Log())
   
-  c.add(nodes.Log(), nodes.JsonToPython(), nodes.Log(), nodes.Add1(), nodes.Add1(), nodes.Log(), nodes.PythonToJson())
-  `
+ c.add(nodes.Log(), nodes.JsonToPython(), nodes.Log(), nodes.Add1(), nodes.Add1(), nodes.Log(), nodes.PythonToJson())
+ ```
   
 then execute:
 

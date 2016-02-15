@@ -15,7 +15,7 @@ Create a "settings.py" file with config in it.
 
 Create a "project.py" file in any folder containing for example:
 
-  from pypeman import endpoints
+  `from pypeman import endpoints
   from pypeman import channels
   from pypeman import nodes
   
@@ -29,22 +29,22 @@ Create a "project.py" file in any folder containing for example:
   c2.add(nodes.JsonToPython(), nodes.Add1(), nodes.Add1(), nodes.Log())
   
   c.add(nodes.Log(), nodes.JsonToPython(), nodes.Log(), nodes.Add1(), nodes.Add1(), nodes.Log(), nodes.PythonToJson())
-  
+  `
   
 then execute:
 
-  pypeman start # You can use the --reload option for auto-reloading on changes
+  `pypeman start` # You can use the --reload option for auto-reloading on changes
   
 # Commands
 
 To create a fresh project (partially implemented):
 
-  pypeman startproject
+  `pypeman startproject`
   
 To show a channel graph:
 
-  pypeman graph
+  `pypeman graph`
 
 To list optional dependencies:
  
-  pypeman requirements
+  `pypeman requirements`

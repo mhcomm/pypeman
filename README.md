@@ -33,18 +33,18 @@ Create a "project.py" file in any folder containing for example:
   
 then execute:
 
-  pypeman start # You can use --reload option for auto-reloading on changes
+  pypeman start # You can use the --reload option for auto-reloading on changes
   
 # Commands
 
-For creating fresh project (non implemented):
+To create a fresh project (partially implemented):
 
   pypeman startproject
   
-For showing channel graph:
+To show a channel graph:
 
   pypeman graph
 
-For list optionnal dependencies:
+To list optional dependencies:
  
   pypeman requirements

@@ -1,9 +1,11 @@
 import unittest
 import asyncio
+import logging
 
 
 class FakeChannel():
     def __init__(self):
+        self.logger = logging.getLogger()
         self.uuid = 'fakeChannel'
 
 class NodesTests(unittest.TestCase):

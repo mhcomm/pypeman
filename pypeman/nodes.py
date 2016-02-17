@@ -179,10 +179,11 @@ class NullStoreBackend():
 
 
 class FileStoreBackend():
-    def __init__(self, path, filename):
+    def __init__(self, path, filename, channel):
         self.path = path
         self.filename = filename
         self.counter = 0
+        self.channel = channel
 
     def store(self, message):
         today = datetime.now()
@@ -193,6 +194,8 @@ class FileStoreBackend():
                    'day': today.day,
                    'hour': today.hour,
                    'second': today.second,
+                   'muid': message.uuid,
+                   'cuid': self.channel.uuid
                    }
 
         filepath = os.path.join(self.path, self.filename % context)
@@ -216,14 +219,15 @@ class MessageStore(ThreadNode):
         parsed = parse.urlparse(self.uri)
         print(parsed)
 
+        super().__init__(*args, **kwargs)
+
         if parsed.scheme == 'file':
             filename = parsed.query.split('=')[1]
 
-            self.backend = FileStoreBackend(path=parsed.path, filename=filename)
+            self.backend = FileStoreBackend(path=parsed.path, filename=filename, channel=self.channel)
         else:
             self.backend = NullStoreBackend()
 
-        super().__init__(*args, **kwargs)
 
     def process(self, msg):
         self.backend.store(msg)

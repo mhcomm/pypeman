@@ -17,7 +17,8 @@ class MapItem:
         value = oldDict
         if self.old:
             for part in self.old.split('.'):
-                value = oldDict.get(part)
+                if not value == None:
+                    value = value.get(part)
 
             value = self.transform(value, msg)
 
@@ -27,6 +28,8 @@ class MapItem:
         dest = newDict
         parts = self.new.split('.')
         for part in parts[:-1]:
+            if dest.get(part) == None:
+                dest[part] = {}
             dest = dest[part]
 
         dest[parts[-1]] = value

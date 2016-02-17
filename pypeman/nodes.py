@@ -85,9 +85,12 @@ class Log(BaseNode):
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
-        self.channel.logger.log(self.lvl, 'Uid channel: %r', self.channel.uuid)
+        self.channel.logger.log(self.lvl, 'Channel: %r', self.channel.name)
+        if self.channel.parent_uids:
+            self.channel.logger.log(self.lvl, 'Parent channels: %r', self.channel.parent_names)
         self.channel.logger.log(self.lvl, 'Uid message: %r', msg.uuid)
         self.channel.logger.log(self.lvl, 'Payload: %r', msg.payload)
+
         return msg
 
 

@@ -21,8 +21,10 @@ ext = {}
 class Dropped(Exception):
     pass
 
+
 class Rejected(Exception):
     pass
+
 
 class Break(Exception):
     pass
@@ -31,7 +33,7 @@ class Break(Exception):
 class BaseChannel:
     dependencies = [] # List of module requirements
 
-    def __init__(self, name=None):
+    def __init__(self, name=None, parent_channel=None):
         self.uuid = uuid.uuid4()
         all.append(self)
         self._nodes = []
@@ -40,7 +42,13 @@ class BaseChannel:
         else:
             self.name = self.__class__.__name__ + str(len(all))
         self.logger = logging.getLogger(self.name)
-
+        if parent_channel:
+            self.parent_uids = [parent_channel.uuid]
+            if parent_channel.parent_uids
+                self.parent_uids.add(parent_channel.parent_uids)
+        else:
+            self.parent_uids = None
+            
     def requirements(self):
         """ List dependencies of modules if any """
         return self.dependencies
@@ -61,12 +69,12 @@ class BaseChannel:
         return self
 
     def fork(self):
-        s = SubChannel()
+        s = SubChannel(parent_channel=self)
         self._nodes.append(s)
         return s
 
     def when(self, condition):
-        s = ConditionSubChannel(condition)
+        s = ConditionSubChannel(condition, parent_channel=self)
         self._nodes.append(s)
         return s
 
@@ -112,10 +120,11 @@ class SubChannel(BaseChannel):
     pass
 
 
+
 class ConditionSubChannel(BaseChannel):
     """ ConditionSubchannel used for make alternative path """
-    def __init__(self, condition):
-        super().__init__()
+    def __init__(self, condition, **kwargs):
+        super().__init__(**kwargs)
         self.condition = condition
 
     def test_condition(self, msg):

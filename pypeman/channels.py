@@ -44,8 +44,8 @@ class BaseChannel:
         self.logger = logging.getLogger(self.name)
         if parent_channel:
             self.parent_uids = [parent_channel.uuid]
-            if parent_channel.parent_uids
-                self.parent_uids.add(parent_channel.parent_uids)
+            if parent_channel.parent_uids:
+                self.parent_uids.append(parent_channel.parent_uids)
         else:
             self.parent_uids = None
             

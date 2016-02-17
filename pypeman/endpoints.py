@@ -1,8 +1,5 @@
 import asyncio
-import re
 import sys
-from aiohttp import web
-from pypeman.conf import settings
 
 all = []
 
@@ -31,11 +28,16 @@ class HTTPEndpoint(BaseEndpoint):
         self.address = adress
         self.port = port
 
+    def import_modules(self):
+        if 'aiohttp_web' not in ext:
+            from aiohttp import web
+
+            ext['aiohttp_web'] = web
 
     def add_route(self,*args, **kwargs):
         if not self._app:
             loop = asyncio.get_event_loop()
-            self._app = web.Application(loop=loop)
+            self._app = ext['aiohttp_web'].Application(loop=loop)
         self._app.router.add_route(*args, **kwargs)
 
     @asyncio.coroutine

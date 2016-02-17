@@ -3,6 +3,8 @@ import json
 import asyncio
 import logging
 
+from datetime import datetime
+
 from urllib import parse
 
 from concurrent.futures import ThreadPoolExecutor
@@ -60,6 +62,21 @@ class BreakNode(BaseNode):
         raise Break()
 
 
+class Empty(BaseNode):
+    def process(self, msg):
+        return Message()
+
+
+class ThreadNode(BaseNode):
+    # TODO create class ThreadPool ?
+
+    @asyncio.coroutine
+    def handle(self, msg):
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            result = yield from loop.run_in_executor(executor, self.process, msg)
+            return result
+
+
 class Log(BaseNode):
     def __init__(self, *args, **kwargs):
         self.lvl = kwargs.pop('level', logging.DEBUG)
@@ -84,21 +101,6 @@ class PythonToJson(BaseNode):
         msg.payload = json.dumps(msg.payload)
         msg.content_type = 'application/json'
         return msg
-
-
-class Empty(BaseNode):
-    def process(self, msg):
-        return Message()
-
-
-class ThreadNode(BaseNode):
-    # TODO create class ThreadPool ?
-
-    @asyncio.coroutine
-    def handle(self, msg):
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            result = yield from loop.run_in_executor(executor, self.process, msg)
-            return result
 
 
 class XMLToPython(BaseNode):
@@ -183,21 +185,26 @@ class FileStoreBackend():
         self.counter = 0
 
     def store(self, message):
-        from datetime import date
-
-        today = date.today()
+        today = datetime.now()
 
         context = {'counter':self.counter,
                    'year': today.year,
                    'month': today.month,
-                   'day': today.day
+                   'day': today.day,
+                   'hour': today.hour,
+                   'second': today.second,
                    }
 
-        filename = os.path.join(self.path, self.filename % context)
-        print(filename)
+        filepath = os.path.join(self.path, self.filename % context)
 
-        with open(filename, 'wb') as file:
-            file.write(message.payload)
+        try:
+            # Make missing dir if any
+            os.makedirs(os.path.dirname(filepath))
+        except FileExistsError:
+            pass
+
+        with open(filepath, 'w') as file_:
+            file_.write(message.payload)
 
         self.counter += 1
 
@@ -258,23 +265,41 @@ class PythonToHL7(BaseNode):
 
 
 class SaveFile(BaseNode):
-    def __init__(self, fileName=None, filePath=None, *args, **kwargs):
-        self.fileName = fileName
-        self.filePath = filePath
+    def __init__(self, filename=None, path=None, *args, **kwargs):
+        self.filename = filename
+        self.path = path
+        self.counter = 0
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
-        if self.fileName:
-            name = self.fileName
+
+        if self.filename:
+            name = self.filename
         else:
-            name = msg.meta['fileName']
-        if self.filePath:
-            path = self.filePath
+            name = msg.meta['filename']
+
+        if self.path:
+            path = self.path
         else:
-            path = msg.meta['filePath']
-        sav = os.path.join(path, name)
-        with open(sav, 'w') as file_:
+            path = msg.meta['filepath']
+
+        today = datetime.now()
+
+        context = {'counter': self.counter,
+                   'year': today.year,
+                   'month': today.month,
+                   'day': today.day,
+                   'hour': today.hour,
+                   'second': today.second,
+                   }
+
+        dest = os.path.join(path, name % context)
+
+        with open(dest, 'w') as file_:
             file_.write(msg.payload)
+
+        self.counter += 1
+
         return msg
 
 
@@ -305,7 +330,7 @@ class MappingNode(BaseNode):
         for mapItem in self.mapping:
             mapItem.conv(old_dict, new_dict, msg)
         if self.recopy:
-            newDict.update(old_dict)
+            new_dict.update(old_dict)
 
         dest = msg
         for part in parts[:-1]:

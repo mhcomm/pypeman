@@ -1,6 +1,5 @@
 import time
 import logging
-import collections
 
 logger = logging.getLogger(__name__)
 
@@ -8,7 +7,7 @@ class MapItem:
     def __init__(self, old=None, new=None, default=None, transform=None):
         self.old = old
         self.new = new if new else old
-        if isinstance(transform, collections.Callable):
+        if callable(transform):
             self.transform = transform
         else:
             self.transform = lambda x, y:x
@@ -31,83 +30,6 @@ class MapItem:
             dest = dest[part]
 
         dest[parts[-1]] = value
-
-
-def first_value(values, msg):
-    for v in values:
-        if v:
-            return v
-    return None
-
-"""class MapItem:
-    def __init__(self, old, new=None, default=None):
-        self.old = old
-        self.new = new
-        self.default = default
-
-    def conv(self, oldDict, newDict, msg):
-        if oldDict.get(self.old):
-            newDict[self.old] = oldDict.pop(self.old)
-        elif self.default is not None:
-            newDict[self.old] = self.default
-
-
-class RenameMapItem(MapItem):
-    def conv(self, oldDict, newDict, msg):
-        if oldDict.get(self.old):
-            newDict[self.new] = oldDict.pop(self.old)
-        elif self.default is not None:
-            newDict[self.old] = self.default
-
-
-class RenameSubMapItem(MapItem):
-    def conv(self, oldDict, newDict, msg):
-        value = oldDict
-        i=1
-        for key in self.old:
-            if i == len(self.old):
-                if value.get(key):
-                    value = value.pop(key)
-                else:
-                    value = self.default
-
-            else:
-                i = i + 1
-                if value.get(key):
-                    value = value[key]
-                else:
-                    value = self.default
-                    break
-
-        cdict = newDict
-        i=1
-        for key in self.new:
-            if i == len(self.new):
-                cdict[key] = value
-            else:
-                if not cdict.get(key):
-                    cdict[key] = {}
-                cdict = cdict[key]
-                i = i + 1
-
-
-class MultipleRenameMapItem(MapItem):
-    def conv(self, oldDict, newDict, msg):
-        for value in old:
-            if oldDict[value]:
-                newDict[new] = oldDict.pop(value)
-                return
-
-
-
-
-
-class AddMapItem(MapItem):
-    def __init__(self, new, value):
-        self.value = value
-        super().__init__(old=None, new=new)
-    def conv(self, oldDict, newDict, msg):
-        newDict[self.new] = self.value"""
 
 
 class ConvDateMapItem(MapItem):

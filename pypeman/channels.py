@@ -159,111 +159,63 @@ class HttpChannel(BaseChannel):
 
         return ext['aiohttp_web'].Response(body=result.payload.encode('utf-8'), status=result.meta.get('status', 200))
 
-class State(Enum):
-    MISSING, NEW, DEL, MODIFIED, UNCHANGE = range(5)
 
 class FileWatcherChannel(BaseChannel):
+    NEW, UNCHANGED, MODIFIED, DELETED  = range(4)
 
     def __init__(self, path='', regex='*', interval=1):
         super().__init__()
         self.path = path
         self.regex = regex
         self.interval = interval
-        self.found = os.path.exists(path)
-        self.mtime = os.stat(path).st_mtime if self.found else None
         self.loop = asyncio.get_event_loop()
         self.dirflag = os.path.isdir(self.path)
         self.data = {}
-        if self.dirflag:
-            for filename in os.listdir(self.path):
-                reg = re.compile(self.regex)
-                if reg.match(filename):
-                    filepath = os.path.join(self.path, filename)
-                    mtime = os.stat(filepath).st_mtime
-                    self.data[filename] = mtime
-        else:
-            if self.found:
-                self.data[self.path] = mtime
+        self.re = re.compile(self.regex)
+
+        # Set mtime for all existing matching files
+        for filename in os.listdir(self.path):
+            if self.re.match(filename):
+                filepath = os.path.join(self.path, filename)
+                mtime = os.stat(filepath).st_mtime
+                self.data[filename] = mtime
 
     @asyncio.coroutine
     def start(self):
         asyncio.async(self.watch_for_file())
 
-    def state_path(self, filepath):
-        if os.path.exists(filepath):
-            new_time = os.stat(filepath).st_mtime
-        else:
-            new_time = None
-        old_time = self.data.get(filepath)
 
-        if not new_time and not old_time:
-            logger.debug('State.MISSING: %r', State.MISSING)
-            return State.MISSING
-        elif new_time == old_time:
-            logger.debug('State.UNCHANGE: %r', State.UNCHANGE)
-            return State.UNCHANGE
-        elif new_time and not old_time:
-            logger.debug('State.NEW: %r', State.NEW)
-            return State.NEW
-        elif not new_time and old_time:
-            logger.debug('State.DEL: %r', State.DEL)
-            return State.DEL
-        elif new_time > old_time:
-            logger.debug('State.MODIFIED: %r', State.MODIFIED)
-            return State.MODIFIED
+    def file_status(self, filename):
+        if filename in self.data:
+            old_mtime = self.data[filename]
+            filepath = os.path.join(self.path, filename)
+            new_mtime = os.stat(filepath).st_mtime
+            if new_mtime == old_mtime:
+                return FileWatcherChannel.UNCHANGED
+            elif new_mtime >= old_mtime:
+                return FileWatcherChannel.MODIFIED
+        else:
+            return FileWatcherChannel.NEW
 
     def watch_for_file(self):
-        # TODO watch multiple files
-        # TODO Use pyinotify see -> https://pypi.python.org/pypi/butter
+        listfile = os.listdir(self.path)
+        listfile.sort()
 
-        if not self.dirflag:
-            statefile = self.state_path(self.path)
-            if statefile == State.NEW or statefile == State.MODIFIED:
-                with open(self.path) as file:
-                    msg = message.Message()
-                    msg.payload = file.read()
-                    yield from self.process(msg)
-            elif statefile == State.DEL:
-                self.data.pop(filename)
-        else:
-            listfile = os.listdir(self.path)
-            listfile.sort()
-            for filename in listfile:
-                reg = re.compile(self.regex)
-                if reg.match(filename):
+        for filename in listfile:
+            if self.re.match(filename):
+                status = self.file_status(filename)
+                # TODO watch deleted files ?
+                if status in [FileWatcherChannel.MODIFIED, FileWatcherChannel.NEW]:
                     filepath = os.path.join(self.path, filename)
-                    statefile = self.state_path(filepath)
-                    logger.debug('statefile: %r', statefile)
-                    if statefile == State.NEW or statefile == State.MODIFIED:
-                        logger.debug('filename: %r', filename)
-                        mtime = os.stat(filepath).st_mtime
-                        self.data[filename] = mtime
-                        with open(filepath) as file:
-                            msg = message.Message()
-                            msg.payload = file.read()
-                            yield from self.process(msg)
+                    self.data[filename] =  os.stat(filepath).st_mtime
 
-            for key in self.data.keys():
-                filepath = os.path.join(self.path, key)
-                statefile = self.state_path(filepath)
-                if statefile == State.DEL:
-                    self.data.pop(key)
-
-        #
-        # if (not self.found and os.path.exists(self.path) or
-        #     self.found and os.stat(self.path).st_mtime > self.mtime):
-        #     self.found = True
-        #     self.mtime = os.stat(self.path).st_mtime
-        #     if os.path.isfile(self.path):
-        #         with open(self.path) as file:
-        #             msg = message.Message()
-        #             msg.payload = file.read()
-        #             yield from self.process(msg)
-        #     else:
-        #         for filename in os.listdir(self.path):
-        #             reg = re.compile(self.regex)
-        #             reg.match(filename)
-        #             if()
+                    # Read file and make message
+                    with open(filepath, "r") as file:
+                        msg = message.Message()
+                        msg.payload = file.read()
+                        msg.meta[filename] = filename
+                        msg.meta[filepath] = filepath
+                        yield from self.process(msg)
 
         yield from asyncio.sleep(self.interval)
         asyncio.async(self.watch_for_file())

@@ -44,11 +44,13 @@ class BaseChannel:
         self.logger = logging.getLogger(self.name)
         if parent_channel:
             self.parent_uids = [parent_channel.uuid]
+            self.parent_names = [parent_channel.name]
             if parent_channel.parent_uids:
                 self.parent_uids.append(parent_channel.parent_uids)
+                self.parent_names.append(parent_channel.parent_names)
         else:
             self.parent_uids = None
-            
+
     def requirements(self):
         """ List dependencies of modules if any """
         return self.dependencies
@@ -191,7 +193,7 @@ class HttpChannel(BaseChannel):
 class FileWatcherChannel(BaseChannel):
     NEW, UNCHANGED, MODIFIED, DELETED  = range(4)
 
-    def __init__(self, path='', regex='*', interval=1):
+    def __init__(self, path='', regex='.*', interval=1):
         super().__init__()
         self.path = path
         self.regex = regex

@@ -33,8 +33,8 @@ class Settings():
             import logging as lg
 
             l = lg.getLogger(__name__)
-            l.warning('m:%r:f %r', __name__, __file__)
-            l.warning('sm:%r', settings_module)
+            #l.warning('Module:%r:f %r', __name__, __file__)
+            #l.warning('Setting module:%r', settings_module)
 
             settings_mod = self.__dict__['_settings_mod'] = importlib.import_module(settings_module)
         except:

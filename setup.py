@@ -17,11 +17,9 @@ setup(name='pypeman',
       license='Apache License',
       packages=['pypeman', 'pypeman.helpers', 'pypeman.tst_helpers'],
       entry_points = { 'console_scripts': [
-            'pypeman = pypeman.commands:main',
+            'pypeman = pypeman.commands:run.start',
         ]},
       test_suite='nose.collector',
-      install_requires=[
-          'aiohttp',
-      ],
+      install_requires=[],
       tests_require=['nose', 'nose-cover3'],
       zip_safe=False)

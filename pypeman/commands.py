@@ -78,22 +78,29 @@ def main():
 def start(reload: 'Make server autoreload (Dev only)'=False):
     """ Start pypeman """
     reloader_opt(main, reload, 2)
-    sys.exit(0) # workaround till we know, why new wrapper always waits for connections
 
 
 @begin.subcommand
-def graph():
+def graph(dot: "make dot compatible out"=False):
     """ Show channel graph """
 
     load_project()
 
-    for channel in channels.all:
-        if not issubclass(channel.__class__, channels.SubChannel) and not issubclass(channel.__class__, channels.ConditionSubChannel):
-            print(channel.__class__.__name__)
-            channel.graph()
-            print('|-> out')
-            print()
-    sys.exit(0) # workaround till we know, why new wrapper always waits for connections
+    if dot:
+        for channel in channels.all:
+            if not issubclass(channel.__class__, channels.SubChannel) and not issubclass(channel.__class__,
+                                                                                         channels.ConditionSubChannel):
+                print(channel.__class__.__name__)
+                channel.graph(dot=dot)
+                print('->')
+                print()
+    else:
+        for channel in channels.all:
+            if not issubclass(channel.__class__, channels.SubChannel) and not issubclass(channel.__class__, channels.ConditionSubChannel):
+                print(channel.__class__.__name__)
+                channel.graph()
+                print('|-> out')
+                print()
 
 
 @begin.subcommand
@@ -114,15 +121,12 @@ def requirements():
         dep |= set(end.requirements())
 
     [print(d) for d in dep]
-    sys.exit(0) # workaround till we know, why new wrapper always waits for connections
 
 @begin.subcommand
 def startproject(dirname : "name of dir to install project to"):
     """ creates a pypeman project from scrach """
     from pypeman.pjt_templates import new_project
     new_project(dirname)
-    
-    sys.exit(0) # workaround till we know, why new wrapper always waits for connections
 
 
 @begin.subcommand
@@ -134,3 +138,4 @@ def debug():
 @begin.start
 def run():
     """ Pypeman is a minimalistic but pragmatic ESB/ETL in python """
+    pass

@@ -9,7 +9,11 @@ class Message():
         self.content_type = content_type
         self.timestamp = datetime.datetime.now()
         self.uuid = uuid.uuid4()
+
         self.payload = payload
+
+        if meta is None:
+            meta = {}
         self.meta = meta
 
     def copy(self):

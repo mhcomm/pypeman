@@ -213,8 +213,8 @@ class FileWatcherChannel(BaseChannel):
                     with open(filepath, "r") as file:
                         msg = message.Message()
                         msg.payload = file.read()
-                        msg.meta[filename] = filename
-                        msg.meta[filepath] = filepath
+                        msg.meta['filename'] = filename
+                        msg.meta['filepath'] = filepath
                         yield from self.process(msg)
 
         yield from asyncio.sleep(self.interval)

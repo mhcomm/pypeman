@@ -30,6 +30,8 @@ class BaseNode:
         self.channel = None
         all.append(self)
 
+        self.name = kwargs.pop('name',self.__class__.__name__ + "_" + str(len(all)))
+
     def requirements(self):
         """ List dependencies of modules if any """
         return self.dependencies

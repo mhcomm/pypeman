@@ -81,19 +81,20 @@ def start(reload: 'Make server autoreload (Dev only)'=False):
 
 
 @begin.subcommand
-def graph(dot: "make dot compatible out"=False):
+def graph(dot: "Make dot compatible output"=False):
     """ Show channel graph """
 
     load_project()
 
     if dot:
+        print("digraph testgraph{")
         for channel in channels.all:
-            if not issubclass(channel.__class__, channels.SubChannel) and not issubclass(channel.__class__,
-                                                                                         channels.ConditionSubChannel):
-                print(channel.__class__.__name__)
-                channel.graph(dot=dot)
-                print('->')
-                print()
+            if not issubclass(channel.__class__, channels.SubChannel) and not issubclass(channel.__class__, channels.ConditionSubChannel):
+                print("{node[shape=box]; %s; }" % channel.name)
+                print(channel.name, end='')
+                channel.graph_dot(previous=channel.name, end=channel.name)
+                #print(";")
+        print("}")
     else:
         for channel in channels.all:
             if not issubclass(channel.__class__, channels.SubChannel) and not issubclass(channel.__class__, channels.ConditionSubChannel):

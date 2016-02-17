@@ -40,7 +40,7 @@ class BaseChannel:
         if name:
             self.name = name
         else:
-            self.name = self.__class__.__name__ + str(len(all))
+            self.name = self.__class__.__name__ + "_" + str(len(all))
         self.logger = logging.getLogger(self.name)
         if parent_channel:
             self.parent_uids = [parent_channel.uuid]
@@ -102,7 +102,7 @@ class BaseChannel:
 
         return result
 
-    def graph(self, prefix=''):
+    def graph(self, prefix='', dot=False):
         for node in self._nodes:
             if isinstance(node, SubChannel):
                 print(prefix + '|—\\')
@@ -112,7 +112,26 @@ class BaseChannel:
                 node.graph(prefix='|  ' + prefix)
                 print(prefix + '|  -> Out')
             else:
-                print(prefix + '|-' + node.__class__.__name__)
+                print(prefix + '|-' + node.name)
+
+    def graph_dot(self, previous='', end=''):
+        after = []
+        for node in self._nodes:
+            if isinstance(node, SubChannel):
+                after.append((previous, '', node))
+            elif isinstance(node, ConditionSubChannel):
+                after.append((previous, end, node))
+            else:
+                print('->' + node.name, end='')
+                previous = node.name
+        if end:
+            print("->" + end + ";")
+        else:
+            print(";")
+
+        for prev, end, sub in after:
+            print(prev, end='')
+            sub.graph_dot(previous=prev, end=end)
 
 
 class SubChannel(BaseChannel):

@@ -22,6 +22,8 @@ class BaseEndpoint:
 
 
 class HTTPEndpoint(BaseEndpoint):
+    dependencies = ['aiohttp']
+
     def __init__(self, adress='127.0.0.1', port='8080'):
         super().__init__()
         self._app = None
@@ -29,6 +31,8 @@ class HTTPEndpoint(BaseEndpoint):
         self.port = port
 
     def import_modules(self):
+        print('importing')
+
         if 'aiohttp_web' not in ext:
             from aiohttp import web
 

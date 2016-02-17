@@ -161,18 +161,6 @@ class Decode(BaseNode):
         return msg
 
 
-class FileWriter(ThreadNode):
-    def __init__(self, *args, **kwargs):
-        self.path = kwargs.pop('path')
-        self.binary_mode = kwargs.pop('binary_mode', False)
-        super().__init__(*args, **kwargs)
-
-    def process(self, msg):
-        with open(self.path, 'w' + ('b' if self.binary_mode else '')) as file:
-            file.write(msg.payload)
-        return msg
-
-
 # TODO put stores in specific file ?
 class NullStoreBackend():
     """ For testing purpose """
@@ -219,7 +207,6 @@ class MessageStore(ThreadNode):
 
         self.uri = kwargs.pop('uri')
         parsed = parse.urlparse(self.uri)
-        print(parsed)
 
         super().__init__(*args, **kwargs)
 
@@ -270,10 +257,23 @@ class PythonToHL7(BaseNode):
         return msg
 
 
-class SaveFile(BaseNode):
-    def __init__(self, filename=None, path=None, *args, **kwargs):
+
+'''class FileWriter(ThreadNode):
+    def __init__(self, *args, **kwargs):
+        self.path = kwargs.pop('path')
+        self.binary_mode = kwargs.pop('binary_mode', False)
+        super().__init__(*args, **kwargs)
+
+    def process(self, msg):
+        with open(self.path, 'w' + ('b' if self.binary_mode else '')) as file:
+            file.write(msg.payload)
+        return msg'''
+
+class FileWriter(BaseNode):
+    def __init__(self, filename=None, path=None, binary_mode=False, *args, **kwargs):
         self.filename = filename
         self.path = path
+        self.binary_mode = binary_mode
         self.counter = 0
         super().__init__(*args, **kwargs)
 
@@ -301,7 +301,7 @@ class SaveFile(BaseNode):
 
         dest = os.path.join(path, name % context)
 
-        with open(dest, 'w') as file_:
+        with open(dest, 'w' + ('b' if self.binary_mode else '')) as file_:
             file_.write(msg.payload)
 
         self.counter += 1

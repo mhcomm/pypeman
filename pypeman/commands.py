@@ -10,9 +10,6 @@
 import os
 import sys
 
-# workaround for allowing this script to be called as pypeman
-# TODO: might set __name__ only if called from pypeman wrapper
-__name__ =  '__main__'
 
 # Keep this import
 sys.path.insert(0, os.getcwd())
@@ -53,6 +50,9 @@ def main():
 
     load_project()
 
+    for end in endpoints.all:
+        end.import_modules()
+
     # Import modules for nodes
     for node in nodes.all:
         node.import_modules()
@@ -64,7 +64,6 @@ def main():
 
     # And endpoints
     for end in endpoints.all:
-        end.import_modules()
         loop.run_until_complete(end.start())
 
     print('Waiting for connection...')
@@ -93,7 +92,6 @@ def graph(dot: "Make dot compatible output"=False):
                 print("{node[shape=box]; %s; }" % channel.name)
                 print(channel.name, end='')
                 channel.graph_dot(previous=channel.name, end=channel.name)
-                #print(";")
         print("}")
     else:
         for channel in channels.all:

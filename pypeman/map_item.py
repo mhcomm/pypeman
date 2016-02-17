@@ -35,17 +35,6 @@ class MapItem:
         dest[parts[-1]] = value
 
 
-class ConvDateMapItem(MapItem):
-    def __init__(self, old, new, oldFormat, newFormat):
-        self.oldFormat = oldFormat
-        self.newFormat = newFormat
-        super().__init__(old, new)
-    def conv(self, oldDict, newDict, msg):
-        val = time.strptime(oldDict.pop(self.old), self.oldFormat)
-        val = time.strftime(self.newFormat, val)
-        newDict[self.new] = val
-
-
 class JoinMapItem(MapItem):
     def __init__(self, old, new, sep=''):
         self.sep = sep

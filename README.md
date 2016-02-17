@@ -6,13 +6,11 @@ Minimalist but pragmatic ESB / ETL in python
 [![Build Status](https://travis-ci.org/mhcomm/pypeman.svg?branch=master)](https://travis-ci.org/mhcomm/pypeman)
 
 # Installation
-
-  python setup.py install # 'develop' while developping
+  `python -m setup install  # to install 'normally'`
+  `python -m setup develop  # for development`
 
 # Usage
-
 Create a "settings.py" file with config in it.
-
 Create a "project.py" file in any folder containing for example:
 
 ```python

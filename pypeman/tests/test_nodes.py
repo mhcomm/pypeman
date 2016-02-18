@@ -7,6 +7,8 @@ class FakeChannel():
     def __init__(self):
         self.logger = logging.getLogger()
         self.uuid = 'fakeChannel'
+        self.name = 'fakeChannel'
+        self.parent_uids = None
 
 class NodesTests(unittest.TestCase):
    def setUp(self):
@@ -47,4 +49,3 @@ class NodesTests(unittest.TestCase):
            return ret
 
        self.loop.run_until_complete(go())
-

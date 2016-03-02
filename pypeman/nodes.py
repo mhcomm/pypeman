@@ -75,8 +75,15 @@ class ThreadNode(BaseNode):
 
     @asyncio.coroutine
     def handle(self, msg):
+        def process(*args, **kwargs):
+            try:
+                return self.process(*args, **kwargs)
+            except:
+                logger.exception("Error while handling message in ThreadNode")
+                raise
+                
         with ThreadPoolExecutor(max_workers=1) as executor:
-            result = yield from loop.run_in_executor(executor, self.process, msg)
+            result = yield from loop.run_in_executor(executor, process, msg)
             return result
 
 
@@ -189,11 +196,10 @@ class FileStoreBackend():
                    'hour': today.hour,
                    'second': today.second,
                    'muid': message.uuid,
-                   'cuid': self.channel.uuid
+                   'cuid': getattr(self.channel, 'uuid', '???')
                    }
 
         filepath = os.path.join(self.path, self.filename % context)
-
         try:
             # Make missing dir if any
             os.makedirs(os.path.dirname(filepath))
@@ -223,6 +229,7 @@ class MessageStore(ThreadNode):
 
 
     def process(self, msg):
+        
         self.backend.store(msg)
         return msg
 

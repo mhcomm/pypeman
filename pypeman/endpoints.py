@@ -42,6 +42,7 @@ class HTTPEndpoint(BaseEndpoint):
         if not self._app:
             loop = asyncio.get_event_loop()
             self._app = ext['aiohttp_web'].Application(loop=loop)
+        # TODO route should be added later
         self._app.router.add_route(*args, **kwargs)
 
     @asyncio.coroutine

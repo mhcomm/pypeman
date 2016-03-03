@@ -32,6 +32,7 @@ class BaseNode:
 
         self.name = kwargs.pop('name',self.__class__.__name__ + "_" + str(len(all)))
 
+
     def requirements(self):
         """ List dependencies of modules if any """
         return self.dependencies
@@ -260,18 +261,6 @@ class PythonToHL7(BaseNode):
         return msg
 
 
-
-'''class FileWriter(ThreadNode):
-    def __init__(self, *args, **kwargs):
-        self.path = kwargs.pop('path')
-        self.binary_mode = kwargs.pop('binary_mode', False)
-        super().__init__(*args, **kwargs)
-
-    def process(self, msg):
-        with open(self.path, 'w' + ('b' if self.binary_mode else '')) as file:
-            file.write(msg.payload)
-        return msg'''
-
 class FileWriter(BaseNode):
     def __init__(self, filename=None, path=None, binary_mode=False, *args, **kwargs):
         self.filename = filename
@@ -304,6 +293,7 @@ class FileWriter(BaseNode):
 
         dest = os.path.join(path, name % context)
 
+        # TODO binary doenst work
         with open(dest, 'w' + ('b' if self.binary_mode else '')) as file_:
             file_.write(msg.payload)
 

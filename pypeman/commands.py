@@ -50,6 +50,7 @@ def main():
 
     load_project()
 
+    # Import modules for endpoints
     for end in endpoints.all:
         end.import_modules()
 
@@ -135,6 +136,6 @@ def debug():
 
 
 @begin.start
-def run():
+def run(test=False):
     """ Pypeman is a minimalistic but pragmatic ESB/ETL in python """
     pass

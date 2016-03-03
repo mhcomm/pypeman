@@ -141,7 +141,6 @@ class SubChannel(BaseChannel):
     pass
 
 
-
 class ConditionSubChannel(BaseChannel):
     """ ConditionSubchannel used for make alternative path """
     def __init__(self, condition, **kwargs):
@@ -213,7 +212,6 @@ class FileWatcherChannel(BaseChannel):
     @asyncio.coroutine
     def start(self):
         asyncio.async(self.watch_for_file())
-
 
     def file_status(self, filename):
         if filename in self.data:

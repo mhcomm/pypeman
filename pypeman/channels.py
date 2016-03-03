@@ -226,27 +226,28 @@ class FileWatcherChannel(BaseChannel):
             return FileWatcherChannel.NEW
 
     def watch_for_file(self):
-        listfile = os.listdir(self.path)
-        listfile.sort()
+        try:
+            listfile = os.listdir(self.path)
+            listfile.sort()
 
-        for filename in listfile:
-            if self.re.match(filename):
-                status = self.file_status(filename)
-                # TODO watch deleted files ?
-                if status in [FileWatcherChannel.MODIFIED, FileWatcherChannel.NEW]:
-                    filepath = os.path.join(self.path, filename)
-                    self.data[filename] =  os.stat(filepath).st_mtime
+            for filename in listfile:
+                if self.re.match(filename):
+                    status = self.file_status(filename)
+                    # TODO watch deleted files ?
+                    if status in [FileWatcherChannel.MODIFIED, FileWatcherChannel.NEW]:
+                        filepath = os.path.join(self.path, filename)
+                        self.data[filename] =  os.stat(filepath).st_mtime
 
-                    # Read file and make message
-                    with open(filepath, "r") as file:
-                        msg = message.Message()
-                        msg.payload = file.read()
-                        msg.meta['filename'] = filename
-                        msg.meta['filepath'] = filepath
-                        yield from self.process(msg)
-
-        yield from asyncio.sleep(self.interval)
-        asyncio.async(self.watch_for_file())
+                        # Read file and make message
+                        with open(filepath, "r") as file:
+                            msg = message.Message()
+                            msg.payload = file.read()
+                            msg.meta['filename'] = filename
+                            msg.meta['filepath'] = filepath
+                            yield from self.process(msg)
+        finally:
+            yield from asyncio.sleep(self.interval)
+            asyncio.async(self.watch_for_file())
 
 
 class TimeChannel(BaseChannel):

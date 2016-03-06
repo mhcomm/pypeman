@@ -44,7 +44,7 @@ def load_project():
 
 
 def main():
-    print('Start...')
+    print('\nStart...')
 
     loop = asyncio.get_event_loop()
 
@@ -71,7 +71,17 @@ def main():
     try:
         loop.run_forever()
     except KeyboardInterrupt:
-        loop.close()
+        pass
+
+    print("End started tasks...")
+
+    for chan in channels.all:
+        loop.run_until_complete(chan.stop())
+
+    pending = asyncio.Task.all_tasks()
+    loop.run_until_complete(asyncio.gather(*pending))
+
+    loop.close()
 
 
 @begin.subcommand

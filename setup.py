@@ -20,6 +20,6 @@ setup(name='pypeman',
             'pypeman = pypeman.commands:run.start',
         ]},
       test_suite='nose.collector',
-      install_requires=[],
+      install_requires=['begins'],
       tests_require=['nose', 'nose-cover3'],
       zip_safe=False)

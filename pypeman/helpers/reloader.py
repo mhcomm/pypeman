@@ -11,24 +11,32 @@ def check_for_newerfile(future, lockfile, interval):
     exists = os.path.exists
     mtime = lambda p: os.stat(p).st_mtime
     files = dict()
-    status = None
 
     for module in list(sys.modules.values()):
         path = getattr(module, '__file__', '')
         if path[-4:] in ('.pyo', '.pyc'): path = path[:-1]
         if path and exists(path): files[path] = mtime(path)
 
-    while not status:
+    @asyncio.coroutine
+    def reccur():
+        status = None
+        yield from asyncio.sleep(interval)
+
         if not exists(lockfile) or mtime(lockfile) < time.time() - interval - 5:
             status = 'error'
+
         for path, lmtime in list(files.items()):
             if not exists(path) or mtime(path) > lmtime:
                 status = 'reload'
                 print('Pending reload...')
                 break
-        yield from asyncio.sleep(interval)
-    future.set_result(status)
-    return status
+
+        if status:
+           future.set_result(status)
+        else:
+           asyncio.async(reccur())
+
+    asyncio.async(reccur())
 
 
 def reloader_opt(to_call, reloader, interval):
@@ -66,7 +74,9 @@ def reloader_opt(to_call, reloader, interval):
 
             def done(future):
                 # Stop event loop
-                asyncio.get_event_loop().stop()
+                loop = asyncio.get_event_loop()
+                if loop.is_running() and future.result() != 'error':
+                    loop.stop()
 
             future.add_done_callback(done)
 
@@ -74,10 +84,6 @@ def reloader_opt(to_call, reloader, interval):
 
             if future.done() and future.result() == 'reload':
                 sys.exit(3)
-
-            #print(ident(), "End task")
-            #pending = asyncio.Task.all_tasks()
-            #loop.run_until_complete(asyncio.gather(*pending))
 
         else:
             to_call()

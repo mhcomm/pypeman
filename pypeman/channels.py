@@ -31,12 +31,15 @@ class Break(Exception):
 
 
 class BaseChannel:
+    STARTING, RUNNING, STOPPING, STOPPED  = range(4)
+
     dependencies = [] # List of module requirements
 
     def __init__(self, name=None, parent_channel=None):
         self.uuid = uuid.uuid4()
         all.append(self)
         self._nodes = []
+        self.status = None
         if name:
             self.name = name
         else:
@@ -63,6 +66,11 @@ class BaseChannel:
     def start(self):
         """ Start the channel """
         pass
+
+    @asyncio.coroutine
+    def stop(self):
+        """ Stop the channel """
+        self.status = BaseChannel.STOPPING
 
     def add(self, *args):
         for node in args:
@@ -220,12 +228,13 @@ class FileWatcherChannel(BaseChannel):
             new_mtime = os.stat(filepath).st_mtime
             if new_mtime == old_mtime:
                 return FileWatcherChannel.UNCHANGED
-            elif new_mtime >= old_mtime:
+            elif new_mtime > old_mtime:
                 return FileWatcherChannel.MODIFIED
         else:
             return FileWatcherChannel.NEW
 
     def watch_for_file(self):
+        yield from asyncio.sleep(self.interval)
         try:
             listfile = os.listdir(self.path)
             listfile.sort()
@@ -246,8 +255,8 @@ class FileWatcherChannel(BaseChannel):
                             msg.meta['filepath'] = filepath
                             yield from self.process(msg)
         finally:
-            yield from asyncio.sleep(self.interval)
-            asyncio.async(self.watch_for_file())
+            if not self.status in (BaseChannel.STOPPING, BaseChannel.STOPPED,):
+                asyncio.async(self.watch_for_file())
 
 
 class TimeChannel(BaseChannel):

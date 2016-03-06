@@ -31,8 +31,6 @@ class HTTPEndpoint(BaseEndpoint):
         self.port = port
 
     def import_modules(self):
-        print('importing')
-
         if 'aiohttp_web' not in ext:
             from aiohttp import web
 

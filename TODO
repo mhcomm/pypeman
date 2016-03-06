@@ -7,12 +7,11 @@ Implement mllp client node
 Implement sql querier node
 Implement sql saver node
 Implement http requester node
-Implement iterator node
-Think about testing channel
+Think about channel testing
 Channel joining ?
 Write Documentation
-Better reload
 Add multi message to nodes ?
+Implement iterator node
 (Use generators ?
 >>> import types
 >>> types.GeneratorType
@@ -28,9 +27,13 @@ https://docs.python.org/2/library/inspect.html#inspect.isgenerator
 )
 Find better way to handle external dependencies without breaking dep checking
 Savepoints and auto reload when pypeman stop
-Instrospection to know what is happening in realtime
 Store with message status (Message broker ?) with replay or abort action
 Use aiofiles for file writing
+Handle channel states
+Instrospection to know what is happening in realtime
+Add web IHM to control execution in real time
+Add way to replay stored message
+Add status to stored messages
 
 
 

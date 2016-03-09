@@ -25,7 +25,7 @@ from pypeman import channels
 from pypeman import nodes
 from pypeman import endpoints
 
-from pypyman.conf import settings
+from pypeman.conf import settings
 
 # At least one end point MUST be specified
 # http = endpoints.HTTPEndpoint(address='0.0.0.0', port='8080')
@@ -34,7 +34,7 @@ from pypyman.conf import settings
 
 SETTINGS_TEMPLATE = """\
 # This is the local settings File For pypeman
-# This file should contain all settings, that should NOT added to your version control
+# This file should contain all settings, that should NOT be added to your version control
 # System.
 # This file should contain settings like log settings, urls, usernames, passwords
 
@@ -77,7 +77,12 @@ PJT_SETTINGS_TEMPLATE = """\
 # This file should contain all settings, that should be added to your version control
 # System
 
-# At the moment we really don't have anythong useful project wide.
+# At the moment we really don't have anything useful project wide.
 # Let's think about a good example
-"""
 
+import os
+
+# settings var pointing to project's directory
+PJT_DIR = os.path.realpath(os.path.dirname(__file__))
+
+"""

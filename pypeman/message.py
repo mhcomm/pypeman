@@ -15,6 +15,10 @@ class Message():
         if meta is None:
             meta = {}
         self.meta = meta
-
+        
+        self.ctx = {}
+        
     def copy(self):
         return copy.deepcopy(self)
+        
+    # TODO : add_ctx and delete_ctx 

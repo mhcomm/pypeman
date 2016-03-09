@@ -20,8 +20,11 @@ import pypeman.default_settings as default_settings
 import logging
 import logging.config
 
-NOT_FOUND = object()
+NOT_FOUND = object() # sentinel object
+
+
 class Settings():
+    """ pypeman projects settings. rather similiar implemantionts to django.conf.settings """
 
     def __init__(self):
         self.__dict__['_settings_mod'] = None
@@ -54,6 +57,7 @@ class Settings():
         logging.config.dictConfig(self.__dict__['LOGGING'])
 
     def __getattr__(self, name):
+        """ lazy getattr. first access imports and populates settings """
         if name in self.__dict__:
             return self.__dict__[name]
 
@@ -61,7 +65,6 @@ class Settings():
             self._init_settings()
 
         return self.__dict__[name]
-
 
     def __setattr__(self, name, value):
         """ make sure nobody tries to modify settings manually """

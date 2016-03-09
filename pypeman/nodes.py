@@ -15,6 +15,8 @@ from pypeman.channels import Dropped, Break
 logger = logging.getLogger(__name__)
 loop = asyncio.get_event_loop()
 
+from copy import deepcopy
+
 # All declared nodes register here
 all = []
 
@@ -29,10 +31,11 @@ class BaseNode:
     def __init__(self, *args, **kwargs):
         self.channel = None
         all.append(self)
-
         self.name = kwargs.pop('name',self.__class__.__name__ + "_" + str(len(all)))
-
-
+        self.store_output_as = kwargs.pop('store_output_as', None)
+        self.store_input_as = kwargs.pop('store_input_as', None)
+        self.passthrough = kwargs.pop('passthrough', None)
+        
     def requirements(self):
         """ List dependencies of modules if any """
         return self.dependencies
@@ -43,13 +46,27 @@ class BaseNode:
 
     @asyncio.coroutine
     def handle(self, msg):
+        # TODO : Make sure exceptions are well raised (does not happen if i.e 1/0 here atm)
+        if self.store_input_as:
+            msg.ctx[self.store_input_as] = dict(
+                meta=dict(msg.meta), 
+                payload=deepcopy(msg.payload),
+            )
+            
         result = yield from asyncio.coroutine(self.process)(msg)
+        
+        if self.store_output_as:
+            result.ctx[self.store_output_as] = dict(
+                meta=dict(result.meta), 
+                payload=deepcopy(result.payload),
+            )
+            
+        result = msg if self.passthrough else result
         return result
 
     def process(self, msg):
         return msg
-
-
+        
 class RaiseError(BaseNode):
     def process(self, msg):
         raise Exception("Test node")
@@ -69,27 +86,45 @@ class Empty(BaseNode):
     def process(self, msg):
         return Message()
 
+class SetCtx(BaseNode):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.ctx_name = kwargs.pop('ctx_name')
+
+    def process(self, msg):
+        msg.meta = msg.ctx[self.ctx_name]['meta']
+        msg.payload = msg.ctx[self.ctx_name]['payload']
+        
+        return msg
 
 class ThreadNode(BaseNode):
     # TODO create class ThreadPool ?
 
     @asyncio.coroutine
     def handle(self, msg):
-        def process(*args, **kwargs):
-            try:
-                return self.process(*args, **kwargs)
-            except:
-                logger.exception("Error while handling message in ThreadNode")
-                raise
-                
+        if self.store_input_as:
+            msg.ctx[self.store_input_as] = dict(
+                meta=dict(msg.meta), 
+                payload=deepcopy(msg.payload),
+            )
+
         with ThreadPoolExecutor(max_workers=1) as executor:
-            result = yield from loop.run_in_executor(executor, process, msg)
-            return result
-
-
+            result = yield from loop.run_in_executor(executor, self.process, msg)
+            
+        if self.store_output_as:
+            result.ctx[self.store_output_as] = dict(
+                meta=dict(result.meta), 
+                payload=deepcopy(result.payload),
+            )
+            
+        result = msg if self.passthrough else result
+        
+        return result
+            
 class Log(BaseNode):
     def __init__(self, *args, **kwargs):
         self.lvl = kwargs.pop('level', logging.DEBUG)
+        self.show_ctx = kwargs.pop('show_ctx', None)
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
@@ -98,13 +133,19 @@ class Log(BaseNode):
             self.channel.logger.log(self.lvl, 'Parent channels: %r', self.channel.parent_names)
         self.channel.logger.log(self.lvl, 'Uid message: %r', msg.uuid)
         self.channel.logger.log(self.lvl, 'Payload: %r', msg.payload)
-
+        if self.show_ctx:
+            self.channel.logger.log(self.lvl, 'Contexts: %r', [ctx for ctx in msg.ctx])
+        
         return msg
 
-
 class JsonToPython(BaseNode):
+    # encoding management
+    def __init__(self, *args, **kwargs):
+        self.encoding = kwargs.pop('encoding', 'utf-8')
+        super().__init__(*args, **kwargs)
+        
     def process(self, msg):
-        msg.payload = json.loads(msg.payload)
+        msg.payload = json.loads(msg.payload, encoding=self.encoding)
         msg.content_type = 'application/python'
         return msg
 
@@ -166,9 +207,13 @@ class Decode(BaseNode):
     def __init__(self, *args, **kwargs):
         self.encoding = kwargs.pop('encoding', 'utf-8')
         super().__init__(*args, **kwargs)
-
+        
     def process(self, msg):
+        print(msg)
+        print()
         msg.payload = msg.payload.decode(self.encoding)
+        print(msg)
+        print()
         return msg
 
 
@@ -200,6 +245,7 @@ class FileStoreBackend():
                    }
 
         filepath = os.path.join(self.path, self.filename % context)
+
         try:
             # Make missing dir if any
             os.makedirs(os.path.dirname(filepath))
@@ -229,10 +275,8 @@ class MessageStore(ThreadNode):
 
 
     def process(self, msg):
-        
         self.backend.store(msg)
         return msg
-
 
 class HL7ToPython(BaseNode):
     dependencies = ['hl7']
@@ -268,6 +312,18 @@ class PythonToHL7(BaseNode):
         return msg
 
 
+
+'''class FileWriter(ThreadNode):
+    def __init__(self, *args, **kwargs):
+        self.path = kwargs.pop('path')
+        self.binary_mode = kwargs.pop('binary_mode', False)
+        super().__init__(*args, **kwargs)
+
+    def process(self, msg):
+        with open(self.path, 'w' + ('b' if self.binary_mode else '')) as file:
+            file.write(msg.payload)
+        return msg'''
+
 class FileWriter(BaseNode):
     def __init__(self, filename=None, path=None, binary_mode=False, *args, **kwargs):
         self.filename = filename
@@ -300,7 +356,6 @@ class FileWriter(BaseNode):
 
         dest = os.path.join(path, name % context)
 
-        # TODO binary doenst work
         with open(dest, 'w' + ('b' if self.binary_mode else '')) as file_:
             file_.write(msg.payload)
 
@@ -351,3 +406,59 @@ class MappingNode(BaseNode):
             setattr(dest, parts[-1], new_dict)
 
         return msg
+
+class RequestNode(ThreadNode):
+    """ Request Node """
+    dependencies = ['requests']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.url = kwargs.pop('url')
+        self.content_type = kwargs.pop('content_type', None)
+        self.auth = kwargs.pop('auth', None)
+        self.verify = kwargs.pop('verify', False)
+        self.url = self.url.replace('%(meta.', '%(')
+        self.payload_in_url_dict = 'payload.' in self.url
+        
+        # TODO: create used payload keys for better perf of generate_request_url()
+
+    def import_modules(self):
+        """ import modules """
+        if 'requests' not in ext:
+            import requests
+            ext['requests'] = requests
+    
+    def generate_request_url(self, msg):
+    
+        logger.debug('%r', msg.payload)
+        logger.debug(type(msg.payload))
+    
+        url_dict = msg.meta
+        if self.payload_in_url_dict:
+            url_dict = dict(url_dict)
+            try:
+                for key, val in msg.payload.items():
+                    url_dict['payload.' + key] = val
+            except AttributeError:
+                logger.exception("Payload must be a python dict if used to generate url. This can be fixed using JsonToPython node before your RequestNode")
+                raise 
+                
+        logger.debug("completing url %r with data from %r" % (self.url, url_dict))
+        return self.url % url_dict 
+    
+    def handle_request(self, msg):
+        """ generate url and handle request """
+        url = self.generate_request_url(msg)
+        logger.debug(url)
+        resp = ext['requests'].get(url=url, auth=self.auth, verify=self.verify)
+        return str(resp.text)
+        
+    def process(self, msg):
+        """ handles request """
+        logger.debug(msg)
+        msg.payload = self.handle_request(msg)
+        
+        return msg
+        
+        
+        

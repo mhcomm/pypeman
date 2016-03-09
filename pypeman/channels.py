@@ -165,10 +165,11 @@ class HttpChannel(BaseChannel):
     dependencies = ['aiohttp']
     app = None
 
-    def __init__(self, endpoint=None, method='*', url='/'):
+    def __init__(self, endpoint=None, method='*', url='/', encoding=None):
         super().__init__()
         self.method = method
         self.url = url
+        self.encoding = encoding
         if endpoint is None:
             raise TypeError('Missing "endpoint" argument')
         self.http_endpoint = endpoint
@@ -176,7 +177,6 @@ class HttpChannel(BaseChannel):
     def import_modules(self):
         if 'aiohttp_web' not in ext:
             from aiohttp import web
-
             ext['aiohttp_web'] = web
 
     @asyncio.coroutine
@@ -189,12 +189,15 @@ class HttpChannel(BaseChannel):
         msg = message.Message(content_type='http_request', payload=content, meta={'method': request.method})
         try:
             result = yield from self.process(msg)
+            encoding = self.encoding or 'utf-8'
+            return ext['aiohttp_web'].Response(body=result.payload.encode(encoding), status=result.meta.get('status', 200))
+            
         except Dropped:
             return ext['aiohttp_web'].Response(body="Dropped".encode('utf-8'), status=200)
         except Exception as e:
             return ext['aiohttp_web'].Response(body=str(e).encode('utf-8'), status=503)
-
-        return ext['aiohttp_web'].Response(body=result.payload.encode('utf-8'), status=result.meta.get('status', 200))
+            
+        
 
 
 class FileWatcherChannel(BaseChannel):

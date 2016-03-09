@@ -46,10 +46,10 @@ def load_project():
 def main():
     print('\nStart...')
 
-    loop = asyncio.get_event_loop()
 
     load_project()
 
+    loop = asyncio.get_event_loop()
     # Import modules for endpoints
     for end in endpoints.all:
         end.import_modules()

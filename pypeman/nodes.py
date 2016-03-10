@@ -325,11 +325,12 @@ class PythonToHL7(BaseNode):
         return msg'''
 
 class FileWriter(BaseNode):
-    def __init__(self, filename=None, path=None, binary_mode=False, *args, **kwargs):
+    def __init__(self, filename=None, path=None, binary_mode=False, safe_file=False, *args, **kwargs):
         self.filename = filename
         self.path = path
         self.binary_mode = binary_mode
         self.counter = 0
+        self.safe_file = safe_file
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
@@ -355,9 +356,13 @@ class FileWriter(BaseNode):
                    }
 
         dest = os.path.join(path, name % context)
-
+        if self.safe_file:
+            old_file = dest
+            dest = old_file + '.tmp'
         with open(dest, 'w' + ('b' if self.binary_mode else '')) as file_:
             file_.write(msg.payload)
+        if self.safe_file:
+            os.rename(dest, old_file)
 
         self.counter += 1
 

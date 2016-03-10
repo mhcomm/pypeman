@@ -4,7 +4,8 @@ import os
 import uuid
 import logging
 import re
-from enum import Enum
+import types
+
 
 
 from pypeman import endpoints, message
@@ -30,6 +31,15 @@ class Break(Exception):
     pass
 
 
+class Output():
+    def __init__(self, channel):
+        self.channel = channel
+
+    @asyncio.coroutine
+    def handle(self, msg):
+        self.channel.set_result(msg)
+        return msg
+
 class BaseChannel:
     STARTING, RUNNING, STOPPING, STOPPED  = range(4)
 
@@ -37,14 +47,18 @@ class BaseChannel:
 
     def __init__(self, name=None, parent_channel=None):
         self.uuid = uuid.uuid4()
+
         all.append(self)
         self._nodes = []
         self.status = None
+
         if name:
             self.name = name
         else:
             self.name = self.__class__.__name__ + "_" + str(len(all))
+
         self.logger = logging.getLogger(self.name)
+
         if parent_channel:
             self.parent_uids = [parent_channel.uuid]
             self.parent_names = [parent_channel.name]
@@ -53,6 +67,9 @@ class BaseChannel:
                 self.parent_names.append(parent_channel.parent_names)
         else:
             self.parent_uids = None
+
+        self.results = {}
+        self.next_node = None
 
     def requirements(self):
         """ List dependencies of modules if any """
@@ -65,7 +82,7 @@ class BaseChannel:
     @asyncio.coroutine
     def start(self):
         """ Start the channel """
-        pass
+        self.compute_node_graph()
 
     @asyncio.coroutine
     def stop(self):
@@ -88,29 +105,36 @@ class BaseChannel:
         self._nodes.append(s)
         return s
 
-    '''def join(self, node):
-        self._nodes.append(node.new_input())'''
+    def set_result(self, msg):
+        self.results[str(msg.uuid)].set_result(msg)
+
+    def compute_node_graph(self):
+        previous_node = self._nodes[0]
+
+        for node in self._nodes[1:]:
+            previous_node.next_node = node
+            previous_node = node
 
     @asyncio.coroutine
-    def process(self, message):
-        # TODO Save message here at start
-        result = message
+    def handle(self, msg):
+        result = yield from self.process(msg)
 
-        for node in self._nodes:
-            if isinstance(node, SubChannel):
-                asyncio.async(node.process(result.copy()))
+        if self.next_node:
 
-            elif isinstance(node, ConditionSubChannel):
-                if node.test_condition(result):
-                    result = yield from node.process(result)
-                    return result
+            if isinstance(result, types.GeneratorType):
+                for res in result:
+                    result = yield from self.next_node.handle(res)
+                    # TODO Here result is last value returned. Is it a good idea ?
             else:
-                try:
-                    result = yield from node.handle(result)
-                except Break:
-                    break
+                result = yield from self.next_node.handle(result)
 
         return result
+
+    @asyncio.coroutine
+    def process(self, msg):
+        first_node = self._nodes[0]
+        res = yield from first_node.handle(msg)
+        return res
 
     def graph(self, prefix='', dot=False):
         for node in self._nodes:
@@ -146,11 +170,14 @@ class BaseChannel:
 
 class SubChannel(BaseChannel):
     """ Subchannel used for fork """
-    pass
 
+    @asyncio.coroutine
+    def process(self, msg):
+        asyncio.async(self._nodes[0].handle(msg.copy()))
+        return msg
 
 class ConditionSubChannel(BaseChannel):
-    """ ConditionSubchannel used for make alternative path """
+    """ ConditionSubchannel used for make alternative path but join at the end """
     def __init__(self, condition, **kwargs):
         super().__init__(**kwargs)
         self.condition = condition
@@ -159,6 +186,14 @@ class ConditionSubChannel(BaseChannel):
         if callable(self.condition):
             return self.condition(msg)
         return True
+
+    @asyncio.coroutine
+    def process(self, msg):
+        if self.test_condition(msg):
+            result = yield from self._nodes[0].handle(msg)
+            return result
+
+        return msg
 
 
 class HttpChannel(BaseChannel):
@@ -181,6 +216,7 @@ class HttpChannel(BaseChannel):
 
     @asyncio.coroutine
     def start(self):
+        yield from super().start()
         self.http_endpoint.add_route(self.method, self.url, self.handle)
 
     @asyncio.coroutine
@@ -226,6 +262,7 @@ class FileWatcherChannel(BaseChannel):
 
     @asyncio.coroutine
     def start(self):
+        yield from super().start()
         asyncio.async(self.watch_for_file())
 
     def file_status(self, filename):
@@ -265,7 +302,8 @@ class FileWatcherChannel(BaseChannel):
                                 msg.payload = file.read()
                                 msg.meta['filename'] = filename
                                 msg.meta['filepath'] = filepath
-                                yield from self.process(msg)
+                                asyncio.async(self.process(msg))
+
         finally:
             if not self.status in (BaseChannel.STOPPING, BaseChannel.STOPPED,):
                 asyncio.async(self.watch_for_file())
@@ -286,10 +324,11 @@ class TimeChannel(BaseChannel):
 
     @asyncio.coroutine
     def start(self):
+        super().start()
         ext['aiocron_crontab'](self.cron, func=self.handle, start=True)
 
     @asyncio.coroutine
-    def handle(self):
+    def handle(self, msg):
         msg = message.Message()
         msg.payload = datetime.datetime.now()
         result = yield from self.process(msg)
@@ -312,6 +351,7 @@ class MLLPChannel(BaseChannel):
 
     @asyncio.coroutine
     def start(self):
+        yield from super().start()
         self.mllp_endpoint.set_handler(handler=self.handle)
 
     @asyncio.coroutine

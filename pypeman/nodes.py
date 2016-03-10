@@ -1,5 +1,6 @@
 import os
 import json
+import types
 import asyncio
 import logging
 
@@ -35,6 +36,7 @@ class BaseNode:
         self.store_output_as = kwargs.pop('store_output_as', None)
         self.store_input_as = kwargs.pop('store_input_as', None)
         self.passthrough = kwargs.pop('passthrough', None)
+        self.next_node = None
         
     def requirements(self):
         """ List dependencies of modules if any """
@@ -52,8 +54,17 @@ class BaseNode:
                 meta=dict(msg.meta), 
                 payload=deepcopy(msg.payload),
             )
-            
-        result = yield from asyncio.coroutine(self.process)(msg)
+
+        result = yield from self.run(msg)
+
+        if self.next_node:
+
+            if isinstance(result, types.GeneratorType):
+                for res in result:
+                    result = yield from self.next_node.handle(res)
+                    # TODO Here result is last value returned. Is it a good idea ?
+            else:
+                result = yield from self.next_node.handle(result)
         
         if self.store_output_as:
             result.ctx[self.store_output_as] = dict(
@@ -62,10 +73,19 @@ class BaseNode:
             )
             
         result = msg if self.passthrough else result
+
+        return result
+
+    @asyncio.coroutine
+    def run(self, msg):
+        result = self.process(msg)
         return result
 
     def process(self, msg):
         return msg
+
+    def __str__(self):
+        return "<Node %s>" % self.name
         
 class RaiseError(BaseNode):
     def process(self, msg):
@@ -86,6 +106,7 @@ class Empty(BaseNode):
     def process(self, msg):
         return Message()
 
+
 class SetCtx(BaseNode):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -101,25 +122,11 @@ class ThreadNode(BaseNode):
     # TODO create class ThreadPool ?
 
     @asyncio.coroutine
-    def handle(self, msg):
-        if self.store_input_as:
-            msg.ctx[self.store_input_as] = dict(
-                meta=dict(msg.meta), 
-                payload=deepcopy(msg.payload),
-            )
-
-        with ThreadPoolExecutor(max_workers=1) as executor:
+    def run(self, msg):
+        with ThreadPoolExecutor(max_workers=3) as executor:
             result = yield from loop.run_in_executor(executor, self.process, msg)
-            
-        if self.store_output_as:
-            result.ctx[self.store_output_as] = dict(
-                meta=dict(result.meta), 
-                payload=deepcopy(result.payload),
-            )
-            
-        result = msg if self.passthrough else result
-        
         return result
+
             
 class Log(BaseNode):
     def __init__(self, *args, **kwargs):
@@ -209,11 +216,7 @@ class Decode(BaseNode):
         super().__init__(*args, **kwargs)
         
     def process(self, msg):
-        print(msg)
-        print()
         msg.payload = msg.payload.decode(self.encoding)
-        print(msg)
-        print()
         return msg
 
 

@@ -18,6 +18,7 @@ import asyncio
 import traceback
 import importlib
 import begin
+import warnings
 
 from pypeman.helpers.reloader import reloader_opt
 from pypeman import channels
@@ -50,6 +51,8 @@ def main():
     load_project()
 
     loop = asyncio.get_event_loop()
+    loop.set_debug(True)
+    warnings.simplefilter('default')
     # Import modules for endpoints
     for end in endpoints.all:
         end.import_modules()

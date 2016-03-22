@@ -191,19 +191,19 @@ class HttpChannel(BaseChannel):
             result = yield from self.process(msg)
             encoding = self.encoding or 'utf-8'
             return ext['aiohttp_web'].Response(body=result.payload.encode(encoding), status=result.meta.get('status', 200))
-            
+
         except Dropped:
             return ext['aiohttp_web'].Response(body="Dropped".encode('utf-8'), status=200)
         except Exception as e:
             return ext['aiohttp_web'].Response(body=str(e).encode('utf-8'), status=503)
-            
-        
+
+
 
 
 class FileWatcherChannel(BaseChannel):
     NEW, UNCHANGED, MODIFIED, DELETED  = range(4)
 
-    def __init__(self, path='', regex='.*', interval=1):
+    def __init__(self, path='', regex='.*', interval=1, binary_file=False):
         super().__init__()
         self.path = path
         self.regex = regex
@@ -212,6 +212,7 @@ class FileWatcherChannel(BaseChannel):
         self.dirflag = os.path.isdir(self.path)
         self.data = {}
         self.re = re.compile(self.regex)
+        self.binary_file = binary_file
 
         # Set mtime for all existing matching files
         for filename in os.listdir(self.path):
@@ -251,7 +252,11 @@ class FileWatcherChannel(BaseChannel):
                         self.data[filename] =  os.stat(filepath).st_mtime
 
                         # Read file and make message
-                        with open(filepath, "r") as file:
+                        if self.binary_file:
+                            mode = "rb"
+                        else:
+                            mode = "r"
+                        with open(filepath, mode) as file:
                             msg = message.Message()
                             msg.payload = file.read()
                             msg.meta['filename'] = filename

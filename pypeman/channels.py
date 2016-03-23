@@ -215,11 +215,14 @@ class FileWatcherChannel(BaseChannel):
         self.binary_file = binary_file
 
         # Set mtime for all existing matching files
-        for filename in os.listdir(self.path):
-            if self.re.match(filename):
-                filepath = os.path.join(self.path, filename)
-                mtime = os.stat(filepath).st_mtime
-                self.data[filename] = mtime
+        if os.path.exists(self.path):
+            for filename in os.listdir(self.path):
+                if self.re.match(filename):
+                    filepath = os.path.join(self.path, filename)
+                    mtime = os.stat(filepath).st_mtime
+                    self.data[filename] = mtime
+        else:
+            self.logger.warning('path not exist: %r', self.path)
 
     @asyncio.coroutine
     def start(self):
@@ -240,28 +243,29 @@ class FileWatcherChannel(BaseChannel):
     def watch_for_file(self):
         yield from asyncio.sleep(self.interval)
         try:
-            listfile = os.listdir(self.path)
-            listfile.sort()
+            if os.path.exists(self.path):
+                listfile = os.listdir(self.path)
+                listfile.sort()
 
-            for filename in listfile:
-                if self.re.match(filename):
-                    status = self.file_status(filename)
-                    # TODO watch deleted files ?
-                    if status in [FileWatcherChannel.MODIFIED, FileWatcherChannel.NEW]:
-                        filepath = os.path.join(self.path, filename)
-                        self.data[filename] =  os.stat(filepath).st_mtime
+                for filename in listfile:
+                    if self.re.match(filename):
+                        status = self.file_status(filename)
+                        # TODO watch deleted files ?
+                        if status in [FileWatcherChannel.MODIFIED, FileWatcherChannel.NEW]:
+                            filepath = os.path.join(self.path, filename)
+                            self.data[filename] =  os.stat(filepath).st_mtime
 
-                        # Read file and make message
-                        if self.binary_file:
-                            mode = "rb"
-                        else:
-                            mode = "r"
-                        with open(filepath, mode) as file:
-                            msg = message.Message()
-                            msg.payload = file.read()
-                            msg.meta['filename'] = filename
-                            msg.meta['filepath'] = filepath
-                            yield from self.process(msg)
+                            # Read file and make message
+                            if self.binary_file:
+                                mode = "rb"
+                            else:
+                                mode = "r"
+                            with open(filepath, mode) as file:
+                                msg = message.Message()
+                                msg.payload = file.read()
+                                msg.meta['filename'] = filename
+                                msg.meta['filepath'] = filepath
+                                yield from self.process(msg)
         finally:
             if not self.status in (BaseChannel.STOPPING, BaseChannel.STOPPED,):
                 asyncio.async(self.watch_for_file())

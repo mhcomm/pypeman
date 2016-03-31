@@ -19,6 +19,7 @@ import traceback
 import importlib
 import begin
 import warnings
+from functools import partial
 
 from pypeman.helpers.reloader import reloader_opt
 from pypeman import channels
@@ -44,15 +45,18 @@ def load_project():
         raise
 
 
-def main():
+def main(debug_asyncio=False):
     print('\nStart...')
 
 
     load_project()
 
     loop = asyncio.get_event_loop()
-    loop.set_debug(True)
-    warnings.simplefilter('default')
+
+    if debug_asyncio:
+        loop.set_debug(True)
+        warnings.simplefilter('default')
+
     # Import modules for endpoints
     for end in endpoints.all:
         end.import_modules()
@@ -88,9 +92,9 @@ def main():
 
 
 @begin.subcommand
-def start(reload: 'Make server autoreload (Dev only)'=False):
+def start(reload: 'Make server autoreload (Dev only)'=False, debug_asyncio: 'Enable asyncio debug'=False):
     """ Start pypeman """
-    reloader_opt(main, reload, 2)
+    reloader_opt(partial(main, debug_asyncio), reload, 2)
 
 
 @begin.subcommand

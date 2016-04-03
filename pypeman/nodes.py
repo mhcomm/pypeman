@@ -55,7 +55,7 @@ class BaseNode:
                 payload=deepcopy(msg.payload),
             )
 
-        result = yield from self.run(msg)
+        result = self.process(msg)
 
         if self.next_node:
 
@@ -122,10 +122,16 @@ class ThreadNode(BaseNode):
     # TODO create class ThreadPool ?
 
     @asyncio.coroutine
+    def handle(self, msg):
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            result = yield from loop.run_in_executor(executor, super().handle, msg)
+        return result
+
+    '''@asyncio.coroutine
     def run(self, msg):
         with ThreadPoolExecutor(max_workers=3) as executor:
             result = yield from loop.run_in_executor(executor, self.process, msg)
-        return result
+        return result'''
 
             
 class Log(BaseNode):
@@ -136,6 +142,7 @@ class Log(BaseNode):
 
     def process(self, msg):
         self.channel.logger.log(self.lvl, 'Channel: %r', self.channel.name)
+        self.channel.logger.log(self.lvl, 'Node: %r', self.name)
         if self.channel.parent_uids:
             self.channel.logger.log(self.lvl, 'Parent channels: %r', self.channel.parent_names)
         self.channel.logger.log(self.lvl, 'Uid message: %r', msg.uuid)

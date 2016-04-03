@@ -31,15 +31,6 @@ class Break(Exception):
     pass
 
 
-class Output():
-    def __init__(self, channel):
-        self.channel = channel
-
-    @asyncio.coroutine
-    def handle(self, msg):
-        self.channel.set_result(msg)
-        return msg
-
 class BaseChannel:
     STARTING, RUNNING, STOPPING, STOPPED  = range(4)
 
@@ -325,12 +316,17 @@ class TimeChannel(BaseChannel):
     @asyncio.coroutine
     def start(self):
         super().start()
-        ext['aiocron_crontab'](self.cron, func=self.handle, start=True)
+        ext['aiocron_crontab'](self.cron, func=self.tic, start=True)
+
+    @asyncio.coroutine
+    def tic(self):
+        msg = message.Message()
+        msg.payload = datetime.datetime.now()
+        yield from self.handle(msg)
+
 
     @asyncio.coroutine
     def handle(self, msg):
-        msg = message.Message()
-        msg.payload = datetime.datetime.now()
         result = yield from self.process(msg)
         return result
 

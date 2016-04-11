@@ -55,7 +55,10 @@ class BaseNode:
                 payload=deepcopy(msg.payload),
             )
 
-        result = self.process(msg)
+        result = self.run(msg)
+
+        if isinstance(result, asyncio.Future):
+            result = yield from result
 
         if self.next_node:
 
@@ -76,7 +79,6 @@ class BaseNode:
 
         return result
 
-    @asyncio.coroutine
     def run(self, msg):
         result = self.process(msg)
         return result
@@ -119,19 +121,13 @@ class SetCtx(BaseNode):
         return msg
 
 class ThreadNode(BaseNode):
-    # TODO create class ThreadPool ?
+    # TODO create class ThreadPool or channel ThreadPool or Global ?
 
-    @asyncio.coroutine
-    def handle(self, msg):
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            result = yield from loop.run_in_executor(executor, super().handle, msg)
-        return result
-
-    '''@asyncio.coroutine
     def run(self, msg):
         with ThreadPoolExecutor(max_workers=3) as executor:
-            result = yield from loop.run_in_executor(executor, self.process, msg)
-        return result'''
+            result = loop.run_in_executor(executor, self.process, msg)
+
+        return result
 
             
 class Log(BaseNode):

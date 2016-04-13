@@ -103,7 +103,14 @@ class BaseChannel:
         previous_node = self._nodes[0]
 
         for node in self._nodes[1:]:
+
+            '''# TODO remove this special case to keep old behaviour of condition subchannel
+            if isinstance(previous_node, ConditionSubChannel):
+                pass
+            else:'''
+
             previous_node.next_node = node
+
             previous_node = node
 
     @asyncio.coroutine
@@ -167,6 +174,7 @@ class SubChannel(BaseChannel):
         asyncio.async(self._nodes[0].handle(msg.copy()))
         return msg
 
+
 class ConditionSubChannel(BaseChannel):
     """ ConditionSubchannel used for make alternative path but join at the end """
     def __init__(self, condition, **kwargs):
@@ -178,21 +186,37 @@ class ConditionSubChannel(BaseChannel):
             return self.condition(msg)
         return True
 
+
+    # Keep this one to handle Condition sub channel as before
+    # TODO make a casesubchannel
     @asyncio.coroutine
+    def handle(self, msg):
+        if self.test_condition(msg):
+            result = yield from self.process(msg)
+        else:
+            if self.next_node:
+                result = yield from self.next_node.handle(msg)
+            else:
+                result = msg
+
+        return result
+
+    # Uncomment me to handle new way of condition subchannel
+    '''@asyncio.coroutine
     def process(self, msg):
         if self.test_condition(msg):
             result = yield from self._nodes[0].handle(msg)
             return result
 
-        return msg
+        return msg'''
 
 
 class HttpChannel(BaseChannel):
     dependencies = ['aiohttp']
     app = None
 
-    def __init__(self, endpoint=None, method='*', url='/', encoding=None):
-        super().__init__()
+    def __init__(self, *args, endpoint=None, method='*', url='/', encoding=None, **kwargs):
+        super().__init__(*args, **kwargs)
         self.method = method
         self.url = url
         self.encoding = encoding
@@ -230,8 +254,8 @@ class HttpChannel(BaseChannel):
 class FileWatcherChannel(BaseChannel):
     NEW, UNCHANGED, MODIFIED, DELETED  = range(4)
 
-    def __init__(self, path='', regex='.*', interval=1, binary_file=False):
-        super().__init__()
+    def __init__(self, *args, path='', regex='.*', interval=1, binary_file=False, **kwargs):
+        super().__init__(*args, **kwargs)
         self.path = path
         self.regex = regex
         self.interval = interval
@@ -303,8 +327,8 @@ class FileWatcherChannel(BaseChannel):
 class TimeChannel(BaseChannel):
     dependencies = ['aiocron']
 
-    def __init__(self, cron=''):
-        super().__init__()
+    def __init__(self, *args, cron='', **kwargs):
+        super().__init__(*args, **kwargs)
         self.cron = cron
 
     def import_modules(self):
@@ -334,8 +358,8 @@ class TimeChannel(BaseChannel):
 class MLLPChannel(BaseChannel):
     dependencies = ['hl7']
 
-    def __init__(self, endpoint=None):
-        super().__init__()
+    def __init__(self, *args, endpoint=None, **kwargs):
+        super().__init__(*args, **kwargs)
         if endpoint is None:
             raise TypeError('Missing "endpoint" argument')
         self.mllp_endpoint = endpoint

@@ -80,6 +80,7 @@ class BaseNode:
         return result
 
     def run(self, msg):
+        """ Used to overload behaviour like thread Node without rewriting handle process """
         result = self.process(msg)
         return result
 

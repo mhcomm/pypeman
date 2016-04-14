@@ -59,7 +59,6 @@ class BaseChannel:
         else:
             self.parent_uids = None
 
-        self.results = {}
         self.next_node = None
 
     def requirements(self):
@@ -73,7 +72,14 @@ class BaseChannel:
     @asyncio.coroutine
     def start(self):
         """ Start the channel """
-        self.compute_node_graph()
+        self.init_node_graph()
+
+    def init_node_graph(self):
+        previous_node = self._nodes[0]
+
+        for node in self._nodes[1:]:
+            previous_node.next_node = node
+            previous_node = node
 
     @asyncio.coroutine
     def stop(self):
@@ -96,23 +102,6 @@ class BaseChannel:
         self._nodes.append(s)
         return s
 
-    def set_result(self, msg):
-        self.results[str(msg.uuid)].set_result(msg)
-
-    def compute_node_graph(self):
-        previous_node = self._nodes[0]
-
-        for node in self._nodes[1:]:
-
-            '''# TODO remove this special case to keep old behaviour of condition subchannel
-            if isinstance(previous_node, ConditionSubChannel):
-                pass
-            else:'''
-
-            previous_node.next_node = node
-
-            previous_node = node
-
     @asyncio.coroutine
     def handle(self, msg):
         result = yield from self.process(msg)
@@ -130,8 +119,7 @@ class BaseChannel:
 
     @asyncio.coroutine
     def process(self, msg):
-        first_node = self._nodes[0]
-        res = yield from first_node.handle(msg)
+        res = yield from self._nodes[0].handle(msg)
         return res
 
     def graph(self, prefix='', dot=False):
@@ -177,6 +165,7 @@ class SubChannel(BaseChannel):
 
 class ConditionSubChannel(BaseChannel):
     """ ConditionSubchannel used for make alternative path but join at the end """
+
     def __init__(self, condition, **kwargs):
         super().__init__(**kwargs)
         self.condition = condition
@@ -247,8 +236,6 @@ class HttpChannel(BaseChannel):
             return ext['aiohttp_web'].Response(body="Dropped".encode('utf-8'), status=200)
         except Exception as e:
             return ext['aiohttp_web'].Response(body=str(e).encode('utf-8'), status=503)
-
-
 
 
 class FileWatcherChannel(BaseChannel):

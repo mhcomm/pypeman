@@ -7,7 +7,6 @@ import re
 import types
 
 
-
 from pypeman import endpoints, message
 
 logger = logging.getLogger(__name__)

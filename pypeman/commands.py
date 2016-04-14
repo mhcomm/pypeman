@@ -70,7 +70,7 @@ def main(debug_asyncio=False):
         chan.import_modules()
         loop.run_until_complete(chan.start())
 
-    # And endpoints
+    # And endpoints
     for end in endpoints.all:
         loop.run_until_complete(end.start())
 

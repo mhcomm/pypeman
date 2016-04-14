@@ -304,7 +304,9 @@ class FileWatcherChannel(BaseChannel):
                                 msg.payload = file.read()
                                 msg.meta['filename'] = filename
                                 msg.meta['filepath'] = filepath
-                                asyncio.async(self.process(msg))
+                                yield from self.process(msg)
+                                # TODO add option to handle message async (next line)
+                                # asyncio.async(self.process(msg))
 
         finally:
             if not self.status in (BaseChannel.STOPPING, BaseChannel.STOPPED,):

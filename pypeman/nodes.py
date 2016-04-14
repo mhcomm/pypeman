@@ -311,6 +311,17 @@ class FileStoreBackend():
         self.counter += 1
 
 
+class SQLiteStoreBackend():
+    dependencies = ['sqlite3']
+    def __init__(self, path):
+        self.path = path
+        self.counter = 0
+
+    def store(self, message):
+        pass
+
+
+
 class MessageStore(ThreadNode):
     """ Store a message in specified store """
     def __init__(self, *args, **kwargs):
@@ -538,6 +549,7 @@ class RequestNode(ThreadNode):
                 raise
 
         logger.debug("Completing url %r with data from %r" % (self.url, url_dict))
+
         return self.url % url_dict
 
     def handle_request(self, msg):
@@ -570,7 +582,6 @@ class ToOrderedDict(BaseNode):
         if path:
             self.path += '.' + path
         super().__init__(*args, **kwargs)
-
 
     def process(self, msg):
         current = msg

@@ -35,7 +35,7 @@ class BaseChannel:
 
     dependencies = [] # List of module requirements
 
-    def __init__(self, name=None, parent_channel=None):
+    def __init__(self, name=None, parent_channel=None, loop=None):
         self.uuid = uuid.uuid4()
 
         all.append(self)
@@ -46,6 +46,11 @@ class BaseChannel:
             self.name = name
         else:
             self.name = self.__class__.__name__ + "_" + str(len(all))
+
+        if loop is None:
+            self.loop = asyncio.get_event_loop()
+        else:
+            self.loop = loop
 
         self.logger = logging.getLogger(self.name)
 
@@ -92,12 +97,12 @@ class BaseChannel:
         return self
 
     def fork(self):
-        s = SubChannel(parent_channel=self)
+        s = SubChannel(parent_channel=self, loop=self.loop)
         self._nodes.append(s)
         return s
 
     def when(self, condition):
-        s = ConditionSubChannel(condition, parent_channel=self)
+        s = ConditionSubChannel(condition, parent_channel=self, loop=self.loop)
         self._nodes.append(s)
         return s
 
@@ -158,7 +163,7 @@ class SubChannel(BaseChannel):
 
     @asyncio.coroutine
     def process(self, msg):
-        asyncio.async(self._nodes[0].handle(msg.copy()))
+        asyncio.async(self._nodes[0].handle(msg.copy()), loop=self.loop)
         return msg
 
 
@@ -245,7 +250,6 @@ class FileWatcherChannel(BaseChannel):
         self.path = path
         self.regex = regex
         self.interval = interval
-        self.loop = asyncio.get_event_loop()
         self.dirflag = os.path.isdir(self.path)
         self.data = {}
         self.re = re.compile(self.regex)
@@ -264,7 +268,7 @@ class FileWatcherChannel(BaseChannel):
     @asyncio.coroutine
     def start(self):
         yield from super().start()
-        asyncio.async(self.watch_for_file())
+        asyncio.async(self.watch_for_file(), loop=self.loop)
 
     def file_status(self, filename):
         if filename in self.data:
@@ -309,7 +313,7 @@ class FileWatcherChannel(BaseChannel):
 
         finally:
             if not self.status in (BaseChannel.STOPPING, BaseChannel.STOPPED,):
-                asyncio.async(self.watch_for_file())
+                asyncio.async(self.watch_for_file(), loop=self.loop)
 
 
 class TimeChannel(BaseChannel):

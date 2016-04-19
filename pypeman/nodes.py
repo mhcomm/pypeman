@@ -26,7 +26,9 @@ ext = {}
 
 
 class BaseNode:
-    """ Base of all Node """
+    """ Base of all Nodes.
+    If you create a new node, you must inherit from this class and implement `process` method.
+    """
     dependencies = []
 
     def __init__(self, *args, **kwargs):
@@ -48,6 +50,13 @@ class BaseNode:
 
     @asyncio.coroutine
     def handle(self, msg):
+        """ Handle message is called by channel to launch process method on it.
+        Some other structural processing take place here.
+        Please, don't modify unless you know what you are doing.
+
+        :param msg: incoming message
+        :return: modified message after a process call and some treatment
+        """
         # TODO : Make sure exceptions are well raised (does not happen if i.e 1/0 here atm)
         if self.store_input_as:
             msg.ctx[self.store_input_as] = dict(
@@ -85,6 +94,11 @@ class BaseNode:
         return result
 
     def process(self, msg):
+        """ Implement this function in child classes to create
+        a new Node.
+        :param msg: The incoming message
+        :return: The processed message
+        """
         return msg
 
     def __str__(self):
@@ -96,24 +110,29 @@ class RaiseError(BaseNode):
 
 
 class DropNode(BaseNode):
+    """ This node used to tell the channel the message is Dropped. """
     def process(self, msg):
         raise Dropped()
 
 
 class BreakNode(BaseNode):
+    """ This node used to tell the channel the message is ????. """
     def process(self, msg):
         raise Break()
 
 
 class Empty(BaseNode):
+    """ Return an empty new message. """
     def process(self, msg):
         return Message()
 
 
 class SetCtx(BaseNode):
-    def __init__(self, *args, **kwargs):
+    """ Push the message in the context with the key `ctx_name` """
+
+    def __init__(self, ctx_name, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.ctx_name = kwargs.pop('ctx_name')
+        self.ctx_name = ctx_name
 
     def process(self, msg):
         msg.meta = msg.ctx[self.ctx_name]['meta']
@@ -122,16 +141,24 @@ class SetCtx(BaseNode):
         return msg
 
 class ThreadNode(BaseNode):
+    """ Inherit from this class instead of BaseNode to avoid
+    long run node blocking main event loop.
+    """
     # TODO create class ThreadPool or channel ThreadPool or Global ?
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.executor = ThreadPoolExecutor(max_workers=3)
+
     def run(self, msg):
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            result = loop.run_in_executor(executor, self.process, msg)
+        result = self.channel.loop.run_in_executor(self.executor, self.process, msg)
 
         return result
 
             
 class Log(BaseNode):
+    """ Node to show some information about node, channel and message. Use for debug.
+    """
     def __init__(self, *args, **kwargs):
         self.lvl = kwargs.pop('level', logging.DEBUG)
         self.show_ctx = kwargs.pop('show_ctx', None)
@@ -150,7 +177,8 @@ class Log(BaseNode):
         return msg
 
 class JsonToPython(BaseNode):
-    # encoding management
+    """ Convert json message payload to python dict."""
+    # TODO encoding management
     def __init__(self, *args, **kwargs):
         self.encoding = kwargs.pop('encoding', 'utf-8')
         super().__init__(*args, **kwargs)
@@ -162,6 +190,7 @@ class JsonToPython(BaseNode):
 
 
 class PythonToJson(BaseNode):
+    """ Convert python payload to json."""
     def process(self, msg):
         msg.payload = json.dumps(msg.payload)
         msg.content_type = 'application/json'
@@ -169,6 +198,8 @@ class PythonToJson(BaseNode):
 
 
 class XMLToPython(BaseNode):
+    """ Convert XML message payload to python dict."""
+
     dependencies = ['xmltodict']
 
     def __init__(self, *args, **kwargs):
@@ -187,6 +218,7 @@ class XMLToPython(BaseNode):
 
 
 class PythonToXML(BaseNode):
+    """ Convert python payload to XML."""
     dependencies = ['xmltodict']
 
     def __init__(self, *args, **kwargs):
@@ -205,6 +237,8 @@ class PythonToXML(BaseNode):
 
 
 class Encode(BaseNode):
+    """ Encode payload in specified encoding to byte.
+    """
     def __init__(self, *args, **kwargs):
         self.encoding = kwargs.pop('encoding', 'utf-8')
         super().__init__(*args, **kwargs)
@@ -215,6 +249,8 @@ class Encode(BaseNode):
 
 
 class Decode(BaseNode):
+    """ Decode payload from byte to specified encoding
+    """
     def __init__(self, *args, **kwargs):
         self.encoding = kwargs.pop('encoding', 'utf-8')
         super().__init__(*args, **kwargs)
@@ -232,6 +268,8 @@ class NullStoreBackend():
 
 
 class FileStoreBackend():
+    """ Backend used to store message with `MessageStore` node.
+    """
     def __init__(self, path, filename, channel):
         self.path = path
         self.filename = filename
@@ -266,6 +304,7 @@ class FileStoreBackend():
 
 
 class MessageStore(ThreadNode):
+    """ Store a message in specified store """
     def __init__(self, *args, **kwargs):
 
         self.uri = kwargs.pop('uri')
@@ -286,6 +325,8 @@ class MessageStore(ThreadNode):
         return msg
 
 class HL7ToPython(BaseNode):
+    """ Convert hl7 payload to python struct."""
+
     dependencies = ['hl7']
 
     def __init__(self, *args, **kwargs):
@@ -303,6 +344,8 @@ class HL7ToPython(BaseNode):
 
 
 class PythonToHL7(BaseNode):
+    """ Convert python payload to HL7."""
+
     dependencies = ['hl7']
 
     def __init__(self, *args, **kwargs):
@@ -319,19 +362,8 @@ class PythonToHL7(BaseNode):
         return msg
 
 
-
-'''class FileWriter(ThreadNode):
-    def __init__(self, *args, **kwargs):
-        self.path = kwargs.pop('path')
-        self.binary_mode = kwargs.pop('binary_mode', False)
-        super().__init__(*args, **kwargs)
-
-    def process(self, msg):
-        with open(self.path, 'w' + ('b' if self.binary_mode else '')) as file:
-            file.write(msg.payload)
-        return msg'''
-
 class FileWriter(BaseNode):
+    """ Write a file with the message content. """
     def __init__(self, filename=None, path=None, binary_mode=False, safe_file=False, *args, **kwargs):
         self.filename = filename
         self.path = path
@@ -363,11 +395,14 @@ class FileWriter(BaseNode):
                    }
 
         dest = os.path.join(path, name % context)
+
+        old_file = dest
         if self.safe_file:
-            old_file = dest
             dest = old_file + '.tmp'
+
         with open(dest, 'w' + ('b' if self.binary_mode else '')) as file_:
             file_.write(msg.payload)
+
         if self.safe_file:
             os.rename(dest, old_file)
 
@@ -377,12 +412,15 @@ class FileWriter(BaseNode):
 
 
 class MappingNode(BaseNode):
+    """ Used to map input message keys->values to another keys->values """
+
     def __init__(self, *args, **kwargs):
         self.mapping = kwargs.pop('mapping')
         self.recopy = kwargs.pop('recopy')
-        path = kwargs.pop('path', None)
+        path = kwargs.pop('path', "")
 
         self.path = 'payload'
+
         if path:
             self.path += '.' + path
 
@@ -420,7 +458,7 @@ class MappingNode(BaseNode):
         return msg
 
 class RequestNode(ThreadNode):
-    """ Request Node """
+    """ Http request node """
     dependencies = ['requests']
 
     def __init__(self, *args, **kwargs):
@@ -455,19 +493,18 @@ class RequestNode(ThreadNode):
                 logger.exception("Payload must be a python dict if used to generate url. This can be fixed using JsonToPython node before your RequestNode")
                 raise 
                 
-        logger.debug("completing url %r with data from %r" % (self.url, url_dict))
+        logger.debug("Completing url %r with data from %r" % (self.url, url_dict))
         return self.url % url_dict 
     
     def handle_request(self, msg):
         """ generate url and handle request """
         url = self.generate_request_url(msg)
-        logger.debug(url)
+        logger.debug("Destination request url: %s", url)
         resp = ext['requests'].get(url=url, auth=self.auth, verify=self.verify)
         return str(resp.text)
         
     def process(self, msg):
         """ handles request """
-        logger.debug(msg)
         msg.payload = self.handle_request(msg)
         
         return msg

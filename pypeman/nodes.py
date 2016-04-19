@@ -5,6 +5,7 @@ import asyncio
 import logging
 
 from datetime import datetime
+from collections import OrderedDict
 
 from urllib import parse
 
@@ -362,6 +363,44 @@ class PythonToHL7(BaseNode):
         return msg
 
 
+class FileReader(BaseNode):
+    def __init__(self, filename=None, path=None, binary_file=False, *args, **kwargs):
+        self.filename = filename
+        self.path = path
+        self.binary_file = binary_file
+        self.counter = 0
+        super().__init__(*args, **kwargs)
+
+    def process(self, msg):
+        logger.debug('ert')
+        if self.filename:
+            if callable(self.filename):
+                name = self.filename(msg)
+            else:
+                name = self.filename
+        else:
+            name = msg.meta['filename']
+
+        if self.path:
+            path = self.path
+        else:
+            path = os.path.dirname(msg.meta['filepath'])
+
+        filepath = os.path.join(path, name)
+
+        if self.binary_file:
+            mode = "rb"
+        else:
+            mode = "r"
+        with open(filepath, mode) as file:
+            msg.payload = file.read()
+            msg.meta['filename'] = name
+            msg.meta['filepath'] = filepath
+
+        self.counter += 1
+        return msg
+
+
 class FileWriter(BaseNode):
     """ Write a file with the message content. """
     def __init__(self, filename=None, path=None, binary_mode=False, safe_file=False, *args, **kwargs):
@@ -382,7 +421,7 @@ class FileWriter(BaseNode):
         if self.path:
             path = self.path
         else:
-            path = msg.meta['filepath']
+            path = os.path.dirname(msg.meta['filepath'])
 
         today = datetime.now()
 
@@ -510,4 +549,42 @@ class RequestNode(ThreadNode):
         return msg
         
         
+class OrderingDict(BaseNode):
+    def __init__(self, *args, **kwargs):
+        self.order_list = kwargs.pop('order_list')
+        path = kwargs.pop('path', None)
+        self.path = 'payload'
+        if path:
+            self.path += '.' + path
+        super().__init__(*args, **kwargs)
+
+    def process(self, msg):
+        current = msg
+        parts = self.path.split('.')
+        for part in parts:
+            try:
+                current = current[part]
+            except (TypeError, KeyError):
+                current = getattr(current, part)
+        old_dict = current
+        new_dict = OrderedDict()
+
+        for key in self.order_list:
+            value = old_dict.get(key)
+            if value:
+                new_dict[key] = value
+
+        dest = msg
+        for part in parts[:-1]:
+            try:
+                dest = dest[part]
+            except (TypeError, KeyError):
+                dest = getattr(dest, part)
+
+        try:
+            dest[parts[-1]] = new_dict
+        except KeyError:
+            setattr(dest, parts[-1], new_dict)
+
+        return msg
         

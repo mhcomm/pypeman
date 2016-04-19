@@ -57,8 +57,19 @@ class ChannelsTests(unittest.TestCase):
 
         self.assertTrue(n.processed, "Channel handle not working")
 
+    def test_no_node_base_channel(self):
+        """ if BaseChannel handling is working even if there is no node """
+
+        chan = BaseChannel(loop=self.loop)
+        msg = generate_msg()
+
+        # Launch channel processing
+        self.loop.run_until_complete(chan.start())
+        self.loop.run_until_complete(chan.handle(msg))
+
+
     def test_sub_channel(self):
-        """ if BaseChannel handling is working """
+        """ if Sub Channel is working """
 
         chan = BaseChannel(loop=self.loop)
         n1 = TestNode(name="main")
@@ -77,7 +88,7 @@ class ChannelsTests(unittest.TestCase):
         self.assertTrue(n2.processed, "Sub Channel not working")
 
     def test_cond_channel(self):
-        """ if BaseChannel handling is working """
+        """ if Conditionnal channel is working """
 
         chan = BaseChannel(loop=self.loop)
         n1 = TestNode(name="main")

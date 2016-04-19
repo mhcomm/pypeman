@@ -35,7 +35,7 @@ class BaseChannel:
 
     dependencies = [] # List of module requirements
 
-    def __init__(self, name=None, parent_channel=None, loop=None):
+    def __init__(self, name=None, parent_channel=None, loop=None, force_msg_order=True):
         self.uuid = uuid.uuid4()
 
         all.append(self)
@@ -64,6 +64,8 @@ class BaseChannel:
             self.parent_uids = None
 
         self.next_node = None
+
+        self.lock = asyncio.Lock(loop=self.loop)
 
     def requirements(self):
         """ List dependencies of modules if any """
@@ -108,18 +110,19 @@ class BaseChannel:
 
     @asyncio.coroutine
     def handle(self, msg):
-        result = yield from self.process(msg)
+        with (yield from self.lock):
+            result = yield from self.process(msg)
 
-        if self.next_node:
+            if self.next_node:
 
-            if isinstance(result, types.GeneratorType):
-                for res in result:
-                    result = yield from self.next_node.handle(res)
-                    # TODO Here result is last value returned. Is it a good idea ?
-            else:
-                result = yield from self.next_node.handle(result)
+                if isinstance(result, types.GeneratorType):
+                    for res in result:
+                        result = yield from self.next_node.handle(res)
+                        # TODO Here result is last value returned. Is it a good idea ?
+                else:
+                    result = yield from self.next_node.handle(result)
 
-        return result
+            return result
 
     @asyncio.coroutine
     def process(self, msg):
@@ -184,15 +187,16 @@ class ConditionSubChannel(BaseChannel):
     # TODO make a casesubchannel
     @asyncio.coroutine
     def handle(self, msg):
-        if self.test_condition(msg):
-            result = yield from self.process(msg)
-        else:
-            if self.next_node:
-                result = yield from self.next_node.handle(msg)
+        with (yield from self.lock):
+            if self.test_condition(msg):
+                result = yield from self.process(msg)
             else:
-                result = msg
+                if self.next_node:
+                    result = yield from self.next_node.handle(msg)
+                else:
+                    result = msg
 
-        return result
+            return result
 
     # Uncomment me to handle new way of condition subchannel
     '''@asyncio.coroutine
@@ -232,7 +236,7 @@ class HttpChannel(BaseChannel):
         content = yield from request.text()
         msg = message.Message(content_type='http_request', payload=content, meta={'method': request.method})
         try:
-            result = yield from self.process(msg)
+            result = yield from super().handle(msg)
             encoding = self.encoding or 'utf-8'
             return ext['aiohttp_web'].Response(body=result.payload.encode(encoding), status=result.meta.get('status', 200))
 
@@ -307,9 +311,7 @@ class FileWatcherChannel(BaseChannel):
                                 msg.payload = file.read()
                                 msg.meta['filename'] = filename
                                 msg.meta['filepath'] = filepath
-                                yield from self.process(msg)
-                                # TODO add option to handle message async (next line)
-                                # asyncio.async(self.process(msg))
+                                asyncio.async(super().handle(msg))
 
         finally:
             if not self.status in (BaseChannel.STOPPING, BaseChannel.STOPPED,):
@@ -343,7 +345,7 @@ class TimeChannel(BaseChannel):
 
     @asyncio.coroutine
     def handle(self, msg):
-        result = yield from self.process(msg)
+        result = yield from super().handle(msg)
         return result
 
 
@@ -371,7 +373,7 @@ class MLLPChannel(BaseChannel):
         content = hl7_message
         msg = message.Message(content_type='text/hl7', payload=content, meta={})
         try:
-            result = yield from self.process(msg)
+            result = yield from super().handle(msg)
             return result.payload
         except Dropped:
             ack = ext['hl7'].parse(content)

@@ -81,11 +81,12 @@ class BaseChannel:
         self.init_node_graph()
 
     def init_node_graph(self):
-        previous_node = self._nodes[0]
+        if self._nodes:
+            previous_node = self._nodes[0]
 
-        for node in self._nodes[1:]:
-            previous_node.next_node = node
-            previous_node = node
+            for node in self._nodes[1:]:
+                previous_node.next_node = node
+                previous_node = node
 
     @asyncio.coroutine
     def stop(self):
@@ -126,8 +127,11 @@ class BaseChannel:
 
     @asyncio.coroutine
     def process(self, msg):
-        res = yield from self._nodes[0].handle(msg)
-        return res
+        if self._nodes:
+            res = yield from self._nodes[0].handle(msg)
+            return res
+        else:
+            return msg
 
     def graph(self, prefix='', dot=False):
         for node in self._nodes:
@@ -166,7 +170,9 @@ class SubChannel(BaseChannel):
 
     @asyncio.coroutine
     def process(self, msg):
-        asyncio.async(self._nodes[0].handle(msg.copy()), loop=self.loop)
+        if self._nodes:
+            asyncio.async(self._nodes[0].handle(msg.copy()), loop=self.loop)
+
         return msg
 
 

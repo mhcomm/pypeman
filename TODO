@@ -11,20 +11,6 @@ Think about channel testing
 Channel joining ?
 Write Documentation
 Add multi message to nodes ?
-Implement iterator node
-(Use generators ?
->>> import types
->>> types.GeneratorType
-<class 'generator'>
->>> gen = (i for i in range(10))
->>> isinstance(gen, types.GeneratorType)
-True
-
-or
-
-https://docs.python.org/2/library/inspect.html#inspect.isgenerator
-
-)
 Find better way to handle external dependencies without breaking dep checking
 Savepoints and auto reload when pypeman stop
 Store with message status (Message broker ?) with replay or abort action

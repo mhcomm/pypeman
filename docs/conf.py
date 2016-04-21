@@ -15,6 +15,8 @@
 
 import sys
 import os
+import sphinx_rtd_theme
+from recommonmark.parser import CommonMarkParser
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -36,8 +38,12 @@ templates_path = ['_templates']
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
-# source_suffix = ['.rst', '.md']
-source_suffix = '.rst'
+source_suffix = ['.md', '.rst']
+#source_suffix = '.rst'
+
+source_parsers = {
+    '.md': CommonMarkParser,
+}
 
 # The encoding of source files.
 #source_encoding = 'utf-8-sig'
@@ -119,6 +125,7 @@ html_theme = "sphinx_rtd_theme"
 
 # Add any paths that contain custom themes here, relative to this directory.
 #html_theme_path = []
+html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 
 # The name for this set of Sphinx documents.
 # "<project> v<release> documentation" by default.

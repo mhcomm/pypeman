@@ -78,7 +78,7 @@ class BaseNode:
                     # TODO Here result is last value returned. Is it a good idea ?
             else:
                 result = yield from self.next_node.handle(result)
-        
+
         if self.store_output_as:
             result.ctx[self.store_output_as] = dict(
                 meta=dict(result.meta), 
@@ -104,7 +104,7 @@ class BaseNode:
 
     def __str__(self):
         return "<Node %s>" % self.name
-        
+
 class RaiseError(BaseNode):
     def process(self, msg):
         raise Exception("Test node")
@@ -156,7 +156,7 @@ class ThreadNode(BaseNode):
 
         return result
 
-            
+
 class Log(BaseNode):
     """ Node to show some information about node, channel and message. Use for debug.
     """
@@ -372,7 +372,6 @@ class FileReader(BaseNode):
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
-        logger.debug('ert')
         if self.filename:
             if callable(self.filename):
                 name = self.filename(msg)

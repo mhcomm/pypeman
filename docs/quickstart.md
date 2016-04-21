@@ -1,16 +1,13 @@
-# pypeman
-
-Minimalist but pragmatic ESB / ETL in python
-
+# Quickstart
 
 [![Build Status](https://travis-ci.org/mhcomm/pypeman.svg?branch=master)](https://travis-ci.org/mhcomm/pypeman)
 
-# Installation
+## Installation
   `python -m setup install  # to install 'normally'`
   
   `python -m setup develop  # for development`
-
-# Usage
+  
+## Usage
 Create a "settings.py" file with config in it.
 Create a "project.py" file in any folder containing for example:
 
@@ -35,7 +32,7 @@ then execute:
 
   `pypeman start # You can use the --reload option for auto-reloading on changes`
   
-# Commands
+## Commands
 
 To create a fresh project (partially implemented):
 

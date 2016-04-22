@@ -5,6 +5,7 @@ import asyncio
 import logging
 
 from datetime import datetime
+from collections import OrderedDict
 
 from urllib import parse
 
@@ -39,7 +40,7 @@ class BaseNode:
         self.store_input_as = kwargs.pop('store_input_as', None)
         self.passthrough = kwargs.pop('passthrough', None)
         self.next_node = None
-        
+
     def requirements(self):
         """ List dependencies of modules if any """
         return self.dependencies
@@ -60,7 +61,7 @@ class BaseNode:
         # TODO : Make sure exceptions are well raised (does not happen if i.e 1/0 here atm)
         if self.store_input_as:
             msg.ctx[self.store_input_as] = dict(
-                meta=dict(msg.meta), 
+                meta=dict(msg.meta),
                 payload=deepcopy(msg.payload),
             )
 
@@ -77,13 +78,13 @@ class BaseNode:
                     # TODO Here result is last value returned. Is it a good idea ?
             else:
                 result = yield from self.next_node.handle(result)
-        
+
         if self.store_output_as:
             result.ctx[self.store_output_as] = dict(
-                meta=dict(result.meta), 
+                meta=dict(result.meta),
                 payload=deepcopy(result.payload),
             )
-            
+
         result = msg if self.passthrough else result
 
         return result
@@ -103,7 +104,7 @@ class BaseNode:
 
     def __str__(self):
         return "<Node %s>" % self.name
-        
+
 class RaiseError(BaseNode):
     def process(self, msg):
         raise Exception("Test node")
@@ -137,7 +138,7 @@ class SetCtx(BaseNode):
     def process(self, msg):
         msg.meta = msg.ctx[self.ctx_name]['meta']
         msg.payload = msg.ctx[self.ctx_name]['payload']
-        
+
         return msg
 
 class ThreadNode(BaseNode):
@@ -155,7 +156,7 @@ class ThreadNode(BaseNode):
 
         return result
 
-            
+
 class Log(BaseNode):
     """ Node to show some information about node, channel and message. Use for debug.
     """
@@ -173,7 +174,7 @@ class Log(BaseNode):
         self.channel.logger.log(self.lvl, 'Payload: %r', msg.payload)
         if self.show_ctx:
             self.channel.logger.log(self.lvl, 'Contexts: %r', [ctx for ctx in msg.ctx])
-        
+
         return msg
 
 class JsonToPython(BaseNode):
@@ -182,7 +183,7 @@ class JsonToPython(BaseNode):
     def __init__(self, *args, **kwargs):
         self.encoding = kwargs.pop('encoding', 'utf-8')
         super().__init__(*args, **kwargs)
-        
+
     def process(self, msg):
         msg.payload = json.loads(msg.payload, encoding=self.encoding)
         msg.content_type = 'application/python'
@@ -254,7 +255,7 @@ class Decode(BaseNode):
     def __init__(self, *args, **kwargs):
         self.encoding = kwargs.pop('encoding', 'utf-8')
         super().__init__(*args, **kwargs)
-        
+
     def process(self, msg):
         msg.payload = msg.payload.decode(self.encoding)
         return msg
@@ -362,6 +363,44 @@ class PythonToHL7(BaseNode):
         return msg
 
 
+class FileReader(BaseNode):
+    """ Reads a file and sets payload to the file's contents. """
+    def __init__(self, filename=None, path=None, binary_file=False, *args, **kwargs):
+        self.filename = filename
+        self.path = path
+        self.binary_file = binary_file
+        self.counter = 0
+        super().__init__(*args, **kwargs)
+
+    def process(self, msg):
+        if self.filename:
+            if callable(self.filename):
+                name = self.filename(msg)
+            else:
+                name = self.filename
+        else:
+            name = msg.meta['filename']
+
+        if self.path:
+            path = self.path
+        else:
+            path = os.path.dirname(msg.meta['filepath'])
+
+        filepath = os.path.join(path, name)
+
+        if self.binary_file:
+            mode = "rb"
+        else:
+            mode = "r"
+        with open(filepath, mode) as file:
+            msg.payload = file.read()
+            msg.meta['filename'] = name
+            msg.meta['filepath'] = filepath
+
+        self.counter += 1
+        return msg
+
+
 class FileWriter(BaseNode):
     """ Write a file with the message content. """
     def __init__(self, filename=None, path=None, binary_mode=False, safe_file=False, *args, **kwargs):
@@ -382,7 +421,7 @@ class FileWriter(BaseNode):
         if self.path:
             path = self.path
         else:
-            path = msg.meta['filepath']
+            path = os.path.dirname(msg.meta['filepath'])
 
         today = datetime.now()
 
@@ -469,7 +508,7 @@ class RequestNode(ThreadNode):
         self.verify = kwargs.pop('verify', False)
         self.url = self.url.replace('%(meta.', '%(')
         self.payload_in_url_dict = 'payload.' in self.url
-        
+
         # TODO: create used payload keys for better perf of generate_request_url()
 
     def import_modules(self):
@@ -477,12 +516,12 @@ class RequestNode(ThreadNode):
         if 'requests' not in ext:
             import requests
             ext['requests'] = requests
-    
+
     def generate_request_url(self, msg):
-    
+
         logger.debug('%r', msg.payload)
         logger.debug(type(msg.payload))
-    
+
         url_dict = msg.meta
         if self.payload_in_url_dict:
             url_dict = dict(url_dict)
@@ -491,23 +530,72 @@ class RequestNode(ThreadNode):
                     url_dict['payload.' + key] = val
             except AttributeError:
                 logger.exception("Payload must be a python dict if used to generate url. This can be fixed using JsonToPython node before your RequestNode")
-                raise 
-                
+                raise
+
         logger.debug("Completing url %r with data from %r" % (self.url, url_dict))
-        return self.url % url_dict 
-    
+        return self.url % url_dict
+
     def handle_request(self, msg):
         """ generate url and handle request """
         url = self.generate_request_url(msg)
         logger.debug("Destination request url: %s", url)
         resp = ext['requests'].get(url=url, auth=self.auth, verify=self.verify)
         return str(resp.text)
-        
+
     def process(self, msg):
         """ handles request """
         msg.payload = self.handle_request(msg)
-        
+
         return msg
-        
-        
-        
+
+
+class ToOrderedDict(BaseNode):
+    """ this node yields an ordered dict with the keys 'keys' and the values from the payload
+       if the payload does not contain certain values defaults can be specified with defaults
+    """
+    NONE = object()
+    def __init__(self, *args, **kwargs):
+        self.keys = kwargs.pop('keys')
+        defaults = kwargs.pop('defaults', dict())
+        self.dflt_dict = OrderedDict()
+        for key in keys:
+            self.dflt_dict[key] = defaults.get(key, NONE)
+        path = kwargs.pop('path', None)
+        self.path = 'payload'
+        if path:
+            self.path += '.' + path
+        super().__init__(*args, **kwargs)
+
+
+    def process(self, msg):
+        current = msg
+        parts = self.path.split('.')
+
+        for part in parts:
+            try:
+                current = current[part]
+            except (TypeError, KeyError):
+                current = getattr(current, part)
+        old_dict = current
+        new_dict = OrderedDict()
+
+        for key in self.keys:
+            val = old_dict.get(key, NONE)
+            if val is NONE:
+                val = self.dflt_dict[key]
+            if val is not NONE:
+                new_dict[key] = val
+
+        dest = msg
+        for part in parts[:-1]:
+            try:
+                dest = dest[part]
+            except (TypeError, KeyError):
+                dest = getattr(dest, part)
+
+        try:
+            dest[parts[-1]] = new_dict
+        except KeyError:
+            setattr(dest, parts[-1], new_dict)
+
+        return msg

@@ -364,7 +364,7 @@ class PythonToHL7(BaseNode):
 
 
 class FileReader(BaseNode):
-    """ Read a file and put it in the payload. """
+    """ Reads a file and sets payload to the file's contents. """
     def __init__(self, filename=None, path=None, binary_file=False, *args, **kwargs):
         self.filename = filename
         self.path = path
@@ -553,10 +553,13 @@ class ToOrderedDict(BaseNode):
     """ this node yields an ordered dict with the keys 'keys' and the values from the payload
        if the payload does not contain certain values defaults can be specified with defaults
     """
-
+    NONE = object()
     def __init__(self, *args, **kwargs):
         self.keys = kwargs.pop('keys')
-        self.defaults = kwargs.pop('defaults', dict())
+        defaults = kwargs.pop('defaults', dict())
+        self.dflt_dict = OrderedDict()
+        for key in keys:
+            self.dflt_dict[key] = defaults.get(key, NONE)
         path = kwargs.pop('path', None)
         self.path = 'payload'
         if path:
@@ -568,20 +571,20 @@ class ToOrderedDict(BaseNode):
         current = msg
         parts = self.path.split('.')
 
-        self.NONE = object()
-
         for part in parts:
             try:
                 current = current[part]
             except (TypeError, KeyError):
                 current = getattr(current, part)
         old_dict = current
-        new_dict = OrderedDict(self.defaults)
+        new_dict = OrderedDict()
 
         for key in self.keys:
-            value = old_dict.get(key, NONE)
-            if value:
-                new_dict[key] = value
+            val = old_dict.get(key, NONE)
+            if val is NONE:
+                val = self.dflt_dict[key]
+            if val is not NONE:
+                new_dict[key] = val
 
         dest = msg
         for part in parts[:-1]:

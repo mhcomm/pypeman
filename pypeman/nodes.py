@@ -40,7 +40,7 @@ class BaseNode:
         self.store_input_as = kwargs.pop('store_input_as', None)
         self.passthrough = kwargs.pop('passthrough', None)
         self.next_node = None
-        
+
     def requirements(self):
         """ List dependencies of modules if any """
         return self.dependencies
@@ -61,7 +61,7 @@ class BaseNode:
         # TODO : Make sure exceptions are well raised (does not happen if i.e 1/0 here atm)
         if self.store_input_as:
             msg.ctx[self.store_input_as] = dict(
-                meta=dict(msg.meta), 
+                meta=dict(msg.meta),
                 payload=deepcopy(msg.payload),
             )
 
@@ -81,10 +81,10 @@ class BaseNode:
 
         if self.store_output_as:
             result.ctx[self.store_output_as] = dict(
-                meta=dict(result.meta), 
+                meta=dict(result.meta),
                 payload=deepcopy(result.payload),
             )
-            
+
         result = msg if self.passthrough else result
 
         return result
@@ -138,7 +138,7 @@ class SetCtx(BaseNode):
     def process(self, msg):
         msg.meta = msg.ctx[self.ctx_name]['meta']
         msg.payload = msg.ctx[self.ctx_name]['payload']
-        
+
         return msg
 
 class ThreadNode(BaseNode):
@@ -174,7 +174,7 @@ class Log(BaseNode):
         self.channel.logger.log(self.lvl, 'Payload: %r', msg.payload)
         if self.show_ctx:
             self.channel.logger.log(self.lvl, 'Contexts: %r', [ctx for ctx in msg.ctx])
-        
+
         return msg
 
 class JsonToPython(BaseNode):
@@ -183,7 +183,7 @@ class JsonToPython(BaseNode):
     def __init__(self, *args, **kwargs):
         self.encoding = kwargs.pop('encoding', 'utf-8')
         super().__init__(*args, **kwargs)
-        
+
     def process(self, msg):
         msg.payload = json.loads(msg.payload, encoding=self.encoding)
         msg.content_type = 'application/python'
@@ -255,7 +255,7 @@ class Decode(BaseNode):
     def __init__(self, *args, **kwargs):
         self.encoding = kwargs.pop('encoding', 'utf-8')
         super().__init__(*args, **kwargs)
-        
+
     def process(self, msg):
         msg.payload = msg.payload.decode(self.encoding)
         return msg
@@ -364,6 +364,7 @@ class PythonToHL7(BaseNode):
 
 
 class FileReader(BaseNode):
+    """ Read a file and put it in the payload. """
     def __init__(self, filename=None, path=None, binary_file=False, *args, **kwargs):
         self.filename = filename
         self.path = path
@@ -507,7 +508,7 @@ class RequestNode(ThreadNode):
         self.verify = kwargs.pop('verify', False)
         self.url = self.url.replace('%(meta.', '%(')
         self.payload_in_url_dict = 'payload.' in self.url
-        
+
         # TODO: create used payload keys for better perf of generate_request_url()
 
     def import_modules(self):
@@ -515,12 +516,12 @@ class RequestNode(ThreadNode):
         if 'requests' not in ext:
             import requests
             ext['requests'] = requests
-    
+
     def generate_request_url(self, msg):
-    
+
         logger.debug('%r', msg.payload)
         logger.debug(type(msg.payload))
-    
+
         url_dict = msg.meta
         if self.payload_in_url_dict:
             url_dict = dict(url_dict)
@@ -529,47 +530,56 @@ class RequestNode(ThreadNode):
                     url_dict['payload.' + key] = val
             except AttributeError:
                 logger.exception("Payload must be a python dict if used to generate url. This can be fixed using JsonToPython node before your RequestNode")
-                raise 
-                
+                raise
+
         logger.debug("Completing url %r with data from %r" % (self.url, url_dict))
-        return self.url % url_dict 
-    
+        return self.url % url_dict
+
     def handle_request(self, msg):
         """ generate url and handle request """
         url = self.generate_request_url(msg)
         logger.debug("Destination request url: %s", url)
         resp = ext['requests'].get(url=url, auth=self.auth, verify=self.verify)
         return str(resp.text)
-        
+
     def process(self, msg):
         """ handles request """
         msg.payload = self.handle_request(msg)
-        
+
         return msg
-        
-        
-class OrderingDict(BaseNode):
+
+
+class ToOrderedDict(BaseNode):
+    """ this node yields an ordered dict with the keys 'keys' and the values from the payload
+       if the payload does not contain certain values defaults can be specified with defaults
+    """
+
     def __init__(self, *args, **kwargs):
-        self.order_list = kwargs.pop('order_list')
+        self.keys = kwargs.pop('keys')
+        self.defaults = kwargs.pop('defaults', dict())
         path = kwargs.pop('path', None)
         self.path = 'payload'
         if path:
             self.path += '.' + path
         super().__init__(*args, **kwargs)
 
+
     def process(self, msg):
         current = msg
         parts = self.path.split('.')
+
+        self.NONE = object()
+
         for part in parts:
             try:
                 current = current[part]
             except (TypeError, KeyError):
                 current = getattr(current, part)
         old_dict = current
-        new_dict = OrderedDict()
+        new_dict = OrderedDict(self.defaults)
 
-        for key in self.order_list:
-            value = old_dict.get(key)
+        for key in self.keys:
+            value = old_dict.get(key, NONE)
             if value:
                 new_dict[key] = value
 
@@ -586,4 +596,3 @@ class OrderingDict(BaseNode):
             setattr(dest, parts[-1], new_dict)
 
         return msg
-        

@@ -30,15 +30,13 @@ class Settings():
         self.__dict__['_settings_mod'] = None
         self.__dict__['SETTINGS_MODULE'] = os.environ.get('PYPEMAN_SETTINGS_MODULE', 'settings')
 
+        # TODO Not using lazy setting import as it cause trouble with logging for now
+        # TODO is lazy loading really necessary ?
+        self._init_settings()
+
     def _init_settings(self):
         try:
             settings_module = self.__dict__['SETTINGS_MODULE']
-            import logging as lg
-
-            l = lg.getLogger(__name__)
-            #l.warning('Module:%r:f %r', __name__, __file__)
-            #l.warning('Setting module:%r', settings_module)
-
             settings_mod = self.__dict__['_settings_mod'] = importlib.import_module(settings_module)
         except:
             print("Can't import 'settings' module !", file=sys.stderr)

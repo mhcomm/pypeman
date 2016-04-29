@@ -5,16 +5,20 @@ def new_project(dirname):
     mk_pjt_files(dirname)
 
 def mk_pjt_files(dirname):
+
     files_to_write = {
         'project.py': PJT_TEMPLATE,
         'settings.py': SETTINGS_TEMPLATE,
-        'pjt_settings.py': PJT_SETTINGS_TEMPLATE,
+        'dist_settings.py': DIST_SETTINGS_TEMPLATE,
     }
+
     ctx = dict()
     for fname, template in files_to_write.items():
         full_name = os.path.join(dirname, fname)
+
         with open(full_name, 'w') as fout:
             fout.write(template % ctx)
+
 
 PJT_TEMPLATE = """\
 # Here you can add any special system path for your project
@@ -27,10 +31,26 @@ from pypeman import endpoints
 
 from pypeman.conf import settings
 
-# At least one end point MUST be specified
-# http = endpoints.HTTPEndpoint(address='0.0.0.0', port='8080')
+# Create or update a "./test*.txt" file in you project dir. This file must contains a valid json dict.
+# For example with shell command : echo "{}" > ./test.txt
+# Uncomment next lines to enable FileWatcher example
+
+#class CustomNode(nodes.BaseNode):
+#    def process(self, msg):
+#        msg.payload['new_key'] = "new_value"
+#        return msg
+#
+#filewatcher = channels.FileWatcherChannel(path='./', regex="test.*\.txt")
+#
+#filewatcher.add(nodes.Log(), nodes.JsonToPython(), CustomNode(), nodes.PythonToJson(), nodes.Log())
 
 """
+
+# TODO Unused but should be done
+"""# HTTP channel example (Remember to install required dependency before running it. Use "$pypeman requirements" command.
+
+# If you use Http channel, at least one end point MUST be specified
+# http = endpoints.HTTPEndpoint(address='0.0.0.0', port='8080')"""
 
 SETTINGS_TEMPLATE = """\
 # This is the local settings File For pypeman
@@ -38,10 +58,10 @@ SETTINGS_TEMPLATE = """\
 # System.
 # This file should contain settings like log settings, urls, usernames, passwords
 
-from pjt_settings import *
+from dist_settings import *
 
 # Here you can configure the logging for Pypeman 
-# the framework will call ligging.config.dictConfig(settings.LOGGING)
+# the framework will call logging.config.dictConfig(settings.LOGGING)
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -62,19 +82,14 @@ LOGGING = {
             'level': 'INFO',
             'handlers' : [ 'console' ],
         },
-        'pypeman': { 
-            'level': 'WARNING',
-            'handlers' : [ 'console' ],
-            'propagate' : False, 
-        },
     },
 }
 
 """
 
-PJT_SETTINGS_TEMPLATE = """\
+DIST_SETTINGS_TEMPLATE = """\
 # This is the centralized settings File For pypeman
-# This file should contain all settings, that should be added to your version control
+# This file should contain all defaults settings, that should be added to your version control
 # System
 
 # At the moment we really don't have anything useful project wide.

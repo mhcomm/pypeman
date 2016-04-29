@@ -52,7 +52,7 @@ class BaseChannel:
         else:
             self.loop = loop
 
-        self.logger = logging.getLogger(self.name)
+        self.logger = logging.getLogger('pypeman.channels')
 
         if parent_channel:
             self.parent_uids = [parent_channel.uuid]
@@ -111,6 +111,7 @@ class BaseChannel:
 
     @asyncio.coroutine
     def handle(self, msg):
+        self.logger.info("%s handle %s", self, msg)
         with (yield from self.lock):
             result = yield from self.process(msg)
 
@@ -163,6 +164,9 @@ class BaseChannel:
         for prev, end, sub in after:
             print(prev, end='')
             sub.graph_dot(previous=prev, end=end)
+
+    def __str__(self):
+        return "<chan: %s>" % self.name
 
 
 class SubChannel(BaseChannel):
@@ -312,6 +316,7 @@ class FileWatcherChannel(BaseChannel):
                                 mode = "rb"
                             else:
                                 mode = "r"
+
                             with open(filepath, mode) as file:
                                 msg = message.Message()
                                 msg.payload = file.read()

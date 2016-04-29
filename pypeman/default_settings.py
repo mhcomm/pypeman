@@ -25,9 +25,8 @@ LOGGING = {
     'loggers': {
         # root loggers
         '': {
-            'level': 'WARNING',
+            'level': 'INFO',
             'handlers': ['console'],
-            'propagate': False,
         },
     }
 }

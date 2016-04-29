@@ -20,5 +20,8 @@ class Message():
         
     def copy(self):
         return copy.deepcopy(self)
+
+    def __str__(self):
+        return "<msg: %s>" % self.uuid
         
     # TODO : add_ctx and delete_ctx 

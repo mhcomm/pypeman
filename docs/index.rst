@@ -6,12 +6,17 @@
 Welcome to Pypeman's documentation!
 ===================================
 
+Pypeman is in Alpha state. Do not use in production yet. API may change in future version.
+
+Source on github: [](https://github.com/mhcomm/pypeman)
+
 Contents:
 
 .. toctree::
    :maxdepth: 2
 
    quickstart
+   tutorial
    concept
 
 

@@ -2,46 +2,61 @@
 
 [![Build Status](https://travis-ci.org/mhcomm/pypeman.svg?branch=master)](https://travis-ci.org/mhcomm/pypeman)
 
-## Installation
-  `python -m setup install  # to install 'normally'`
-  
-  `python -m setup develop  # for development`
+## Installation from source
+
+### With pip (No official version get)
+
+  `pip install https://github.com/mhcomm/pypeman.git`
+
+### From source
+
+Clone from source:
+
+  `git clone https://github.com/mhcomm/pypeman.git`
+
+Then:
+
+```sh
+cd pypeman
+python -m setup install  # to install 'normally'
+# Or for development version
+python -m setup develop
+```
   
 ## Usage
-Create a "settings.py" file with config in it.
-Create a "project.py" file in any folder containing for example:
 
-```python
- from pypeman import endpoints
- from pypeman import channels
- from pypeman import nodes
-  
- http = endpoints.HTTPEndpoint(adress='localhost', port='8080')
-  
- c = channels.HttpChannel(endpoint=http, method='*', url='/{name}')
- c.add(nodes.Log())
-  
- c2 = c.fork()
-  
- c2.add(nodes.JsonToPython(), nodes.Add1(), nodes.Add1(), nodes.Log())
-  
- c.add(nodes.Log(), nodes.JsonToPython(), nodes.Log(), nodes.Add1(), nodes.Add1(), nodes.Log(), nodes.PythonToJson())
- ```
+Create a fresh project with:
+
+```sh
+pypeman startproject <project_dirname>
+```
+
+Previous command will create a new directory with a "settings.py" file containing
+local configs and a "project.py" file with a channel example that
+you can uncomment to test pypeman (Follow commented instructions).
   
 then execute:
 
   `pypeman start # You can use the --reload option for auto-reloading on changes`
   
-## Commands
+## Quick commands overview
+
+To get commands help and more details about commands:
+
+  `pypeman --help`
 
 To create a fresh project (partially implemented):
 
-  `pypeman startproject`
-  
+  `pypeman startproject <project_name>`
+
+To start pypeman:
+
+  `pypeman start`
+
 To show a channel graph:
 
   `pypeman graph`
 
-To list optional dependencies:
+To list optional dependencies used by your channels:
  
   `pypeman requirements`

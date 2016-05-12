@@ -1,4 +1,4 @@
-# Base concepts
+# Core concepts
 
 ## Messages
 

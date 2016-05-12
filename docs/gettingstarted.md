@@ -1,8 +1,6 @@
-# Quickstart
+# Getting started
 
-[![Build Status](https://travis-ci.org/mhcomm/pypeman.svg?branch=master)](https://travis-ci.org/mhcomm/pypeman)
-
-## Installation from source
+## Installation
 
 ### With pip (No official version get)
 
@@ -23,7 +21,7 @@ python -m setup install  # to install 'normally'
 python -m setup develop
 ```
   
-## Usage
+## Basic usage
 
 Create a fresh project with:
 
@@ -33,9 +31,7 @@ pypeman startproject <project_dirname>
 
 Previous command will create a new directory with a "settings.py" file containing
 local configs and a "project.py" file with a channel example that
-you can uncomment to test pypeman (Follow commented instructions).
-  
-then execute:
+you can uncomment to test pypeman. Follow commented instructions then execute:
 
   `pypeman start # You can use the --reload option for auto-reloading on changes`
   

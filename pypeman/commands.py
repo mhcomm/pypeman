@@ -26,7 +26,6 @@ from pypeman import channels
 from pypeman import nodes
 from pypeman import endpoints
 
-
 def load_project():
     try:
         importlib.import_module('project')
@@ -45,7 +44,7 @@ def load_project():
         raise
 
 
-def main(debug_asyncio=False):
+def main(debug_asyncio=False, profile=False, cli=False):
     print('\nStart...')
 
 
@@ -74,6 +73,21 @@ def main(debug_asyncio=False):
     for end in endpoints.all:
         loop.run_until_complete(end.start())
 
+    # At the moment miing the asyncio and ipython
+    # event loop is not working properly.
+    # Thus ipython
+    if cli:
+        from pypeman.helpers.cli import CLI
+        namespace = dict(
+            loop=loop,
+            nodes=nodes,
+            endpoints=endpoints,
+            channels=channels,
+            )
+        cli = CLI(namespace=namespace)
+        cli.run_as_thread()
+
+    # TODO: what connection are we waiting for?????
     print('Waiting for connection...')
     try:
         loop.run_forever()
@@ -92,9 +106,13 @@ def main(debug_asyncio=False):
 
 
 @begin.subcommand
-def start(reload: 'Make server autoreload (Dev only)'=False, debug_asyncio: 'Enable asyncio debug'=False):
+def start(reload: 'Make server autoreload (Dev only)'=False, 
+        debug_asyncio: 'Enable asyncio debug'=False,
+        cli : "enables an IPython CLI for debugging (not perational)"=False,
+        profile : "enables profiling / run stats (not operational)"=False,
+        ):
     """ Start pypeman """
-    reloader_opt(partial(main, debug_asyncio), reload, 2)
+    reloader_opt(partial(main, debug_asyncio=debug_asyncio, cli=cli, profile=profile), reload, 2)
 
 
 @begin.subcommand
@@ -153,6 +171,7 @@ def debug():
 
 
 @begin.start
-def run(test=False):
+def run(test=False, 
+
+        ):
     """ Pypeman is a minimalistic but pragmatic ESB/ETL in python """
-    pass

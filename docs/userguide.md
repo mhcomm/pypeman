@@ -1,3 +1,7 @@
+
+# Use cases
+
+
 # Core concepts
 
 In one image better than in 100 words:

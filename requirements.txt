@@ -1,7 +1,2 @@
 # Mandatory
 begins
-
-# For doc
-sphinx
-sphinx-autobuild
-recommonmark

@@ -31,7 +31,7 @@ class Break(Exception):
 
 
 class BaseChannel:
-    STARTING, RUNNING, STOPPING, STOPPED  = range(4)
+    STARTING, WAITING, PROCESSING, STOPPING, STOPPED  = range(5)
 
     dependencies = [] # List of module requirements
 
@@ -65,7 +65,10 @@ class BaseChannel:
 
         self.next_node = None
 
+        # Used to avoid multiple messages processing at same time
         self.lock = asyncio.Lock(loop=self.loop)
+
+        self.stopped_lock = asyncio.Lock(loop=self.loop)
 
     def requirements(self):
         """ List dependencies of modules if any """
@@ -78,7 +81,9 @@ class BaseChannel:
     @asyncio.coroutine
     def start(self):
         """ Start the channel """
+        self.status = BaseChannel.STARTING
         self.init_node_graph()
+        self.status = BaseChannel.WAITING
 
     def init_node_graph(self):
         if self._nodes:
@@ -92,6 +97,8 @@ class BaseChannel:
     def stop(self):
         """ Stop the channel """
         self.status = BaseChannel.STOPPING
+        # TODO Verify that all messages are processed
+        self.status = BaseChannel.STOPPED
 
     def add(self, *args):
         for node in args:
@@ -113,18 +120,25 @@ class BaseChannel:
     def handle(self, msg):
         self.logger.info("%s handle %s", self, msg)
         with (yield from self.lock):
-            result = yield from self.process(msg)
-
-            if self.next_node:
-
-                if isinstance(result, types.GeneratorType):
-                    for res in result:
-                        result = yield from self.next_node.handle(res)
-                        # TODO Here result is last value returned. Is it a good idea ?
-                else:
-                    result = yield from self.next_node.handle(result)
+            self.status = BaseChannel.PROCESSING
+            result = yield from self.subhandle(msg)
+            self.status = BaseChannel.WAITING
 
             return result
+
+    @asyncio.coroutine
+    def subhandle(self, msg):
+        result = yield from self.process(msg)
+
+        if self.next_node:
+            if isinstance(result, types.GeneratorType):
+                for res in result:
+                    result = yield from self.next_node.handle(res)
+                    # TODO Here result is last value returned. Is it a good idea ?
+            else:
+                result = yield from self.next_node.handle(result)
+
+        return result
 
     @asyncio.coroutine
     def process(self, msg):
@@ -192,30 +206,38 @@ class ConditionSubChannel(BaseChannel):
             return self.condition(msg)
         return True
 
-
-    # Keep this one to handle Condition sub channel as before
-    # TODO make a casesubchannel
     @asyncio.coroutine
-    def handle(self, msg):
-        with (yield from self.lock):
-            if self.test_condition(msg):
-                result = yield from self.process(msg)
+    def subhandle(self, msg):
+        if self.test_condition(msg):
+            result = yield from self.process(msg)
+        else:
+            if self.next_node:
+                result = yield from self.next_node.handle(msg)
             else:
-                if self.next_node:
-                    result = yield from self.next_node.handle(msg)
-                else:
-                    result = msg
+                result = msg
 
-            return result
+        return result
 
-    # Uncomment me to handle new way of condition subchannel
-    '''@asyncio.coroutine
+
+class CaseSubChannel(BaseChannel):
+    """ CaseSubchannel used for make alternative path without join at the end """
+
+    def __init__(self, condition, **kwargs):
+        super().__init__(**kwargs)
+        self.condition = condition
+
+    def test_condition(self, msg):
+        if callable(self.condition):
+            return self.condition(msg)
+        return True
+
+    @asyncio.coroutine
     def process(self, msg):
         if self.test_condition(msg):
             result = yield from self._nodes[0].handle(msg)
             return result
 
-        return msg'''
+        return msg
 
 
 class HttpChannel(BaseChannel):

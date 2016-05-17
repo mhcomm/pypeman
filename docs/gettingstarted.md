@@ -2,17 +2,17 @@
 
 ## Installation
 
-### With pip (No official version get)
+With pip (No official version get)...
 
   `pip install https://github.com/mhcomm/pypeman.git`
 
-### From source
+...or from source
 
-Clone from source:
+Clone it:
 
   `git clone https://github.com/mhcomm/pypeman.git`
 
-Then:
+then:
 
 ```sh
 cd pypeman

@@ -1,33 +1,67 @@
 # Core concepts
 
-## Messages
+In one image better than in 100 words:
 
-Message contains the core information processed by channels.
-
-Useful attributes:
-
-* payload: Message content
-* meta: Message metadata
-* context: Previous message can be saved in context dict.
+![General Architecture](./images/general_view.png)
 
 
 ## Channels
 
-Channels is a chain of processing (the nodes) wich use or
-transform message content.
+Channels are chains of processing, the nodes, which use or
+transform message content. A channel is specialised for a type
+of input and can be linked to an endpoint for incoming message.
 
-* Add node with `add()`
-* Duplicate path with `fork()`.
-* Make alternative path with `when(condition)`.
+A channel receive a message, process it and return the response.
+
+Channels are main components of pypeman.
+When you want to process a message,
+you first create a channel then add nodes to process the message.
+
+* Add node with `.add(*nodes)`
+* Duplicate path with `.fork()`
+* Make alternative path with `.when(condition)`
+
+### HttpChannel
+
+TBD
+
+### FilewatcherChannel
+
+TBD
+
+### TimeChannel
+
+TBD
  
 
 ## Nodes
 
 A node is a processing unit in a chain.
-To create a node, overide `process(msg)` method.
+To create a node, inherit form `pypeman.nodes.Node` and overide `process(msg)` method.
+
+### ThreadNode
+
+TBD
+
+### LogNode
+
+TBD
+
+
+## Messages
+
+Message contains the core information processed by nodes and carried by channel.
+The message payload can be of any type: Json, Xml, Soap, Hl7, text, ...
+
+Useful attributes:
+
+* payload: The message content
+* meta: Message metadata, should be used to add extra information about the payload
+* context: Previous message can be saved in context dict for further access.
+
 
 ## Endpoints
 
-Endpoints are server instance used by channel
-which listen to a specific port for a specific protocol.
+Endpoints are server instance used by channel to get message from net protocols like HTTP, Soap or HL7, ....
+They listen to a specific port for a specific protocol.
 

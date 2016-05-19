@@ -25,10 +25,15 @@ class BaseEndpoint:
 class HTTPEndpoint(BaseEndpoint):
     dependencies = ['aiohttp']
 
-    def __init__(self, adress='127.0.0.1', port='8080'):
+    def __init__(self, adress=None, address='127.0.0.1', port='8080'):
         super().__init__()
         self._app = None
-        self.address = adress
+        if adress:
+            self.address = adress
+            logger.warning("Argument adress for endpoint is deprecated. 'address' argument will be ignored")
+        else:
+            self.address = address
+            
         self.port = port
 
     def import_modules(self):
@@ -152,5 +157,3 @@ class MLLPEndpoint(BaseEndpoint):
             return srv
         else:
             print("No MLLP handlers.")
-
-

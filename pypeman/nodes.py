@@ -103,8 +103,8 @@ class BaseNode:
         return msg
 
     def __str__(self):
-        return "<Node %s>" % self.name
-
+        return "<%s(%s)>" % (self.channel.name, self.name)
+        
 class RaiseError(BaseNode):
     def process(self, msg):
         raise Exception("Test node")
@@ -161,17 +161,18 @@ class Log(BaseNode):
     """ Node to show some information about node, channel and message. Use for debug.
     """
     def __init__(self, *args, **kwargs):
-        self.lvl = kwargs.pop('level', logging.DEBUG)
+        self.lvl = kwargs.pop('level', logging.INFO)
         self.show_ctx = kwargs.pop('show_ctx', None)
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
-        self.channel.logger.log(self.lvl, 'Channel: %r', self.channel.name)
-        self.channel.logger.log(self.lvl, 'Node: %r', self.name)
+        self.channel.logger.log(self.lvl, '%s %s', self, msg)
+
         if self.channel.parent_uids:
             self.channel.logger.log(self.lvl, 'Parent channels: %r', self.channel.parent_names)
-        self.channel.logger.log(self.lvl, 'Uid message: %r', msg.uuid)
+
         self.channel.logger.log(self.lvl, 'Payload: %r', msg.payload)
+
         if self.show_ctx:
             self.channel.logger.log(self.lvl, 'Contexts: %r', [ctx for ctx in msg.ctx])
 

@@ -1,7 +1,5 @@
-# Mandatory
-begins
-
 # For doc
 sphinx
 sphinx-autobuild
 recommonmark
+sphinx_rtd_theme

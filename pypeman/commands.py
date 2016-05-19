@@ -87,8 +87,7 @@ def main(debug_asyncio=False, profile=False, cli=False):
         cli = CLI(namespace=namespace)
         cli.run_as_thread()
 
-    # TODO: what connection are we waiting for?????
-    print('Waiting for connection...')
+    print('Waiting for messages...')
     try:
         loop.run_forever()
     except KeyboardInterrupt:
@@ -159,7 +158,7 @@ def requirements():
 
 @begin.subcommand
 def startproject(dirname : "name of dir to install project to"):
-    """ creates a pypeman project from scrach """
+    """ Creates a pypeman project from scrach """
     from pypeman.pjt_templates import new_project
     new_project(dirname)
 

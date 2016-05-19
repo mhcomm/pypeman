@@ -6,17 +6,27 @@
 Welcome to Pypeman's documentation!
 ===================================
 
-Contents:
+This is Pypeman documentation.
+
+Source on github: https://github.com/mhcomm/pypeman
+
+See :doc:`introduction` for more info or :doc:`gettingstarted` for basic functionality.
 
 .. toctree::
-   :maxdepth: 2
+   :hidden:
+   :maxdepth: 1
+
+   introduction
+   gettingstarted
+   userguide
+   example
+   api
+   about
 
 
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+.. Indices and tables
+   ==================
+   * :ref:`genindex`
+   * :ref:`modindex`
+   * :ref:`search`
 

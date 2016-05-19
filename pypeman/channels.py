@@ -78,7 +78,6 @@ class BaseChannel:
         self.logger.debug('testing commit')
 
         self.next_node = None
-        self.backend = backend
 
         message_store_factory = message_store_factory or msgstore.NullMessageStoreFactory()
 

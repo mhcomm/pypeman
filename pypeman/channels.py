@@ -346,6 +346,7 @@ class HttpChannel(BaseChannel):
         except Dropped:
             return ext['aiohttp_web'].Response(body="Dropped".encode('utf-8'), status=200)
         except Exception as e:
+            logger.exception('Error while handling http message')
             return ext['aiohttp_web'].Response(body=str(e).encode('utf-8'), status=503)
 
 

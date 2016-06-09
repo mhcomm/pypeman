@@ -3,6 +3,7 @@ import json
 import types
 import asyncio
 import logging
+import ssl
 
 from datetime import datetime
 from collections import OrderedDict
@@ -69,7 +70,10 @@ class BaseNode:
         if self.passthrough:
             old_msg = msg.copy()
 
-        result = self.run(msg)
+        if asyncio.iscoroutinefunction(self.process):
+            result = yield from self.process(msg)
+        else:
+            result = self.run(msg)
 
         if isinstance(result, asyncio.Future):
             result = yield from result
@@ -111,6 +115,7 @@ class BaseNode:
     def __str__(self):
         return "<%s(%s)>" % (self.channel.name, self.name)
 
+
 class RaiseError(BaseNode):
     def process(self, msg):
         raise Exception("Test node")
@@ -146,6 +151,7 @@ class SetCtx(BaseNode):
         msg.payload = msg.ctx[self.ctx_name]['payload']
 
         return msg
+
 
 class ThreadNode(BaseNode):
     """ Inherit from this class instead of BaseNode to avoid
@@ -183,6 +189,7 @@ class Log(BaseNode):
             self.channel.logger.log(self.lvl, 'Contexts: %r', [repr(ctx) for ctx in msg.ctx])
 
         return msg
+
 
 class JsonToPython(BaseNode):
     """ Convert json message payload to python dict."""
@@ -321,7 +328,6 @@ class SQLiteStoreBackend():
         pass
 
 
-
 class MessageStore(ThreadNode):
     """ Store a message in specified store """
     def __init__(self, *args, **kwargs):
@@ -342,6 +348,7 @@ class MessageStore(ThreadNode):
     def process(self, msg):
         self.backend.store(msg)
         return msg
+
 
 class HL7ToPython(BaseNode):
     """ Convert hl7 payload to python struct."""
@@ -515,26 +522,30 @@ class MappingNode(BaseNode):
         return msg
 
 
-class RequestNode(ThreadNode):
+class RequestNode(BaseNode):
     """ Http request node """
-    dependencies = ['requests']
+    dependencies = ['aiohttp']
+    # methods = ['get','post','put']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.url = kwargs.pop('url')
-        self.content_type = kwargs.pop('content_type', None)
+        self.method = kwargs.pop('method','get')
+        self.headers = kwargs.pop('headers', None)
         self.auth = kwargs.pop('auth', None)
         self.verify = kwargs.pop('verify', False)
+        # self.cert = kwargs.pop('cert', None)
         self.url = self.url.replace('%(meta.', '%(')
         self.payload_in_url_dict = 'payload.' in self.url
+
 
         # TODO: create used payload keys for better perf of generate_request_url()
 
     def import_modules(self):
         """ import modules """
-        if 'requests' not in ext:
-            import requests
-            ext['requests'] = requests
+        if 'aiohttp' not in ext:
+            import aiohttp
+            ext['aiohttp'] = aiohttp
 
     def generate_request_url(self, msg):
 
@@ -548,20 +559,33 @@ class RequestNode(ThreadNode):
                 logger.exception("Payload must be a python dict if used to generate url. This can be fixed using JsonToPython node before your RequestNode")
                 raise
 
-        logger.debug("Completing url %r with data from %r" % (self.url, url_dict))
 
         return self.url % url_dict
 
+    @asyncio.coroutine
     def handle_request(self, msg):
         """ generate url and handle request """
         url = self.generate_request_url(msg)
-        logger.debug("Destination request url: %s", url)
-        resp = ext['requests'].get(url=url, auth=self.auth, verify=self.verify)
-        return str(resp.text)
 
+        logger.debug("Destination request url: %s", url)
+        conn=None
+        ssl_context=None
+        if self.cert:
+            sslcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+            sslcontext.load_cert_chain(self.cert[0], self.cert[1])
+            logger.debug('sslcontext: %r', sslcontext)
+        conn = ext['aiohttp'].TCPConnector(ssl_context=ssl_context, verify_ssl=self.verify)
+        with ext['aiohttp'].ClientSession(connector=conn, headers=self.headers) as session:
+
+            head = msg.meta.get('headers')
+            resp = yield from session.request(method=self.method, url=url, auth=self.auth, headers=head)
+            resp_text = yield from resp.text()
+            return str(resp_text)
+
+    @asyncio.coroutine
     def process(self, msg):
         """ handles request """
-        msg.payload = self.handle_request(msg)
+        msg.payload = yield from self.handle_request(msg)
 
         return msg
 

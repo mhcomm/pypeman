@@ -2,15 +2,14 @@ from setuptools import setup
 
 setup(name='pypeman',
       version='0.1',
-      description='Minimalistic but pragmatic ESB/ETL in Python',
-      long_description="""Long desc to be done""",
+      description='Minimalistic but pragmatic ESB / ETL / EAI in Python',
       classifiers=[
         'Development Status :: 1 - Alpha',
         'License :: OSI Approved :: Apache licence',
         'Programming Language :: Python :: 3.4',
         'Topic :: Data Processing',
       ],
-      keywords='esb etl data processing asyncio http',
+      keywords='esb etl eai pipeline data processing asyncio http',
       url='https://github.com/mhcomm/pypeman',
       author='Jeremie Pardou',
       author_email='jeremie.pardou@mhcomm.fr',

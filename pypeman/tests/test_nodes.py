@@ -20,7 +20,7 @@ class FakeChannel():
 class LongNode(nodes.ThreadNode):
 
     def process(self, msg):
-        time.sleep(3)
+        time.sleep(1)
         return msg
 
 def generate_msg():

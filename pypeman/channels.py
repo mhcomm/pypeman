@@ -7,7 +7,7 @@ import re
 import types
 
 
-from pypeman import endpoints, message
+from pypeman import endpoints, message, msgstore
 
 logger = logging.getLogger(__name__)
 
@@ -19,14 +19,24 @@ ext = {}
 
 
 class Dropped(Exception):
+    """ Used to stop process as message is unusefull. Default success should be returned.
+    """
     pass
 
 
 class Rejected(Exception):
+    """ Used to tell caller the message is invalid with a error return.
+    """
     pass
 
 
 class Break(Exception):
+    """ Used to break message processing and return default success.
+    """
+    pass
+
+
+class ChannelStopped(Exception):
     pass
 
 
@@ -35,7 +45,7 @@ class BaseChannel:
 
     dependencies = [] # List of module requirements
 
-    def __init__(self, name=None, parent_channel=None, loop=None, force_msg_order=True):
+    def __init__(self, name=None, parent_channel=None, loop=None, force_msg_order=True, message_store=None):
         self.uuid = uuid.uuid4()
 
         all.append(self)
@@ -65,10 +75,14 @@ class BaseChannel:
 
         self.next_node = None
 
+        if message_store:
+            self.message_store = message_store
+        else:
+            self.message_store = msgstore.NoneMessageStore()
+
         # Used to avoid multiple messages processing at same time
         self.lock = asyncio.Lock(loop=self.loop)
 
-        self.stopped_lock = asyncio.Lock(loop=self.loop)
 
     def requirements(self):
         """ List dependencies of modules if any """
@@ -101,30 +115,69 @@ class BaseChannel:
         self.status = BaseChannel.STOPPED
 
     def add(self, *args):
+        """
+        Add specified nodes to channel.
+        :param args: Nodes to add
+        :return: -
+        """
         for node in args:
             node.channel = self
             self._nodes.append(node)
         return self
 
     def fork(self):
+        """
+        Create a new channel with process a copy of the message at this point.
+        :return: The forked channel
+        """
         s = SubChannel(parent_channel=self, loop=self.loop)
         self._nodes.append(s)
         return s
 
     def when(self, condition):
+        """
+        New channel bifurcation which is executed only if condition is True.
+        :param condition: Can be a value or a function with a message argument.
+        :return: The conditionnal path channel.
+        """
         s = ConditionSubChannel(condition, parent_channel=self, loop=self.loop)
         self._nodes.append(s)
         return s
 
     @asyncio.coroutine
     def handle(self, msg):
+
+        if self.status in [BaseChannel.STOPPED, BaseChannel.STOPPING]:
+            raise ChannelStopped
+
         self.logger.info("%s handle %s", self, msg)
+
+        # Store message before any processing
+        # TODO If store fails, do we stop processing ?
+        msg_store_id = self.message_store.store(msg)
+
+        # Only one message at time
+        # TODO use keep_order var
         with (yield from self.lock):
             self.status = BaseChannel.PROCESSING
-            result = yield from self.subhandle(msg)
-            self.status = BaseChannel.WAITING
-
-            return result
+            try:
+                result = yield from self.subhandle(msg)
+                self.message_store.change_message_state(msg_store_id, message.Message.PROCESSED)
+                return result
+            except Dropped:
+                self.message_store.change_message_state(msg_store_id, message.Message.PROCESSED)
+                raise
+            except Rejected:
+                self.message_store.change_message_state(msg_store_id, message.Message.REJECTED)
+                raise
+            except Break:
+                self.message_store.change_message_state(msg_store_id, message.Message.PROCESSED)
+                raise
+            except:
+                self.message_store.change_message_state(msg_store_id, message.Message.ERROR)
+                raise
+            finally:
+                self.status = BaseChannel.WAITING
 
     @asyncio.coroutine
     def subhandle(self, msg):

@@ -21,6 +21,10 @@ Channels are main components of pypeman.
 When you want to process a message,
 you first create a channel then add nodes to process the message.
 
+You can specify a message store (see below) at channel initialisation
+if you want to save all processed message. Use `message_store` argument with
+an instance of wanted message store.
+
 * Add node with `.add(*nodes)`
 * Duplicate path with `.fork()`
 * Make alternative path with `.when(condition)`
@@ -69,3 +73,12 @@ Useful attributes:
 Endpoints are server instance used by channel to get message from net protocols like HTTP, Soap or HL7, ....
 They listen to a specific port for a specific protocol.
 
+## Message Stores
+
+A Message store is really useful to keep a copy of all message sent to a channel.
+It's like a log but with complete message data and metadata. This way you can trace all
+Processing or replay a specific message (Not implemented yet).
+
+### FileMessageStore
+
+A `FileMessageStore` save all message in file in a directory hierachy.

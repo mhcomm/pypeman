@@ -26,7 +26,7 @@
      inkscape:pageshadow="2"
      inkscape:zoom="0.98994949"
      inkscape:cx="231.86938"
-     inkscape:cy="695.28746"
+     inkscape:cy="614.47526"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
@@ -56,7 +56,7 @@
        inkscape:export-filename="/home/jeremie/Dev/pypeman/docs/images/general_view.png"
        inkscape:export-xdpi="120"
        inkscape:export-ydpi="120"
-       transform="translate(-56.407545,317.77819)">
+       transform="translate(-56.407545,305.77819)">
       <rect
          y="191.68616"
          x="212.87131"
@@ -315,7 +315,7 @@
     </g>
     <g
        id="g4748"
-       transform="translate(-17.734591,339.87899)">
+       transform="translate(-17.734591,327.87899)">
       <path
          sodipodi:nodetypes="cccccccccc"
          inkscape:connector-curvature="0"
@@ -723,7 +723,7 @@
     </g>
     <g
        id="g4813"
-       transform="translate(-5.0507627,340.96964)">
+       transform="translate(-5.0507627,328.96964)">
       <path
          sodipodi:nodetypes="cccccccccc"
          inkscape:connector-curvature="0"

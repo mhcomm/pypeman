@@ -104,7 +104,7 @@ class BaseNode:
 
     def __str__(self):
         return "<%s(%s)>" % (self.channel.name, self.name)
-        
+
 class RaiseError(BaseNode):
     def process(self, msg):
         raise Exception("Test node")
@@ -559,8 +559,8 @@ class ToOrderedDict(BaseNode):
         self.keys = kwargs.pop('keys')
         defaults = kwargs.pop('defaults', dict())
         self.dflt_dict = OrderedDict()
-        for key in keys:
-            self.dflt_dict[key] = defaults.get(key, NONE)
+        for key in self.keys:
+            self.dflt_dict[key] = defaults.get(key, ToOrderedDict.NONE)
         path = kwargs.pop('path', None)
         self.path = 'payload'
         if path:
@@ -581,10 +581,10 @@ class ToOrderedDict(BaseNode):
         new_dict = OrderedDict()
 
         for key in self.keys:
-            val = old_dict.get(key, NONE)
-            if val is NONE:
+            val = old_dict.get(key, ToOrderedDict.NONE)
+            if val is ToOrderedDict.NONE:
                 val = self.dflt_dict[key]
-            if val is not NONE:
+            if val is not ToOrderedDict.NONE:
                 new_dict[key] = val
 
         dest = msg

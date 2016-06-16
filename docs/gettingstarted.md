@@ -4,7 +4,7 @@
 
 With pip (No official version get)...
 
-  `pip install https://github.com/mhcomm/pypeman.git`
+  `pip install git+https://github.com/mhcomm/pypeman.git#egg=pypeman`
 
 ...or from source
 

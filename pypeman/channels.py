@@ -7,7 +7,7 @@ import re
 import types
 
 
-from pypeman import endpoints, message
+from pypeman import endpoints, message, msgstore
 
 logger = logging.getLogger(__name__)
 
@@ -19,23 +19,33 @@ ext = {}
 
 
 class Dropped(Exception):
+    """ Used to stop process as message is unusefull. Default success should be returned.
+    """
     pass
 
 
 class Rejected(Exception):
+    """ Used to tell caller the message is invalid with a error return.
+    """
     pass
 
 
 class Break(Exception):
+    """ Used to break message processing and return default success.
+    """
+    pass
+
+
+class ChannelStopped(Exception):
     pass
 
 
 class BaseChannel:
-    STARTING, RUNNING, STOPPING, STOPPED  = range(4)
+    STARTING, WAITING, PROCESSING, STOPPING, STOPPED  = range(5)
 
     dependencies = [] # List of module requirements
 
-    def __init__(self, name=None, parent_channel=None, loop=None, force_msg_order=True):
+    def __init__(self, name=None, parent_channel=None, loop=None, force_msg_order=True, message_store=None):
         self.uuid = uuid.uuid4()
 
         all.append(self)
@@ -65,7 +75,14 @@ class BaseChannel:
 
         self.next_node = None
 
+        if message_store:
+            self.message_store = message_store
+        else:
+            self.message_store = msgstore.NoneMessageStore()
+
+        # Used to avoid multiple messages processing at same time
         self.lock = asyncio.Lock(loop=self.loop)
+
 
     def requirements(self):
         """ List dependencies of modules if any """
@@ -78,7 +95,9 @@ class BaseChannel:
     @asyncio.coroutine
     def start(self):
         """ Start the channel """
+        self.status = BaseChannel.STARTING
         self.init_node_graph()
+        self.status = BaseChannel.WAITING
 
     def init_node_graph(self):
         if self._nodes:
@@ -92,39 +111,87 @@ class BaseChannel:
     def stop(self):
         """ Stop the channel """
         self.status = BaseChannel.STOPPING
+        # TODO Verify that all messages are processed
+        self.status = BaseChannel.STOPPED
 
     def add(self, *args):
+        """
+        Add specified nodes to channel.
+        :param args: Nodes to add
+        :return: -
+        """
         for node in args:
             node.channel = self
             self._nodes.append(node)
         return self
 
     def fork(self):
+        """
+        Create a new channel with process a copy of the message at this point.
+        :return: The forked channel
+        """
         s = SubChannel(parent_channel=self, loop=self.loop)
         self._nodes.append(s)
         return s
 
     def when(self, condition):
+        """
+        New channel bifurcation which is executed only if condition is True.
+        :param condition: Can be a value or a function with a message argument.
+        :return: The conditionnal path channel.
+        """
         s = ConditionSubChannel(condition, parent_channel=self, loop=self.loop)
         self._nodes.append(s)
         return s
 
     @asyncio.coroutine
     def handle(self, msg):
+
+        if self.status in [BaseChannel.STOPPED, BaseChannel.STOPPING]:
+            raise ChannelStopped
+
         self.logger.info("%s handle %s", self, msg)
+
+        # Store message before any processing
+        # TODO If store fails, do we stop processing ?
+        msg_store_id = self.message_store.store(msg)
+
+        # Only one message at time
+        # TODO use keep_order var
         with (yield from self.lock):
-            result = yield from self.process(msg)
+            self.status = BaseChannel.PROCESSING
+            try:
+                result = yield from self.subhandle(msg)
+                self.message_store.change_message_state(msg_store_id, message.Message.PROCESSED)
+                return result
+            except Dropped:
+                self.message_store.change_message_state(msg_store_id, message.Message.PROCESSED)
+                raise
+            except Rejected:
+                self.message_store.change_message_state(msg_store_id, message.Message.REJECTED)
+                raise
+            except Break:
+                self.message_store.change_message_state(msg_store_id, message.Message.PROCESSED)
+                raise
+            except:
+                self.message_store.change_message_state(msg_store_id, message.Message.ERROR)
+                raise
+            finally:
+                self.status = BaseChannel.WAITING
 
-            if self.next_node:
+    @asyncio.coroutine
+    def subhandle(self, msg):
+        result = yield from self.process(msg)
 
-                if isinstance(result, types.GeneratorType):
-                    for res in result:
-                        result = yield from self.next_node.handle(res)
-                        # TODO Here result is last value returned. Is it a good idea ?
-                else:
-                    result = yield from self.next_node.handle(result)
+        if self.next_node:
+            if isinstance(result, types.GeneratorType):
+                for res in result:
+                    result = yield from self.next_node.handle(res)
+                    # TODO Here result is last value returned. Is it a good idea ?
+            else:
+                result = yield from self.next_node.handle(result)
 
-            return result
+        return result
 
     @asyncio.coroutine
     def process(self, msg):
@@ -192,30 +259,38 @@ class ConditionSubChannel(BaseChannel):
             return self.condition(msg)
         return True
 
-
-    # Keep this one to handle Condition sub channel as before
-    # TODO make a casesubchannel
     @asyncio.coroutine
-    def handle(self, msg):
-        with (yield from self.lock):
-            if self.test_condition(msg):
-                result = yield from self.process(msg)
+    def subhandle(self, msg):
+        if self.test_condition(msg):
+            result = yield from self.process(msg)
+        else:
+            if self.next_node:
+                result = yield from self.next_node.handle(msg)
             else:
-                if self.next_node:
-                    result = yield from self.next_node.handle(msg)
-                else:
-                    result = msg
+                result = msg
 
-            return result
+        return result
 
-    # Uncomment me to handle new way of condition subchannel
-    '''@asyncio.coroutine
+
+class CaseSubChannel(BaseChannel):
+    """ CaseSubchannel used for make alternative path without join at the end """
+
+    def __init__(self, condition, **kwargs):
+        super().__init__(**kwargs)
+        self.condition = condition
+
+    def test_condition(self, msg):
+        if callable(self.condition):
+            return self.condition(msg)
+        return True
+
+    @asyncio.coroutine
     def process(self, msg):
         if self.test_condition(msg):
             result = yield from self._nodes[0].handle(msg)
             return result
 
-        return msg'''
+        return msg
 
 
 class HttpChannel(BaseChannel):

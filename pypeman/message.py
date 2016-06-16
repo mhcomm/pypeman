@@ -39,7 +39,7 @@ class Message():
         """
         return copy.deepcopy(self)
 
-    def as_dict(self):
+    def to_dict(self):
         """
         Convert a message object to a dict.
         :return: A dict with an equivalent of message
@@ -52,12 +52,12 @@ class Message():
         result['ctx'] = {}
 
         for k, m in self.ctx.items():
-            result['ctx'][k] = m.as_dict()
+            result['ctx'][k] = m.to_dict()
 
         return result
 
     def to_json(self):
-        return json.dumps(self.as_dict())
+        return json.dumps(self.to_dict())
 
     @staticmethod
     def from_dict(data):

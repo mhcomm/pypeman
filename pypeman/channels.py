@@ -5,6 +5,7 @@ import uuid
 import logging
 import re
 import types
+import warnings
 
 
 from pypeman import endpoints, message, msgstore
@@ -45,7 +46,7 @@ class BaseChannel:
 
     dependencies = [] # List of module requirements
 
-    def __init__(self, name=None, parent_channel=None, loop=None, force_msg_order=True, message_store=None):
+    def __init__(self, name=None, parent_channel=None, loop=None, force_msg_order=True, message_store_factory=None):
         self.uuid = uuid.uuid4()
 
         all.append(self)
@@ -55,6 +56,7 @@ class BaseChannel:
         if name:
             self.name = name
         else:
+            warnings.warn("Channels without names are deprecated", DeprecationWarning)
             self.name = self.__class__.__name__ + "_" + str(len(all))
 
         if loop is None:
@@ -75,10 +77,9 @@ class BaseChannel:
 
         self.next_node = None
 
-        if message_store:
-            self.message_store = message_store
-        else:
-            self.message_store = msgstore.NoneMessageStore()
+        message_store_factory = message_store_factory or msgstore.NullMessageStoreFactory()
+
+        self.message_store = message_store_factory.get_store(self.name)
 
         # Used to avoid multiple messages processing at same time
         self.lock = asyncio.Lock(loop=self.loop)
@@ -127,7 +128,7 @@ class BaseChannel:
 
     def fork(self):
         """
-        Create a new channel with process a copy of the message at this point.
+        Create a new channel that process a copy of the message at this point.
         :return: The forked channel
         """
         s = SubChannel(parent_channel=self, loop=self.loop)
@@ -136,7 +137,7 @@ class BaseChannel:
 
     def when(self, condition):
         """
-        New channel bifurcation which is executed only if condition is True.
+        New channel bifurcation that is executed only if condition is True.
         :param condition: Can be a value or a function with a message argument.
         :return: The conditionnal path channel.
         """
@@ -146,6 +147,10 @@ class BaseChannel:
 
     @asyncio.coroutine
     def handle(self, msg):
+        """ Overload this method only if you know what you are doing.
+        :param msg: To be processed msg.
+        :return: Processed message
+        """
 
         if self.status in [BaseChannel.STOPPED, BaseChannel.STOPPING]:
             raise ChannelStopped
@@ -181,6 +186,11 @@ class BaseChannel:
 
     @asyncio.coroutine
     def subhandle(self, msg):
+        """ Overload this method only if you know what you are doing.
+        :param msg: To be processed msg.
+        :return: Processed message
+        """
+
         result = yield from self.process(msg)
 
         if self.next_node:
@@ -195,6 +205,11 @@ class BaseChannel:
 
     @asyncio.coroutine
     def process(self, msg):
+        """ Overload this method only if you know what you are doing.
+        :param msg: To be processed msg.
+        :return: Processed message
+        """
+
         if self._nodes:
             res = yield from self._nodes[0].handle(msg)
             return res

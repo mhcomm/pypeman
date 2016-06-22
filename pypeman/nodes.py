@@ -58,6 +58,7 @@ class BaseNode:
         :param msg: incoming message
         :return: modified message after a process call and some treatment
         """
+
         # TODO : Make sure exceptions are well raised (does not happen if i.e 1/0 here atm)
         if self.store_input_as:
             msg.ctx[self.store_input_as] = dict(
@@ -65,28 +66,33 @@ class BaseNode:
                 payload=deepcopy(msg.payload),
             )
 
+        if self.passthrough:
+            old_msg = msg.copy()
+
         result = self.run(msg)
 
         if isinstance(result, asyncio.Future):
             result = yield from result
 
-        if self.next_node:
 
+        if self.next_node:
             if isinstance(result, types.GeneratorType):
                 for res in result:
                     result = yield from self.next_node.handle(res)
                     # TODO Here result is last value returned. Is it a good idea ?
             else:
+                if self.store_output_as:
+                    result.ctx[self.store_output_as] = dict(
+                        meta=dict(result.meta),
+                        payload=deepcopy(result.payload),
+                    )
+                
+                if self.passthrough:
+                    result.payload = old_msg.payload
+                    result.meta = old_msg.meta
+                
                 result = yield from self.next_node.handle(result)
-
-        if self.store_output_as:
-            result.ctx[self.store_output_as] = dict(
-                meta=dict(result.meta),
-                payload=deepcopy(result.payload),
-            )
-
-        result = msg if self.passthrough else result
-
+        
         return result
 
     def run(self, msg):

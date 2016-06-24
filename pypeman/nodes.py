@@ -86,13 +86,13 @@ class BaseNode:
                         meta=dict(result.meta),
                         payload=deepcopy(result.payload),
                     )
-                
+
                 if self.passthrough:
                     result.payload = old_msg.payload
                     result.meta = old_msg.meta
-                
+
                 result = yield from self.next_node.handle(result)
-        
+
         return result
 
     def run(self, msg):
@@ -172,15 +172,15 @@ class Log(BaseNode):
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
-        self.channel.logger.log(self.lvl, '%s %s', self, msg)
+        self.channel.logger.log(self.lvl, '%s %s', repr(self), repr(msg))
 
         if self.channel.parent_uids:
-            self.channel.logger.log(self.lvl, 'Parent channels: %r', self.channel.parent_names)
+            self.channel.logger.log(self.lvl, 'Parent channels: %r', repr(self.channel.parent_names))
 
-        self.channel.logger.log(self.lvl, 'Payload: %r', msg.payload)
+        self.channel.logger.log(self.lvl, 'Payload: %r', repr(msg.payload))
 
         if self.show_ctx:
-            self.channel.logger.log(self.lvl, 'Contexts: %r', [ctx for ctx in msg.ctx])
+            self.channel.logger.log(self.lvl, 'Contexts: %r', [repr(ctx) for ctx in msg.ctx])
 
         return msg
 
@@ -503,6 +503,7 @@ class MappingNode(BaseNode):
 
         return msg
 
+
 class RequestNode(ThreadNode):
     """ Http request node """
     dependencies = ['requests']
@@ -525,9 +526,6 @@ class RequestNode(ThreadNode):
             ext['requests'] = requests
 
     def generate_request_url(self, msg):
-
-        logger.debug('%r', msg.payload)
-        logger.debug(type(msg.payload))
 
         url_dict = msg.meta
         if self.payload_in_url_dict:

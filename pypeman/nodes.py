@@ -533,12 +533,10 @@ class RequestNode(BaseNode):
         self.method = kwargs.pop('method','get')
         self.headers = kwargs.pop('headers', None)
         self.auth = kwargs.pop('auth', None)
-        self.verify = kwargs.pop('verify', False)
-        # self.cert = kwargs.pop('cert', None)
+        self.verify = kwargs.pop('verify', True)
+        self.client_cert = kwargs.pop('client_cert', None)
         self.url = self.url.replace('%(meta.', '%(')
         self.payload_in_url_dict = 'payload.' in self.url
-
-
         # TODO: create used payload keys for better perf of generate_request_url()
 
     def import_modules(self):
@@ -548,7 +546,6 @@ class RequestNode(BaseNode):
             ext['aiohttp'] = aiohttp
 
     def generate_request_url(self, msg):
-
         url_dict = msg.meta
         if self.payload_in_url_dict:
             url_dict = dict(url_dict)
@@ -558,25 +555,26 @@ class RequestNode(BaseNode):
             except AttributeError:
                 logger.exception("Payload must be a python dict if used to generate url. This can be fixed using JsonToPython node before your RequestNode")
                 raise
-
-
         return self.url % url_dict
 
     @asyncio.coroutine
     def handle_request(self, msg):
         """ generate url and handle request """
         url = self.generate_request_url(msg)
-
         logger.debug("Destination request url: %s", url)
         conn=None
         ssl_context=None
-        if self.cert:
-            sslcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
-            sslcontext.load_cert_chain(self.cert[0], self.cert[1])
-            logger.debug('sslcontext: %r', sslcontext)
-        conn = ext['aiohttp'].TCPConnector(ssl_context=ssl_context, verify_ssl=self.verify)
-        with ext['aiohttp'].ClientSession(connector=conn, headers=self.headers) as session:
+        if self.client_cert:
+            if self.verify:
+                ssl_context = ssl.create_default_context()
+            else:
+                ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+            ssl_context.load_cert_chain(self.client_cert[0], self.client_cert[1])
+            conn = ext['aiohttp'].TCPConnector(ssl_context=ssl_context)
+        else:
+            conn = ext['aiohttp'].TCPConnector(verify_ssl=self.verify)
 
+        with ext['aiohttp'].ClientSession(connector=conn, headers=self.headers) as session:
             head = msg.meta.get('headers')
             resp = yield from session.request(method=self.method, url=url, auth=self.auth, headers=head)
             resp_text = yield from resp.text()
@@ -586,7 +584,6 @@ class RequestNode(BaseNode):
     def process(self, msg):
         """ handles request """
         msg.payload = yield from self.handle_request(msg)
-
         return msg
 
 

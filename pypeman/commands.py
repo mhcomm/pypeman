@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 
+"""
 # ############################################################################
 # This is the code for THE pypeman command line program
 # and all it's related commands
 # after installing the module pypeman, all this functionality can be obtained 
 # by calling 'pypeman' from the command line
 # ############################################################################
+"""
 
 import os
 import sys

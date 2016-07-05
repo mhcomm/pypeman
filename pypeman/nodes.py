@@ -574,9 +574,11 @@ class RequestNode(BaseNode):
         else:
             conn = ext['aiohttp'].TCPConnector(verify_ssl=self.verify)
 
-        with ext['aiohttp'].ClientSession(connector=conn, headers=self.headers) as session:
-            head = msg.meta.get('headers')
-            resp = yield from session.request(method=self.method, url=url, auth=self.auth, headers=head)
+        with ext['aiohttp'].ClientSession(connector=conn) as session:
+            headers = self.headers
+            if not headers:
+                headers = msg.meta.get('headers')
+            resp = yield from session.request(method=self.method, url=url, auth=self.auth, headers=headers)
             resp_text = yield from resp.text()
             return str(resp_text)
 

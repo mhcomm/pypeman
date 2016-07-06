@@ -2,14 +2,41 @@
 
 """
 
+import os
 import time
 import datetime
 import logging
+from importlib import reload
+
 
 from pypeman import nodes
 
+def setup_settings(module):
+    """ helper allows to have specific settings for a test 
+    """
+    os.environ['PYPEMAN_SETTINGS_MODULE'] = module
+    import pypeman.default_settings
+    import pypeman.conf
+    reload(pypeman.default_settings)
+    reload(pypeman.conf)
+    import pypeman.tests.tst_settings as tst_settings
+    reload(tst_settings)
+    from pypeman.conf import settings
+
+def teardown_settings():
+    """ helper allowing to reset settings to default 
+    """
+    os.environ.pop('PYPEMAN_SETTINGS_MODULE', None)
+    import pypeman.default_settings
+    reload(pypeman.default_settings)
+    try:
+        import pypeman.conf
+        reload(pypeman.conf)
+    except ImportError:
+        pass
+
 def generate_msg(timestamp=None):
-    # Default message
+    """ generates a default message """
     m = message.Message()
     if timestamp:
         if type(timestamp) == tuple:

@@ -16,16 +16,16 @@ from pypeman import nodes
 from pypeman.tests.common import TestException
 from pypeman.tests.common import SimpleTestNode
 from pypeman.tests.common import generate_msg
+from pypeman.tests.common import setup_settings
+from pypeman.tests.common import teardown_settings
 
-os.environ['PYPEMAN_SETTINGS_MODULE'] = 'pypeman.tests.tst_settings'
 
-import pypeman.tests.tst_settings as tst_settings
-
-from pypeman.conf import settings
+SETTINGS_MODULE = 'pypeman.tests.tst_settings'
 
 
 class MainLoopTests(unittest.TestCase):
     def setUp(self):
+        setup_settings(SETTINGS_MODULE)
         # Create class event loop used for tests to avoid failing
         # previous tests to impact next test ? (Not shure)
         self.loop = asyncio.new_event_loop()
@@ -33,16 +33,20 @@ class MainLoopTests(unittest.TestCase):
         # another event loop somewhere
         asyncio.set_event_loop(None)
 
+    def tearDown(self):
+        teardown_settings()
+
     def test_loop_slow(self):
         """ main loop logs slow tasks """
         logger.debug("DEBUG")
         logger.info("INFO")
         logger.info("WARNING")
         logger.info("ERROR")
+        tst_logger = logging.getLogger('tests.debug.main_loop.slow')
 
         chan = BaseChannel(loop=self.loop)
-        n1 = SimpleTestNode(delay=0.1)
-        n2 = SimpleTestNode(delay=0.9)
+        n1 = SimpleTestNode(delay=0.1, logger=tst_logger)
+        n2 = SimpleTestNode(delay=0.9, logger=tst_logger)
         chan.add(n1)
         chan.add(n2)
 

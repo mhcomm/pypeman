@@ -27,6 +27,8 @@ def teardown_settings():
     """ helper allowing to reset settings to default 
     """
     os.environ.pop('PYPEMAN_SETTINGS_MODULE', None)
+
+    # TODO: try later with del sys.modules[module_name]
     import pypeman.default_settings
     reload(pypeman.default_settings)
     try:

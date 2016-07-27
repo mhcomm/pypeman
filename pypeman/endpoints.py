@@ -1,5 +1,6 @@
 import asyncio
 import sys
+import warnings
 
 all = []
 
@@ -62,17 +63,13 @@ class MLLPProtocol(asyncio.Protocol):
     .. [2] http://www.hl7standards.com/blog/2007/02/01/ack-message-original-mode-acknowledgement/
     """
 
-    def __init__(self, handler, encoding='utf-8'):
+    def __init__(self, handler):
         super().__init__()
         self._buffer = b''
         self.start_block = b'\x0b'  # <VT>, vertical tab
         self.end_block = b'\x1c'  # <FS>, file separator
         self.carriage_return = b'\x0d'  # <CR>, \r
         self.handler = handler
-
-        if encoding is None:
-            encoding = sys.getdefaultencoding()
-        self.encoding = encoding
 
     def connection_made(self, transport):
         """
@@ -85,11 +82,6 @@ class MLLPProtocol(asyncio.Protocol):
 
     def process_response(self, future):
         self.writeMessage(future.result())
-
-        # May be auto hack later
-        # h = ext['hl7'].parse(raw_message)
-        # ack = h.create_ack('AA')
-
 
     def data_received(self, data):
         """
@@ -106,18 +98,16 @@ class MLLPProtocol(asyncio.Protocol):
             # strip the rest of the MLLP shell from the HL7 message
             raw_message = raw_message.strip(self.start_block + self.carriage_return)
 
+            print(repr(raw_message))
+
             # only pass messages with data
             if len(raw_message) > 0:
-                # convert into unicode
-                raw_message = raw_message.decode(self.encoding)
-
                 result = asyncio.async(self.handler(raw_message))
                 result.add_done_callback(self.process_response)
 
 
     def writeMessage(self, message):
         # convert back to a byte string
-        message = str(message).encode(self.encoding)
         # wrap message in payload container
         self.transport.write(self.start_block + message + self.end_block + self.carriage_return)
 
@@ -140,6 +130,9 @@ class MLLPEndpoint(BaseEndpoint):
         self.handlers = []
         self.address = address
         self.port = port
+
+        if encoding != 'utf-8':
+            warnings.warn("MLLPEndpoint 'encoding' parameters is deprecated", DeprecationWarning)
         self.encoding = encoding
 
     def import_modules(self):
@@ -154,7 +147,7 @@ class MLLPEndpoint(BaseEndpoint):
     def start(self):
         if self.handler:
             loop = asyncio.get_event_loop()
-            srv = yield from loop.create_server(lambda: MLLPProtocol(self.handler, self.encoding), self.address, self.port)
+            srv = yield from loop.create_server(lambda: MLLPProtocol(self.handler), self.address, self.port)
             print("MLLP server started at http://{}:{}".format(self.address, self.port))
             return srv
         else:

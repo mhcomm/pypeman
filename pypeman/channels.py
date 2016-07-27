@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import os
+import sys
 import uuid
 import logging
 import re
@@ -179,6 +180,7 @@ class BaseChannel:
                 self.message_store.change_message_state(msg_store_id, message.Message.PROCESSED)
                 raise
             except:
+                logger.exception('Error while processing message %s', msg)
                 self.message_store.change_message_state(msg_store_id, message.Message.ERROR)
                 raise
             finally:
@@ -453,11 +455,18 @@ class TimeChannel(BaseChannel):
 class MLLPChannel(BaseChannel):
     dependencies = ['hl7']
 
-    def __init__(self, *args, endpoint=None, **kwargs):
+    def __init__(self, *args, endpoint=None, encoding='utf-8', **kwargs):
         super().__init__(*args, **kwargs)
         if endpoint is None:
             raise TypeError('Missing "endpoint" argument')
         self.mllp_endpoint = endpoint
+
+        if encoding is None:
+            encoding = sys.getdefaultencoding()
+        self.encoding = encoding
+
+        self.encoding = encoding
+
 
     def import_modules(self):
         if 'hl7' not in ext:
@@ -471,17 +480,17 @@ class MLLPChannel(BaseChannel):
 
     @asyncio.coroutine
     def handle(self, hl7_message):
-        content = hl7_message
+        content = hl7_message.decode(self.encoding)
         msg = message.Message(content_type='text/hl7', payload=content, meta={})
         try:
             result = yield from super().handle(msg)
             return result.payload
         except Dropped:
-            ack = ext['hl7'].parse(content)
-            return ack.create_ack('AA')
+            ack = ext['hl7'].parse(content, encoding=self.encoding)
+            return str(ack.create_ack('AA')).encode(self.encoding)
         except Rejected:
-            ack = ext['hl7'].parse(content)
-            return str(ack.create_ack('AR'))
+            ack = ext['hl7'].parse(content, encoding=self.encoding)
+            return str(ack.create_ack('AR')).encode(self.encoding)
         except Exception:
-            ack = ext['hl7'].parse(content)
-            return str(ack.create_ack('AE'))
+            ack = ext['hl7'].parse(content, encoding=self.encoding)
+            return str(ack.create_ack('AE')).encode(self.encoding)

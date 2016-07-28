@@ -11,6 +11,7 @@ from pypeman.channels import BaseChannel
 from pypeman import message
 from pypeman import nodes
 from pypeman import msgstore
+from pypeman.tests.common import TestException
 
 message_content = """{"test":1}"""
 
@@ -25,9 +26,6 @@ class TestNode(nodes.BaseNode):
         self.processed = True
         return msg
 
-
-class TestException(Exception):
-    pass
 
 class TestConditionalErrorNode(nodes.BaseNode):
 

@@ -13,6 +13,7 @@ from pypeman.helpers.tempfile import mktempfname
 
 logger = logging.getLogger(__name__)
 
+
 class BinPypemanTestCase(unittest.TestCase):
     """ tests for the bin/pypeman cli """
 
@@ -76,3 +77,5 @@ class BinPypemanTestCase(unittest.TestCase):
             nose.tools.eq_(ret_code, 0, data)
 
         os.unlink(out_fname)
+
+test_suite =  BinPypemanTestCase

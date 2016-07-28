@@ -75,7 +75,6 @@ class BaseChannel:
                 self.parent_names.append(parent_channel.parent_names)
         else:
             self.parent_uids = None
-        self.logger.debug('testing commit')
 
         self.next_node = None
 

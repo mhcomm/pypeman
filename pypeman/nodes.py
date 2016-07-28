@@ -70,10 +70,7 @@ class BaseNode:
         if self.passthrough:
             old_msg = msg.copy()
 
-        if asyncio.iscoroutinefunction(self.process):
-            result = yield from self.process(msg)
-        else:
-            result = self.run(msg)
+        result = self.run(msg)
 
         if isinstance(result, asyncio.Future):
             result = yield from result

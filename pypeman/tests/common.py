@@ -26,14 +26,16 @@ def setup_settings(module):
 def teardown_settings():
     """ helper allowing to reset settings to default 
     """
-    os.environ.pop('PYPEMAN_SETTINGS_MODULE', None)
+    os.environ['PYPEMAN_SETTINGS_MODULE'] = 'pypeman.tests.settings.test_settings_default'
 
     # TODO: try later with del sys.modules[module_name]
+    import logging
+    logger = logging.getLogger()
     import pypeman.default_settings
     reload(pypeman.default_settings)
     try:
         import pypeman.conf
-        reload(pypeman.conf)
+        reload(pypeman.conf) #########
     except ImportError:
         pass
 

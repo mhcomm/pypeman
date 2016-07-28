@@ -25,7 +25,7 @@ class MessageTests(unittest.TestCase):
 
         m = create_message()
 
-        mdict = m.as_dict()
+        mdict = m.to_dict()
 
         self.assertTrue(isinstance(mdict, dict), "Message as_dict method is broken")
 

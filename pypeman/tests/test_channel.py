@@ -172,7 +172,7 @@ class ChannelsTests(unittest.TestCase):
     def test_null_message_store(self):
         """ We can store a message in NullMessageStore """
 
-        chan = BaseChannel(loop=self.loop, message_store=msgstore.NullMessageStore())
+        chan = BaseChannel(loop=self.loop, message_store_factory=msgstore.FakeMessageStoreFactory())
         n = TestNode()
         msg = generate_msg()
 
@@ -184,14 +184,65 @@ class ChannelsTests(unittest.TestCase):
 
         self.assertTrue(n.processed, "Channel handle not working")
 
+    def test_memory_message_store(self):
+            """ We can store a message in FileMessageStore """
+
+            store_factory = msgstore.MemoryMessageStoreFactory()
+
+            chan = BaseChannel(loop=self.loop, message_store_factory=store_factory)
+
+            n = TestNode()
+            n_error = TestConditionalErrorNode()
+
+            msg = generate_msg()
+            msg2 = generate_msg(timestamp=(1982, 11, 27, 12, 35))
+            msg3 = generate_msg(timestamp=(1982, 11, 28, 12, 35))
+            msg4 = generate_msg(timestamp=(1982, 11, 28, 14, 35))
+
+            # This message should be in error
+            msg5 = generate_msg(timestamp=(1982, 11, 12, 14, 35))
+
+            chan.add(n)
+            chan.add(n_error)
+
+            # Launch channel processing
+            self.loop.run_until_complete(chan.start())
+            self.loop.run_until_complete(chan.handle(msg))
+            self.loop.run_until_complete(chan.handle(msg2))
+            self.loop.run_until_complete(chan.handle(msg3))
+            self.loop.run_until_complete(chan.handle(msg4))
+
+            try:
+                # This message should be in error state
+                self.loop.run_until_complete(chan.handle(msg5))
+            except TestException as e:
+                pass
+
+            msg_stored = list(chan.message_store.search(chan.name))
+
+            for msg in msg_stored:
+                print(msg)
+
+            # All message stored ?
+            self.assertEqual(len(msg_stored), 5, "Should be 5 messages in store!")
+
+            # Test processed message
+            dict_msg = chan.message_store.get('%s' % msg3.uuid.hex)
+            self.assertEqual(dict_msg['state'], 'processed', "Message %s should be in processed state!" % msg3)
+
+            # Test failed message
+            dict_msg = chan.message_store.get('%s' % msg5.uuid.hex)
+            self.assertEqual(dict_msg['state'], 'error', "Message %s should be in error state!" % msg5)
+
+
     def test_file_message_store(self):
         """ We can store a message in FileMessageStore """
 
         tempdir = tempfile.mkdtemp()
 
-        store = msgstore.FileMessageStore(path=tempdir)
+        store_factory = msgstore.FileMessageStoreFactory(path=tempdir)
 
-        chan = BaseChannel(loop=self.loop, message_store=store)
+        chan = BaseChannel(loop=self.loop, message_store_factory=store_factory)
 
         n = TestNode()
         n_error = TestConditionalErrorNode()
@@ -221,7 +272,7 @@ class ChannelsTests(unittest.TestCase):
         except TestException as e:
             pass
 
-        msg_stored = list(store.search())
+        msg_stored = list(chan.message_store.search(chan.name))
 
         for msg in msg_stored:
             print(msg)
@@ -230,11 +281,11 @@ class ChannelsTests(unittest.TestCase):
         self.assertEqual(len(msg_stored), 5, "Should be 5 messages in store!")
 
         # Test processed message
-        dict_msg = store.get('1982/11/28/19821128_1235_%s' % msg3.uuid.hex)
+        dict_msg = chan.message_store.get('1982/11/28/19821128_1235_%s' % msg3.uuid.hex)
         self.assertEqual(dict_msg['state'], 'processed', "Message %s should be in processed state!" % msg3)
 
         # Test failed message
-        dict_msg = store.get('1982/11/12/19821112_1435_%s' % msg5.uuid.hex)
+        dict_msg = chan.message_store.get('1982/11/12/19821112_1435_%s' % msg5.uuid.hex)
         self.assertEqual(dict_msg['state'], 'error', "Message %s should be in error state!" % msg5)
 
 

@@ -1,10 +1,12 @@
 import asyncio
 import datetime
 import os
+import sys
 import uuid
 import logging
 import re
 import types
+import warnings
 
 
 from pypeman import endpoints, message, msgstore
@@ -45,7 +47,7 @@ class BaseChannel:
 
     dependencies = [] # List of module requirements
 
-    def __init__(self, name=None, parent_channel=None, loop=None, force_msg_order=True, message_store=None):
+    def __init__(self, name=None, parent_channel=None, loop=None, force_msg_order=True, message_store_factory=None):
         self.uuid = uuid.uuid4()
 
         all.append(self)
@@ -55,6 +57,7 @@ class BaseChannel:
         if name:
             self.name = name
         else:
+            warnings.warn("Channels without names are deprecated", DeprecationWarning)
             self.name = self.__class__.__name__ + "_" + str(len(all))
 
         if loop is None:
@@ -75,10 +78,9 @@ class BaseChannel:
 
         self.next_node = None
 
-        if message_store:
-            self.message_store = message_store
-        else:
-            self.message_store = msgstore.NoneMessageStore()
+        message_store_factory = message_store_factory or msgstore.NullMessageStoreFactory()
+
+        self.message_store = message_store_factory.get_store(self.name)
 
         # Used to avoid multiple messages processing at same time
         self.lock = asyncio.Lock(loop=self.loop)
@@ -127,7 +129,7 @@ class BaseChannel:
 
     def fork(self):
         """
-        Create a new channel with process a copy of the message at this point.
+        Create a new channel that process a copy of the message at this point.
         :return: The forked channel
         """
         s = SubChannel(parent_channel=self, loop=self.loop)
@@ -136,7 +138,7 @@ class BaseChannel:
 
     def when(self, condition):
         """
-        New channel bifurcation which is executed only if condition is True.
+        New channel bifurcation that is executed only if condition is True.
         :param condition: Can be a value or a function with a message argument.
         :return: The conditionnal path channel.
         """
@@ -146,6 +148,10 @@ class BaseChannel:
 
     @asyncio.coroutine
     def handle(self, msg):
+        """ Overload this method only if you know what you are doing.
+        :param msg: To be processed msg.
+        :return: Processed message
+        """
 
         if self.status in [BaseChannel.STOPPED, BaseChannel.STOPPING]:
             raise ChannelStopped
@@ -174,6 +180,7 @@ class BaseChannel:
                 self.message_store.change_message_state(msg_store_id, message.Message.PROCESSED)
                 raise
             except:
+                self.logger.exception('Error while processing message %s', msg)
                 self.message_store.change_message_state(msg_store_id, message.Message.ERROR)
                 raise
             finally:
@@ -181,6 +188,11 @@ class BaseChannel:
 
     @asyncio.coroutine
     def subhandle(self, msg):
+        """ Overload this method only if you know what you are doing.
+        :param msg: To be processed msg.
+        :return: Processed message
+        """
+
         result = yield from self.process(msg)
 
         if self.next_node:
@@ -195,6 +207,11 @@ class BaseChannel:
 
     @asyncio.coroutine
     def process(self, msg):
+        """ Overload this method only if you know what you are doing.
+        :param msg: To be processed msg.
+        :return: Processed message
+        """
+
         if self._nodes:
             res = yield from self._nodes[0].handle(msg)
             return res
@@ -438,11 +455,15 @@ class TimeChannel(BaseChannel):
 class MLLPChannel(BaseChannel):
     dependencies = ['hl7']
 
-    def __init__(self, *args, endpoint=None, **kwargs):
+    def __init__(self, *args, endpoint=None, encoding='utf-8', **kwargs):
         super().__init__(*args, **kwargs)
         if endpoint is None:
             raise TypeError('Missing "endpoint" argument')
         self.mllp_endpoint = endpoint
+
+        if encoding is None:
+            encoding = sys.getdefaultencoding()
+        self.encoding = encoding
 
     def import_modules(self):
         if 'hl7' not in ext:
@@ -456,17 +477,17 @@ class MLLPChannel(BaseChannel):
 
     @asyncio.coroutine
     def handle(self, hl7_message):
-        content = hl7_message
+        content = hl7_message.decode(self.encoding)
         msg = message.Message(content_type='text/hl7', payload=content, meta={})
         try:
             result = yield from super().handle(msg)
             return result.payload
         except Dropped:
-            ack = ext['hl7'].parse(content)
-            return ack.create_ack('AA')
+            ack = ext['hl7'].parse(content, encoding=self.encoding)
+            return str(ack.create_ack('AA')).encode(self.encoding)
         except Rejected:
-            ack = ext['hl7'].parse(content)
-            return str(ack.create_ack('AR'))
+            ack = ext['hl7'].parse(content, encoding=self.encoding)
+            return str(ack.create_ack('AR')).encode(self.encoding)
         except Exception:
-            ack = ext['hl7'].parse(content)
-            return str(ack.create_ack('AE'))
+            ack = ext['hl7'].parse(content, encoding=self.encoding)
+            return str(ack.create_ack('AE')).encode(self.encoding)

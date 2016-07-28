@@ -180,7 +180,7 @@ class BaseChannel:
                 self.message_store.change_message_state(msg_store_id, message.Message.PROCESSED)
                 raise
             except:
-                logger.exception('Error while processing message %s', msg)
+                self.logger.exception('Error while processing message %s', msg)
                 self.message_store.change_message_state(msg_store_id, message.Message.ERROR)
                 raise
             finally:
@@ -464,9 +464,6 @@ class MLLPChannel(BaseChannel):
         if encoding is None:
             encoding = sys.getdefaultencoding()
         self.encoding = encoding
-
-        self.encoding = encoding
-
 
     def import_modules(self):
         if 'hl7' not in ext:

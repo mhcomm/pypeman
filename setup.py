@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='pypeman',
-      version='v0.1.0-alpha',
+      version='0.1.0a0',
       description='Minimalistic but pragmatic ESB / ETL / EAI in Python',
       classifiers=[
         'Development Status :: 3 - Alpha',

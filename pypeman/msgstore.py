@@ -19,7 +19,7 @@ class MessageStoreFactory():
         """
 
 class MessageStore():
-    """ A message aim purpose is to save message dump. Mainly used in channels. """
+    """ A MessageStore keep an history of processed messages. Mainly used in channels. """
 
     def store(self, msg):
         """

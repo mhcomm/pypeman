@@ -525,12 +525,11 @@ class MappingNode(BaseNode):
 class RequestNode(BaseNode):
     """ Http request node """
     dependencies = ['aiohttp']
-    # methods = ['get','post','put']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.url = kwargs.pop('url')
-        self.method = kwargs.pop('method','get')
+        self.method = kwargs.pop('method', None)
         self.headers = kwargs.pop('headers', None)
         self.auth = kwargs.pop('auth', None)
         self.verify = kwargs.pop('verify', True)
@@ -578,7 +577,10 @@ class RequestNode(BaseNode):
             headers = self.headers
             if not headers:
                 headers = msg.meta.get('headers')
-            resp = yield from session.request(method=self.method, url=url, auth=self.auth, headers=headers)
+            method=self.method
+            if not method:
+                method = msg.meta.get('headers','get')
+            resp = yield from session.request(method=method, url=url, auth=self.auth, headers=headers)
             resp_text = yield from resp.text()
             return str(resp_text)
 

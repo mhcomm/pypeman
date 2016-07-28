@@ -318,16 +318,6 @@ class FileStoreBackend():
         self.counter += 1
 
 
-class SQLiteStoreBackend():
-    dependencies = ['sqlite3']
-    def __init__(self, path):
-        self.path = path
-        self.counter = 0
-
-    def store(self, message):
-        pass
-
-
 class MessageStore(ThreadNode):
     """ Store a message in specified store """
     def __init__(self, *args, **kwargs):

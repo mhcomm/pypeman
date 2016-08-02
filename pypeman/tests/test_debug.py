@@ -20,7 +20,7 @@ from pypeman.tests.common import setup_settings
 from pypeman.tests.common import teardown_settings
 
 
-SETTINGS_MODULE = 'pypeman.tests.tst_settings'
+SETTINGS_MODULE = 'pypeman.tests.test_app.settings'
 
 
 class MainLoopTests(unittest.TestCase):

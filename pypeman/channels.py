@@ -68,6 +68,7 @@ class BaseChannel:
         self.logger = logging.getLogger('pypeman.channels')
 
         if parent_channel:
+            self.name = ".".join([parent_channel.name, self.name])
             self.parent_uids = [parent_channel.uuid]
             self.parent_names = [parent_channel.name]
             if parent_channel.parent_uids:
@@ -126,6 +127,9 @@ class BaseChannel:
             node.channel = self
             self._nodes.append(node)
         return self
+
+    def append(self, *args):
+        self.add(*args)
 
     def fork(self):
         """
@@ -256,10 +260,18 @@ class BaseChannel:
 class SubChannel(BaseChannel):
     """ Subchannel used for fork """
 
+    def callback(self, fut):
+        try:
+            result = fut.result()
+            logger.debug("Subchannel %s end process message %s", self, result)
+        except:
+            self.logger.exception("Error while processing msg in subchannel %s", self)
+
     @asyncio.coroutine
     def process(self, msg):
         if self._nodes:
-            asyncio.async(self._nodes[0].handle(msg.copy()), loop=self.loop)
+            fut = asyncio.async(self._nodes[0].handle(msg.copy()), loop=self.loop)
+            fut.add_done_callback(self.callback)
 
         return msg
 

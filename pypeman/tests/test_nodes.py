@@ -40,7 +40,7 @@ class NodesTests(unittest.TestCase):
        asyncio.set_event_loop(None)
 
    def test_log_node(self):
-        """ if Log() node is functionnal """
+        """ if Log() node is functional """
 
         n = nodes.Log()
         n.channel = FakeChannel(self.loop)
@@ -55,7 +55,7 @@ class NodesTests(unittest.TestCase):
         self.loop.run_until_complete(go())
 
    def test_json_to_python_node(self):
-       """ if JsonToPython() node is functionnal """
+       """ if JsonToPython() node is functional """
 
        n = nodes.JsonToPython()
        n.channel = FakeChannel(self.loop)
@@ -70,7 +70,7 @@ class NodesTests(unittest.TestCase):
        self.loop.run_until_complete(go())
 
    def test_thread_node(self):
-       """ if Thread node is functionnal """
+       """ if Thread node is functional """
 
        # TODO test if another task can be executed in //
 

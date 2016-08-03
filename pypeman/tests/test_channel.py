@@ -6,7 +6,7 @@ import shutil
 import tempfile
 
 
-
+from pypeman import channels
 from pypeman.channels import BaseChannel
 from pypeman import message
 from pypeman import nodes
@@ -38,9 +38,10 @@ class TestConditionalErrorNode(nodes.BaseNode):
         return msg
 
 
-class ExceptNode(nodes.BaseNode):
+class ExceptNode(TestNode):
     # This node raise an exception
     def process(self, msg):
+        result = super().process(msg)
         raise TestException()
 
 
@@ -54,6 +55,19 @@ def generate_msg(timestamp=(1981, 12, 28, 13, 37)):
 
 
 class ChannelsTests(unittest.TestCase):
+    def clean_loop(self):
+        # Useful to execute future callbacks
+        pending = asyncio.Task.all_tasks(loop=self.loop)
+        self.loop.run_until_complete(asyncio.gather(*pending))
+
+        self.loop.close()
+
+    def start_channels(self):
+        # Start channels
+        for chan in channels.all:
+            chan.import_modules()
+            self.loop.run_until_complete(chan.start())
+
     def setUp(self):
         # Create class event loop used for tests to avoid failing
         # previous tests to impact next test ? (Not shure)
@@ -65,14 +79,14 @@ class ChannelsTests(unittest.TestCase):
     def test_base_channel(self):
         """ if BaseChannel handling is working """
 
-        chan = BaseChannel(loop=self.loop)
+        chan = BaseChannel(name="test_channel", loop=self.loop)
         n = TestNode()
         msg = generate_msg()
 
         chan.add(n)
 
         # Launch channel processing
-        self.loop.run_until_complete(chan.start())
+        self.start_channels()
         self.loop.run_until_complete(chan.handle(msg))
 
         self.assertTrue(n.processed, "Channel handle not working")
@@ -80,36 +94,63 @@ class ChannelsTests(unittest.TestCase):
     def test_no_node_base_channel(self):
         """ if BaseChannel handling is working even if there is no node """
 
-        chan = BaseChannel(loop=self.loop)
+        chan = BaseChannel(name="test_channel", loop=self.loop)
         msg = generate_msg()
 
         # Launch channel processing
-        self.loop.run_until_complete(chan.start())
+        self.start_channels()
         self.loop.run_until_complete(chan.handle(msg))
 
     def test_sub_channel(self):
         """ if Sub Channel is working """
 
-        chan = BaseChannel(loop=self.loop)
+        chan = BaseChannel(name="test_channel", loop=self.loop)
         n1 = TestNode(name="main")
         n2 = TestNode(name="sub")
+        n3 = TestNode(name="sub1")
+        n4 = TestNode(name="sub2")
 
         msg = generate_msg()
 
         chan.add(n1)
         sub = chan.fork()
-        sub.add(n2)
+        sub.add(n2, n3, n4)
 
         # Launch channel processing
-        self.loop.run_until_complete(chan.start())
+        self.start_channels()
+        self.loop.run_until_complete(chan.handle(msg))
+
+        self.assertTrue(n2.processed, "Sub Channel not working")
+        self.assertTrue(n3.processed, "Sub Channel not working")
+        self.assertTrue(n4.processed, "Sub Channel not working")
+
+    def test_sub_channel_with_exception(self):
+        """ if Sub Channel exception handling is working """
+
+        chan = BaseChannel(name="test_channel", loop=self.loop)
+        n1 = TestNode(name="main")
+        n2 = TestNode(name="sub")
+        n3 = ExceptNode(name="sub2")
+
+        msg = generate_msg()
+
+        chan.add(n1)
+        sub = chan.fork()
+        sub.add(n2, n3)
+
+        # Launch channel processing
+        self.start_channels()
         self.loop.run_until_complete(chan.handle(msg))
 
         self.assertTrue(n2.processed, "Sub Channel not working")
 
+        with self.assertRaises(TestException) as cm:
+            self.clean_loop()
+
     def test_cond_channel(self):
         """ if Conditionnal channel is working """
 
-        chan = BaseChannel(loop=self.loop)
+        chan = BaseChannel(name="test_channel", loop=self.loop)
         n1 = TestNode(name="main")
         n2 = TestNode(name="end_main")
         not_processed = TestNode(name="cond_notproc")
@@ -130,7 +171,7 @@ class ChannelsTests(unittest.TestCase):
         cond2.add(processed)
 
         # Launch channel processing
-        self.loop.run_until_complete(chan.start())
+        self.start_channels()
         self.loop.run_until_complete(chan.handle(msg))
 
         self.assertFalse(not_processed.processed, "Cond Channel when condition == False not working")
@@ -140,7 +181,7 @@ class ChannelsTests(unittest.TestCase):
     def test_channel_result(self):
         """ if BaseChannel handling return a good result """
 
-        chan = BaseChannel(loop=self.loop)
+        chan = BaseChannel(name="test_channel", loop=self.loop)
         msg = generate_msg()
 
         chan.add(nodes.JsonToPython(), nodes.PythonToJson())
@@ -151,86 +192,87 @@ class ChannelsTests(unittest.TestCase):
             self.assertEqual(result.payload, msg.payload, "Channel handle not working")
 
         # Launch channel processing
-        self.loop.run_until_complete(chan.start())
+        self.start_channels()
         self.loop.run_until_complete(go())
 
     def test_channel_exception(self):
         """ if BaseChannel handling return an exception in case of error in main branch """
 
-        chan = BaseChannel(loop=self.loop)
+        chan = BaseChannel(name="test_channel", loop=self.loop)
         msg = generate_msg()
 
         chan.add(nodes.JsonToPython(), nodes.PythonToJson(), ExceptNode())
 
         # Launch channel processing
-        self.loop.run_until_complete(chan.start())
+        self.start_channels()
         with self.assertRaises(TestException) as cm:
             self.loop.run_until_complete(chan.process(msg))
 
     def test_null_message_store(self):
         """ We can store a message in NullMessageStore """
 
-        chan = BaseChannel(loop=self.loop, message_store_factory=msgstore.FakeMessageStoreFactory())
+        chan = BaseChannel(name="test_channel", loop=self.loop, message_store_factory=msgstore.FakeMessageStoreFactory())
         n = TestNode()
         msg = generate_msg()
 
         chan.add(n)
 
         # Launch channel processing
-        self.loop.run_until_complete(chan.start())
+        self.start_channels()
         self.loop.run_until_complete(chan.handle(msg))
 
         self.assertTrue(n.processed, "Channel handle not working")
 
     def test_memory_message_store(self):
-            """ We can store a message in FileMessageStore """
+        """ We can store a message in FileMessageStore """
 
-            store_factory = msgstore.MemoryMessageStoreFactory()
+        store_factory = msgstore.MemoryMessageStoreFactory()
 
-            chan = BaseChannel(loop=self.loop, message_store_factory=store_factory)
+        chan = BaseChannel(name="test_channel", loop=self.loop, message_store_factory=store_factory)
 
-            n = TestNode()
-            n_error = TestConditionalErrorNode()
+        n = TestNode()
+        n_error = TestConditionalErrorNode()
 
-            msg = generate_msg()
-            msg2 = generate_msg(timestamp=(1982, 11, 27, 12, 35))
-            msg3 = generate_msg(timestamp=(1982, 11, 28, 12, 35))
-            msg4 = generate_msg(timestamp=(1982, 11, 28, 14, 35))
+        msg = generate_msg()
+        msg2 = generate_msg(timestamp=(1982, 11, 27, 12, 35))
+        msg3 = generate_msg(timestamp=(1982, 11, 28, 12, 35))
+        msg4 = generate_msg(timestamp=(1982, 11, 28, 14, 35))
 
-            # This message should be in error
-            msg5 = generate_msg(timestamp=(1982, 11, 12, 14, 35))
+        # This message should be in error
+        msg5 = generate_msg(timestamp=(1982, 11, 12, 14, 35))
 
-            chan.add(n)
-            chan.add(n_error)
+        chan.add(n)
+        chan.add(n_error)
 
-            # Launch channel processing
-            self.loop.run_until_complete(chan.start())
-            self.loop.run_until_complete(chan.handle(msg))
-            self.loop.run_until_complete(chan.handle(msg2))
-            self.loop.run_until_complete(chan.handle(msg3))
-            self.loop.run_until_complete(chan.handle(msg4))
+        # Launch channel processing
 
-            try:
-                # This message should be in error state
-                self.loop.run_until_complete(chan.handle(msg5))
-            except TestException as e:
-                pass
+        self.start_channels()
+        self.loop.run_until_complete(chan.handle(msg))
+        self.loop.run_until_complete(chan.handle(msg2))
+        self.loop.run_until_complete(chan.handle(msg3))
+        self.loop.run_until_complete(chan.handle(msg4))
 
-            msg_stored = list(chan.message_store.search(chan.name))
+        try:
+            # This message should be in error state
+            self.loop.run_until_complete(chan.handle(msg5))
+        except TestException as e:
+            pass
 
-            for msg in msg_stored:
-                print(msg)
+        msg_stored = list(chan.message_store.search(chan.name))
 
-            # All message stored ?
-            self.assertEqual(len(msg_stored), 5, "Should be 5 messages in store!")
+        for msg in msg_stored:
+            print(msg)
 
-            # Test processed message
-            dict_msg = chan.message_store.get('%s' % msg3.uuid.hex)
-            self.assertEqual(dict_msg['state'], 'processed', "Message %s should be in processed state!" % msg3)
+        # All message stored ?
+        self.assertEqual(len(msg_stored), 5, "Should be 5 messages in store!")
 
-            # Test failed message
-            dict_msg = chan.message_store.get('%s' % msg5.uuid.hex)
-            self.assertEqual(dict_msg['state'], 'error', "Message %s should be in error state!" % msg5)
+        # Test processed message
+        dict_msg = chan.message_store.get('%s' % msg3.uuid.hex)
+        self.assertEqual(dict_msg['state'], 'processed', "Message %s should be in processed state!" % msg3)
+
+        # Test failed message
+        dict_msg = chan.message_store.get('%s' % msg5.uuid.hex)
+        self.assertEqual(dict_msg['state'], 'error', "Message %s should be in error state!" % msg5)
 
 
     def test_file_message_store(self):
@@ -240,7 +282,7 @@ class ChannelsTests(unittest.TestCase):
 
         store_factory = msgstore.FileMessageStoreFactory(path=tempdir)
 
-        chan = BaseChannel(loop=self.loop, message_store_factory=store_factory)
+        chan = BaseChannel(name="test_channel", loop=self.loop, message_store_factory=store_factory)
 
         n = TestNode()
         n_error = TestConditionalErrorNode()
@@ -258,7 +300,7 @@ class ChannelsTests(unittest.TestCase):
         chan.add(n_error)
 
         # Launch channel processing
-        self.loop.run_until_complete(chan.start())
+        self.start_channels()
         self.loop.run_until_complete(chan.handle(msg))
         self.loop.run_until_complete(chan.handle(msg2))
         self.loop.run_until_complete(chan.handle(msg3))

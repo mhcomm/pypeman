@@ -8,6 +8,8 @@ import re
 import types
 import warnings
 
+# For compatibility purpose
+from asyncio import async as ensure_future
 
 from pypeman import endpoints, message, msgstore
 
@@ -270,7 +272,7 @@ class SubChannel(BaseChannel):
     @asyncio.coroutine
     def process(self, msg):
         if self._nodes:
-            fut = asyncio.async(self._nodes[0].handle(msg.copy()), loop=self.loop)
+            fut = ensure_future(self._nodes[0].handle(msg.copy()), loop=self.loop)
             fut.add_done_callback(self.callback)
 
         return msg
@@ -386,7 +388,7 @@ class FileWatcherChannel(BaseChannel):
     @asyncio.coroutine
     def start(self):
         yield from super().start()
-        asyncio.async(self.watch_for_file(), loop=self.loop)
+        ensure_future(self.watch_for_file(), loop=self.loop)
 
     def file_status(self, filename):
         if filename in self.data:
@@ -426,11 +428,11 @@ class FileWatcherChannel(BaseChannel):
                                 msg.payload = file.read()
                                 msg.meta['filename'] = filename
                                 msg.meta['filepath'] = filepath
-                                asyncio.async(super().handle(msg))
+                                ensure_future(super().handle(msg))
 
         finally:
             if not self.status in (BaseChannel.STOPPING, BaseChannel.STOPPED,):
-                asyncio.async(self.watch_for_file(), loop=self.loop)
+                ensure_future(self.watch_for_file(), loop=self.loop)
 
 
 class TimeChannel(BaseChannel):

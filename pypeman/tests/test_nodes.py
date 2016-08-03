@@ -33,14 +33,14 @@ def generate_msg():
 class NodesTests(unittest.TestCase):
    def setUp(self):
        # Create class event loop used for tests to avoid failing
-       # previous tests to impact next test ? (Not shure)
+       # previous tests to impact next test ? (Not sure)
        self.loop = asyncio.new_event_loop()
        # Remove thread event loop to be sure we are not using
        # another event loop somewhere
        asyncio.set_event_loop(None)
 
    def test_log_node(self):
-        """ if Log() node is functional """
+        """ if Log() node functional """
 
         n = nodes.Log()
         n.channel = FakeChannel(self.loop)
@@ -54,8 +54,23 @@ class NodesTests(unittest.TestCase):
 
         self.loop.run_until_complete(go())
 
+   def test_sleep_node(self):
+       """ if Sleep() node functional """
+
+       n = nodes.Sleep()
+       n.channel = FakeChannel(self.loop)
+
+       m = generate_msg()
+
+       @asyncio.coroutine
+       def go():
+           ret = yield from n.handle(m)
+           return ret
+
+       self.loop.run_until_complete(go())
+
    def test_json_to_python_node(self):
-       """ if JsonToPython() node is functional """
+       """ if JsonToPython() node functional """
 
        n = nodes.JsonToPython()
        n.channel = FakeChannel(self.loop)
@@ -70,7 +85,7 @@ class NodesTests(unittest.TestCase):
        self.loop.run_until_complete(go())
 
    def test_thread_node(self):
-       """ if Thread node is functional """
+       """ if Thread node functional """
 
        # TODO test if another task can be executed in //
 

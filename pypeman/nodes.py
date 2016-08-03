@@ -184,11 +184,21 @@ class Log(BaseNode):
 
         return msg
 
+class Sleep(BaseNode):
+    """ Wait `duration` seconds before returning message."""
+    def __init__(self, *args, duration=1, **kwargs):
+        self.duration = duration
+        super().__init__(*args, **kwargs)
+
+    def process(self, msg):
+        yield from asyncio.sleep(self.duration)
+        return msg
+
 class JsonToPython(BaseNode):
     """ Convert json message payload to python dict."""
     # TODO encoding management
-    def __init__(self, *args, **kwargs):
-        self.encoding = kwargs.pop('encoding', 'utf-8')
+    def __init__(self, *args, encoding='utf-8', **kwargs):
+        self.encoding = encoding
         super().__init__(*args, **kwargs)
 
     def process(self, msg):

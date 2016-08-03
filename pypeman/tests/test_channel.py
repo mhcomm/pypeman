@@ -163,7 +163,7 @@ class ChannelsTests(unittest.TestCase):
         # Nodes in this channel should not be processed
         cond1 = chan.when(lambda x: False)
         # Nodes in this channel should be processed
-        cond2 = chan.when(lambda x: True)
+        cond2 = chan.when(True)
 
         chan.add(n2)
 
@@ -177,6 +177,37 @@ class ChannelsTests(unittest.TestCase):
         self.assertFalse(not_processed.processed, "Cond Channel when condition == False not working")
         self.assertTrue(processed.processed, "Cond Channel when condition == True not working")
         self.assertFalse(n2.processed, "Cond Channel don't became the main path")
+
+    def test_case_channel(self):
+        """ if Conditionnal channel is working """
+
+        chan = BaseChannel(name="test_channel", loop=self.loop)
+        n1 = TestNode(name="main")
+        n2 = TestNode(name="end_main")
+        not_processed = TestNode(name="cond_notproc")
+        processed = TestNode(name="cond_proc")
+        not_processed2 = TestNode(name="cond_proc2")
+
+        msg = generate_msg()
+
+        chan.add(n1)
+
+        cond1, cond2, cond3 = chan.case(lambda x: False, True, True)
+
+        chan.add(n2)
+
+        cond1.add(not_processed)
+        cond2.add(processed)
+        cond3.add(not_processed2)
+
+        # Launch channel processing
+        self.start_channels()
+        self.loop.run_until_complete(chan.handle(msg))
+
+        self.assertFalse(not_processed.processed, "Case Channel when condition == False not working")
+        self.assertFalse(not_processed2.processed, "Case Channel when condition == False not working")
+        self.assertTrue(processed.processed, "Case Channel when condition == True not working")
+        self.assertTrue(n2.processed, "Cond Channel don't became the main path")
 
     def test_channel_result(self):
         """ if BaseChannel handling return a good result """

@@ -311,7 +311,7 @@ class FileStoreBackend():
         self.counter += 1
 
 
-class MessageStore(ThreadNode):
+class MessageSave(ThreadNode):
     """ Store a message in specified store """
     def __init__(self, *args, **kwargs):
 
@@ -331,6 +331,10 @@ class MessageStore(ThreadNode):
     def process(self, msg):
         self.backend.store(msg)
         return msg
+
+
+class MessageStore(MessageSave):
+    pass
 
 
 class HL7ToPython(BaseNode):

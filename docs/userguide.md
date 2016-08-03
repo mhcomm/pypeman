@@ -27,19 +27,22 @@ an instance of wanted message store.
 
 * Add node with `.add(*nodes)`
 * Duplicate path with `.fork()`
-* Make alternative path with `.when(condition)`
+* Make conditionnal alternative path with `.when(condition)`
+* Make conditionnal case paths with `.case(condition1, condition2, ...)` returns one channel for each
+  arg condition.
 
 ### HttpChannel
 
-TBD
+Channel that handle Http connection. The Http message is the message payload and some header become
+ metadata of message.
 
 ### FilewatcherChannel
 
-TBD
+Watch for file change or creation. File content become message payload. Filename is in message meta.
 
 ### TimeChannel
 
-TBD
+Periodic execution of task.
  
 
 ## Nodes
@@ -49,11 +52,11 @@ To create a node, inherit form `pypeman.nodes.Node` and overide `process(msg)` m
 
 ### ThreadNode
 
-TBD
+Base node that should be used for all long processing node.
 
 ### LogNode
 
-TBD
+Debug node log some information with `logging` library.
 
 
 ## Messages
@@ -82,3 +85,7 @@ Processing or replay a specific message (Not implemented yet).
 ### FileMessageStore
 
 A `FileMessageStore` save all message in file in a directory hierachy.
+
+### MemoryMessagStore
+
+Store message in memory. Lost each time you stop pypeman.

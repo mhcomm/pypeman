@@ -152,6 +152,18 @@ class BaseChannel:
         self._nodes.append(s)
         return s
 
+    def case(self, *conditions):
+        """
+        Case between multiple conditions.
+        :param conditions: multiple conditions
+        :return: one channel by condition param.
+        """
+
+        c = Case(*conditions
+                 , parent_channel=self, loop=self.loop)
+        self._nodes.append(c)
+        return [chan for cond, chan in c.cases]
+
     @asyncio.coroutine
     def handle(self, msg):
         """ Overload this method only if you know what you are doing.
@@ -288,7 +300,8 @@ class ConditionSubChannel(BaseChannel):
     def test_condition(self, msg):
         if callable(self.condition):
             return self.condition(msg)
-        return True
+        else:
+            return self.condition
 
     @asyncio.coroutine
     def subhandle(self, msg):
@@ -303,28 +316,45 @@ class ConditionSubChannel(BaseChannel):
         return result
 
 
-class CaseSubChannel(BaseChannel):
-    """ CaseSubchannel used for make alternative path without join at the end """
+class Case():
+    """ Case node internally used for `.case()` BaseChannel method. Don't use it.
+    """
+    def __init__(self, *args, default=False, parent_channel=None, loop=None):
+        self.next_node = None
+        self.cases = []
 
-    def __init__(self, condition, **kwargs):
-        super().__init__(**kwargs)
-        self.condition = condition
+        if loop is None:
+            self.loop = asyncio.get_event_loop()
+        else:
+            self.loop = loop
 
-    def test_condition(self, msg):
-        if callable(self.condition):
-            return self.condition(msg)
-        return True
+        for cond in args:
+            b = BaseChannel(parent_channel=parent_channel, loop=self.loop)
+            self.cases.append((cond, b))
+
+    def test_condition(self, condition, msg):
+        if callable(condition):
+            return condition(msg)
+        else:
+            return condition
 
     @asyncio.coroutine
-    def process(self, msg):
-        if self.test_condition(msg):
-            result = yield from self._nodes[0].handle(msg)
-            return result
+    def handle(self, msg):
+        result = msg
+        for cond, channel in self.cases:
+            if self.test_condition(cond, msg):
+                result = yield from channel.handle(msg)
+                break
 
-        return msg
+        if self.next_node:
+            result = yield from self.next_node.handle(result)
+
+        return result
 
 
 class HttpChannel(BaseChannel):
+    """ Channel that handle http messages.
+    """
     dependencies = ['aiohttp']
     app = None
 

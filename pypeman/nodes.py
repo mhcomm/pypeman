@@ -147,15 +147,22 @@ class SetCtx(BaseNode):
 
         return msg
 
+
+global_thread_pool = ThreadPoolExecutor(max_workers=3)
+
 class ThreadNode(BaseNode):
     """ Inherit from this class instead of BaseNode to avoid
     long run node blocking main event loop.
     """
     # TODO create class ThreadPool or channel ThreadPool or Global ?
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, thread_pool=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.executor = ThreadPoolExecutor(max_workers=3)
+
+        if global_thread_pool is None:
+            self.executor = global_thread_pool
+        else:
+            self.executor = thread_pool
 
     def run(self, msg):
         result = self.channel.loop.run_in_executor(self.executor, self.process, msg)

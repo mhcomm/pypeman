@@ -3,6 +3,7 @@ import json
 import types
 import asyncio
 import logging
+import base64
 
 from datetime import datetime
 from collections import OrderedDict
@@ -282,6 +283,30 @@ class Decode(BaseNode):
 
     def process(self, msg):
         msg.payload = msg.payload.decode(self.encoding)
+        return msg
+
+
+class B64Encode(BaseNode):
+    """ Encode payload in specified encoding to byte.
+    """
+    def __init__(self, *args, altchars=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.altchars = altchars
+
+    def process(self, msg):
+        msg.payload = base64.b64encode(msg.payload, altchars=self.altchars)
+        return msg
+
+
+class B64Decode(BaseNode):
+    """ Decode payload from byte to specified encoding
+    """
+    def __init__(self, *args, altchars=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.altchars = altchars
+
+    def process(self, msg):
+        msg.payload = base64.b64decode(msg.payload, altchars=self.altchars)
         return msg
 
 

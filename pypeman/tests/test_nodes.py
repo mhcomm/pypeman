@@ -69,6 +69,31 @@ class NodesTests(unittest.TestCase):
 
        self.loop.run_until_complete(go())
 
+   def test_b64_nodes(self):
+       """ if B64 nodes are functional """
+
+       n1 = nodes.B64Encode()
+       n2 = nodes.B64Decode()
+
+       channel = FakeChannel(self.loop)
+
+       n1.channel = channel
+       n2.channel = channel
+
+       m = generate_msg()
+
+       m.payload = b'hello'
+
+       base = bytes(m.payload)
+
+       @asyncio.coroutine
+       def go():
+           ret = yield from n1.handle(m)
+           ext_new = yield from n2.handle(ret)
+           self.assertEqual(base, ext_new.payload, "B64 nodes not working !")
+
+       self.loop.run_until_complete(go())
+
    def test_json_to_python_node(self):
        """ if JsonToPython() node functional """
 

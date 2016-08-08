@@ -5,6 +5,9 @@ import asyncio
 import logging
 import base64
 
+import smtplib
+from email.mime.text import MIMEText
+
 from datetime import datetime
 from collections import OrderedDict
 
@@ -25,6 +28,16 @@ all = []
 
 # used to share external dependencies
 ext = {}
+
+def choose_first_not_none(*args):
+    """ Choose first non None alternative in args.
+    :param args: alternative list
+    :return: the first non None alternative.
+    """
+    for a in args:
+        if a is not None:
+            return a
+    return None
 
 
 class BaseNode:
@@ -651,3 +664,55 @@ class ToOrderedDict(BaseNode):
             setattr(dest, parts[-1], new_dict)
 
         return msg
+
+class Email(ThreadNode):
+    """ Node that send Email.
+    """
+    def __init__(self, *args, host=None, port=None, user=None, password=None, ssl=False, start_tls=False,
+                 subject=None, sender=None, recipients=None, content=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.subject = subject or ""
+        self.sender = sender
+        self.recipients = recipients
+        self.content = content
+        self.host = host
+        self.port = port
+        self.user = user
+        self.password = password
+        self.start_tls = start_tls
+        self.ssl = ssl
+
+    def send_email(self, subject, sender, recipients, content):
+        msg = MIMEText(content)
+        msg['Subject'] = subject
+        msg['From'] = sender
+        msg['To'] = ', '.join(recipients)
+
+        # Send the message via the configured smtp server.
+        # TODO keep same connection during some time ?
+        s = None
+        if self.ssl:
+            s = smtplib.SMTP_SSL(self.host, self.port)
+        else:
+            s = smtplib.SMTP(self.host, self.port)
+
+        if self.user and self.password:
+            s.login(self.user, self.password)
+        if self.start_tls:
+            s.starttls()
+
+        s.sendmail(sender, recipients, msg.as_string())
+
+        s.quit()
+
+    def process(self, msg):
+        content = choose_first_not_none(self.content, msg.payload)
+        subject = choose_first_not_none(self.subject, msg.meta.get('subject'), 'No subject')
+        sender = choose_first_not_none(self.sender, msg.meta.get('sender'), 'pypeman@example.com')
+        recipients = choose_first_not_none(self.recipients, msg.meta.get('recipients'), [])
+
+        if isinstance(recipients, str):
+            recipients = [recipients]
+
+        self.send_email(subject, sender, recipients, content)
+

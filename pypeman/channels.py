@@ -146,7 +146,7 @@ class BaseChannel:
         """
         New channel bifurcation that is executed only if condition is True.
         :param condition: Can be a value or a function with a message argument.
-        :return: The conditionnal path channel.
+        :return: The conditional path channel.
         """
         s = ConditionSubChannel(condition, parent_channel=self, loop=self.loop)
         self._nodes.append(s)

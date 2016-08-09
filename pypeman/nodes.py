@@ -30,6 +30,9 @@ all = []
 # used to share external dependencies
 ext = {}
 
+# Can be redefined
+default_thread_pool = ThreadPoolExecutor(max_workers=3)
+
 def choose_first_not_none(*args):
     """ Choose first non None alternative in args.
     :param args: alternative list
@@ -163,8 +166,6 @@ class SetCtx(BaseNode):
         return msg
 
 
-global_thread_pool = ThreadPoolExecutor(max_workers=3)
-
 class ThreadNode(BaseNode):
     """ Inherit from this class instead of BaseNode to avoid
     long run node blocking main event loop.
@@ -174,8 +175,8 @@ class ThreadNode(BaseNode):
     def __init__(self, *args, thread_pool=None, **kwargs):
         super().__init__(*args, **kwargs)
 
-        if global_thread_pool is None:
-            self.executor = global_thread_pool
+        if thread_pool is None:
+            self.executor = default_thread_pool
         else:
             self.executor = thread_pool
 

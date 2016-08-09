@@ -131,8 +131,8 @@ class NodesTests(unittest.TestCase):
     @unittest.skipIf(not os.environ.get('PYPEMAN_TEST_SMTP_USER')
                      or not os.environ.get('PYPEMAN_TEST_SMTP_PASSWORD')
                      or not os.environ.get('PYPEMAN_TEST_RECIPIENT_EMAIL'),
-                     "Email node test skipped. Set PYPEMAN_TEST_MAILTRAP_USER, PYPEMAN_TEST_MAILTRAP_RECIPIENTS and "
-                        "PYPEMAN_TEST_MAILTRAP_PASSWORD to enable it.")
+                     "Email node test skipped. Set PYPEMAN_TEST_SMTP_USER, PYPEMAN_TEST_SMTP_PASSWORD and "
+                        "PYPEMAN_TEST_RECIPIENT_EMAIL to enable it.")
     def test_email_node(self):
         """ if Email() node is functional """
 

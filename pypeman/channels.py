@@ -481,7 +481,7 @@ class MLLPChannel(BaseChannel):
         msg = message.Message(content_type='text/hl7', payload=content, meta={})
         try:
             result = yield from super().handle(msg)
-            return result.payload
+            return result.payload.encode(self.encoding)
         except Dropped:
             ack = ext['hl7'].parse(content, encoding=self.encoding)
             return str(ack.create_ack('AA')).encode(self.encoding)

@@ -332,6 +332,7 @@ class MessageStore(ThreadNode):
         self.backend.store(msg)
         return msg
 
+
 class HL7ToPython(BaseNode):
     """ Convert hl7 payload to python struct."""
 

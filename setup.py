@@ -1,7 +1,11 @@
 from setuptools import setup
+from importlib import import_module
+
+VERSION = import_module("pypeman").__version__
+URL = import_module("pypeman").__url__
 
 setup(name='pypeman',
-      version='0.1.0a0',
+      version=VERSION,
       description='Minimalistic but pragmatic ESB / ETL / EAI in Python',
       classifiers=[
         'Development Status :: 3 - Alpha',
@@ -17,7 +21,7 @@ setup(name='pypeman',
         'Programming Language :: Python',
       ],
       keywords='esb etl eai pipeline data processing asyncio http',
-      url='https://github.com/mhcomm/pypeman',
+      url=URL,
 
       author='Jeremie Pardou',
       author_email='jeremie.pardou@mhcomm.fr',
@@ -30,7 +34,6 @@ setup(name='pypeman',
 
       test_suite='nose.collector',
       install_requires=['begins'],
-      tests_require=['nose', 'nose-cover3'],
-      download_url='https://github.com/jrmi/pypeman/archive/v0.1.0-alpha.tar.gz'
+      tests_require=['nose', 'nose-cover3']
 )
 

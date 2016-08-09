@@ -4,6 +4,7 @@ import types
 import asyncio
 import logging
 import base64
+import warnings
 
 import smtplib
 from email.mime.text import MIMEText
@@ -323,14 +324,14 @@ class B64Decode(BaseNode):
         return msg
 
 
-# TODO put stores in specific file ?
-class NullStoreBackend():
+# TODO put Save in specific file ?
+class SaveNullBackend():
     """ For testing purpose """
     def store(self, message):
         pass
 
 
-class FileStoreBackend():
+class SaveFileBackend():
     """ Backend used to store message with `MessageStore` node.
     """
     def __init__(self, path, filename, channel):
@@ -341,6 +342,7 @@ class FileStoreBackend():
 
     def store(self, message):
         today = datetime.now()
+        timestamp = message.timestamp
 
         context = {'counter':self.counter,
                    'year': today.year,
@@ -348,6 +350,11 @@ class FileStoreBackend():
                    'day': today.day,
                    'hour': today.hour,
                    'second': today.second,
+                   'msg_year': timestamp.year,
+                   'msg_month': timestamp.month,
+                   'msg_day': timestamp.day,
+                   'msg_hour': timestamp.hour,
+                   'msg_second': timestamp.second,
                    'muid': message.uuid,
                    'cuid': getattr(self.channel, 'uuid', '???')
                    }
@@ -366,11 +373,11 @@ class FileStoreBackend():
         self.counter += 1
 
 
-class MessageSave(ThreadNode):
-    """ Store a message in specified store """
-    def __init__(self, *args, **kwargs):
+class Save(ThreadNode):
+    """ Save a message in specified uri """
+    def __init__(self, *args, uri=None, **kwargs):
 
-        self.uri = kwargs.pop('uri')
+        self.uri = uri
         parsed = parse.urlparse(self.uri)
 
         super().__init__(*args, **kwargs)
@@ -378,9 +385,9 @@ class MessageSave(ThreadNode):
         if parsed.scheme == 'file':
             filename = parsed.query.split('=')[1]
 
-            self.backend = FileStoreBackend(path=parsed.path, filename=filename, channel=self.channel)
+            self.backend = SaveFileBackend(path=parsed.path, filename=filename, channel=self.channel)
         else:
-            self.backend = NullStoreBackend()
+            self.backend = SaveNullBackend()
 
 
     def process(self, msg):
@@ -388,8 +395,11 @@ class MessageSave(ThreadNode):
         return msg
 
 
-class MessageStore(MessageSave):
-    pass
+class MessageStore(Save):
+    def __init__(self, *args, **kwargs):
+        warnings.warn("MessageStore node is deprecated. Replace it by Save node", DeprecationWarning)
+        super().__init__(*args, **kwargs)
+
 
 
 class HL7ToPython(BaseNode):

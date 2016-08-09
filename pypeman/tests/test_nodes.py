@@ -5,11 +5,9 @@ import logging
 import time
 from unittest import mock
 
-from pypeman import nodes, message
+from pypeman import nodes
 
 from pypeman.tests.common import generate_msg
-
-message_content = """{"test":1}"""
 
 class FakeChannel():
     def __init__(self, loop):
@@ -59,11 +57,12 @@ class NodesTests(unittest.TestCase):
         n = nodes.Sleep()
         n.channel = FakeChannel(self.loop)
 
-        m = generate_msg()
+        m = generate_msg(message_content='test')
 
         @asyncio.coroutine
         def go():
            ret = yield from n.handle(m)
+           self.assertEqual(ret.payload, 'test', "Sleep node not !")
            return ret
 
         self.loop.run_until_complete(go())

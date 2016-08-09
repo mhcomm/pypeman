@@ -87,7 +87,11 @@ class BaseNode:
         if self.passthrough:
             old_msg = msg.copy()
 
-        result = self.run(msg)
+        # Allow procees as coroutine function
+        if asyncio.iscoroutinefunction(self.process):
+            result = yield from self.async_run(msg)
+        else:
+            result = self.run(msg)
 
         if isinstance(result, asyncio.Future):
             result = yield from result
@@ -111,6 +115,12 @@ class BaseNode:
 
                 result = yield from self.next_node.handle(result)
 
+        return result
+
+    @asyncio.coroutine
+    def async_run(self, msg):
+        """ Used to overload behaviour like thread Node without rewriting handle process """
+        result = yield from self.process(msg)
         return result
 
     def run(self, msg):
@@ -207,15 +217,18 @@ class Log(BaseNode):
 
         return msg
 
+
 class Sleep(BaseNode):
     """ Wait `duration` seconds before returning message."""
     def __init__(self, *args, duration=1, **kwargs):
         self.duration = duration
         super().__init__(*args, **kwargs)
 
+    @asyncio.coroutine
     def process(self, msg):
-        yield from asyncio.sleep(self.duration)
+        yield from asyncio.sleep(self.duration, loop=self.channel.loop)
         return msg
+
 
 class JsonToPython(BaseNode):
     """ Convert json message payload to python dict."""
@@ -709,6 +722,7 @@ class Email(ThreadNode):
 
         if self.user and self.password:
             s.login(self.user, self.password)
+
         if self.start_tls:
             s.starttls()
 

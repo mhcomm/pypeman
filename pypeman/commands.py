@@ -157,6 +157,7 @@ def requirements():
 
     [print(d) for d in dep]
 
+
 @begin.subcommand
 def startproject(dirname : "name of dir to install project to"):
     """ Creates a pypeman project from scrach """

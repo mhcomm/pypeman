@@ -27,58 +27,65 @@ an instance of wanted message store.
 
 * Add node with `.add(*nodes)`
 * Duplicate path with `.fork()`
-* Make alternative path with `.when(condition)`
+* Make conditionnal alternative path with `.when(condition)`
+* Make conditionnal case paths with `.case(condition1, condition2, ...)` returns one channel for each
+  arg condition.
 
 ### HttpChannel
 
-TBD
+Channel that handles Http connection. The Http message is the message payload and some headers become
+ metadata of message.
 
 ### FilewatcherChannel
 
-TBD
+Watch for file change or creation. File content becomes message payload. Filename is in message meta.
 
 ### TimeChannel
 
-TBD
+Periodic execution of task.
  
 
 ## Nodes
 
 A node is a processing unit in a chain.
-To create a node, inherit form `pypeman.nodes.Node` and overide `process(msg)` method.
+To create a node, inherit form `pypeman.nodes.Node` and override `process(msg)` method.
 
 ### ThreadNode
 
-TBD
+Base node that should be used for all long processing nodes.
 
 ### LogNode
 
-TBD
+Debug node log some information with `logging` library.
 
 
 ## Messages
 
 Message contains the core information processed by nodes and carried by channel.
-The message payload can be of any type: Json, Xml, Soap, Hl7, text, ...
+The message payload may be: Json, Xml, Soap, Hl7, text, Python object...
 
 Useful attributes:
 
-* payload: The message content
-* meta: Message metadata, should be used to add extra information about the payload
-* context: Previous message can be saved in context dict for further access.
+* payload: the message content.
+* meta: message metadata, should be used to add extra information about the payload.
+* context: previous message can be saved in context dict for further access.
 
 
 ## Endpoints
 
-Endpoints are server instance used by channel to get message from net protocols like HTTP, Soap or HL7, ....
+Endpoints are server instances used by channel to get message from net protocols like HTTP, Soap or HL7, ....
 They listen to a specific port for a specific protocol.
 
 ## Message Stores
 
-A Message store is really useful to keep a copy of all message sent to a channel.
+A Message store is really useful to keep a copy of all messages sent to a channel.
 It's like a log but with complete message data and metadata. This way you can trace all
-Processing or replay a specific message (Not implemented yet).
+processing or replay a specific message (Not implemented yet).
 
 ### FileMessageStore
 
-A `FileMessageStore` save all message in file in a directory hierachy.
+A `FileMessageStore` save all messages in file in a directory hierachy.
+
+### MemoryMessageStore
+
+Store messages in memory. Lost each time you stop pypeman.

@@ -3,6 +3,10 @@ import json
 import types
 import asyncio
 import logging
+import base64
+
+import smtplib
+from email.mime.text import MIMEText
 
 from datetime import datetime
 from collections import OrderedDict
@@ -24,6 +28,16 @@ all = []
 
 # used to share external dependencies
 ext = {}
+
+def choose_first_not_none(*args):
+    """ Choose first non None alternative in args.
+    :param args: alternative list
+    :return: the first non None alternative.
+    """
+    for a in args:
+        if a is not None:
+            return a
+    return None
 
 
 class BaseNode:
@@ -147,15 +161,22 @@ class SetCtx(BaseNode):
 
         return msg
 
+
+global_thread_pool = ThreadPoolExecutor(max_workers=3)
+
 class ThreadNode(BaseNode):
     """ Inherit from this class instead of BaseNode to avoid
     long run node blocking main event loop.
     """
     # TODO create class ThreadPool or channel ThreadPool or Global ?
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, thread_pool=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.executor = ThreadPoolExecutor(max_workers=3)
+
+        if global_thread_pool is None:
+            self.executor = global_thread_pool
+        else:
+            self.executor = thread_pool
 
     def run(self, msg):
         result = self.channel.loop.run_in_executor(self.executor, self.process, msg)
@@ -184,11 +205,21 @@ class Log(BaseNode):
 
         return msg
 
+class Sleep(BaseNode):
+    """ Wait `duration` seconds before returning message."""
+    def __init__(self, *args, duration=1, **kwargs):
+        self.duration = duration
+        super().__init__(*args, **kwargs)
+
+    def process(self, msg):
+        yield from asyncio.sleep(self.duration)
+        return msg
+
 class JsonToPython(BaseNode):
     """ Convert json message payload to python dict."""
     # TODO encoding management
-    def __init__(self, *args, **kwargs):
-        self.encoding = kwargs.pop('encoding', 'utf-8')
+    def __init__(self, *args, encoding='utf-8', **kwargs):
+        self.encoding = encoding
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
@@ -268,6 +299,30 @@ class Decode(BaseNode):
         return msg
 
 
+class B64Encode(BaseNode):
+    """ Encode payload in specified encoding to byte.
+    """
+    def __init__(self, *args, altchars=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.altchars = altchars
+
+    def process(self, msg):
+        msg.payload = base64.b64encode(msg.payload, altchars=self.altchars)
+        return msg
+
+
+class B64Decode(BaseNode):
+    """ Decode payload from byte to specified encoding
+    """
+    def __init__(self, *args, altchars=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.altchars = altchars
+
+    def process(self, msg):
+        msg.payload = base64.b64decode(msg.payload, altchars=self.altchars)
+        return msg
+
+
 # TODO put stores in specific file ?
 class NullStoreBackend():
     """ For testing purpose """
@@ -311,7 +366,7 @@ class FileStoreBackend():
         self.counter += 1
 
 
-class MessageStore(ThreadNode):
+class MessageSave(ThreadNode):
     """ Store a message in specified store """
     def __init__(self, *args, **kwargs):
 
@@ -331,6 +386,10 @@ class MessageStore(ThreadNode):
     def process(self, msg):
         self.backend.store(msg)
         return msg
+
+
+class MessageStore(MessageSave):
+    pass
 
 
 class HL7ToPython(BaseNode):
@@ -605,3 +664,55 @@ class ToOrderedDict(BaseNode):
             setattr(dest, parts[-1], new_dict)
 
         return msg
+
+class Email(ThreadNode):
+    """ Node that send Email.
+    """
+    def __init__(self, *args, host=None, port=None, user=None, password=None, ssl=False, start_tls=False,
+                 subject=None, sender=None, recipients=None, content=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.subject = subject or ""
+        self.sender = sender
+        self.recipients = recipients
+        self.content = content
+        self.host = host
+        self.port = port
+        self.user = user
+        self.password = password
+        self.start_tls = start_tls
+        self.ssl = ssl
+
+    def send_email(self, subject, sender, recipients, content):
+        msg = MIMEText(content)
+        msg['Subject'] = subject
+        msg['From'] = sender
+        msg['To'] = ', '.join(recipients)
+
+        # Send the message via the configured smtp server.
+        # TODO keep same connection during some time ?
+        s = None
+        if self.ssl:
+            s = smtplib.SMTP_SSL(self.host, self.port)
+        else:
+            s = smtplib.SMTP(self.host, self.port)
+
+        if self.user and self.password:
+            s.login(self.user, self.password)
+        if self.start_tls:
+            s.starttls()
+
+        s.sendmail(sender, recipients, msg.as_string())
+
+        s.quit()
+
+    def process(self, msg):
+        content = choose_first_not_none(self.content, msg.payload)
+        subject = choose_first_not_none(self.subject, msg.meta.get('subject'), 'No subject')
+        sender = choose_first_not_none(self.sender, msg.meta.get('sender'), 'pypeman@example.com')
+        recipients = choose_first_not_none(self.recipients, msg.meta.get('recipients'), [])
+
+        if isinstance(recipients, str):
+            recipients = [recipients]
+
+        self.send_email(subject, sender, recipients, content)
+

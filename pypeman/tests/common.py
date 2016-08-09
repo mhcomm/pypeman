@@ -10,6 +10,7 @@ from importlib import reload
 
 
 from pypeman import nodes
+from pypeman import message
 
 def setup_settings(module):
     """ helper allows to have specific settings for a test 
@@ -19,7 +20,7 @@ def setup_settings(module):
     import pypeman.conf
     reload(pypeman.default_settings)
     reload(pypeman.conf)
-    import pypeman.tests.tst_settings as tst_settings
+    import pypeman.tests.test_app.settings as tst_settings
     reload(tst_settings)
     from pypeman.conf import settings
 
@@ -49,6 +50,7 @@ def generate_msg(timestamp=None):
             m.timestamp = timestamp
     else: # just use current time
         m.timestamp = datetime.datetime.utcnow()
+
     m.payload = message_content
 
     return m

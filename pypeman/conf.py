@@ -27,7 +27,7 @@ class ConfigError(ImportError):
 
 
 class Settings():
-    """ pypeman projects settings. rather similiar implemantionts to django.conf.settings """
+    """ pypeman projects settings. Rather similar implementations to django.conf.settings """
 
     def __init__(self):
         self.__dict__['_settings_mod'] = None

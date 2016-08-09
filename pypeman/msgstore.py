@@ -168,6 +168,7 @@ class FileMessageStore(MessageStore):
         file_path = os.path.join(dirs, filename)
 
         # Write message to file
+        # TODO use async file writing
         with open(os.path.join(self.base_path, file_path), "w") as f:
             f.write(msg.to_json())
 

@@ -180,7 +180,6 @@ class ThreadNode(BaseNode):
     """ Inherit from this class instead of BaseNode to avoid
     long run node blocking main event loop.
     """
-    # TODO create class ThreadPool or channel ThreadPool or Global ?
 
     def __init__(self, *args, thread_pool=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -707,6 +706,8 @@ class Email(ThreadNode):
         self.ssl = ssl
 
     def send_email(self, subject, sender, recipients, content):
+        # TODO add crt arg
+
         msg = MIMEText(content)
         msg['Subject'] = subject
         msg['From'] = sender
@@ -740,4 +741,6 @@ class Email(ThreadNode):
             recipients = [recipients]
 
         self.send_email(subject, sender, recipients, content)
+
+        return msg
 

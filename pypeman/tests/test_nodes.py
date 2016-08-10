@@ -5,9 +5,10 @@ import logging
 import time
 from unittest import mock
 
-from pypeman import nodes
+from pypeman import nodes, message
 
 from pypeman.tests.common import generate_msg
+
 
 class FakeChannel():
     def __init__(self, loop):
@@ -47,9 +48,13 @@ class NodesTests(unittest.TestCase):
         @asyncio.coroutine
         def go():
             ret = yield from n.handle(m)
+            # Check return
+            self.assertTrue(isinstance(ret, message.Message))
             return ret
 
         self.loop.run_until_complete(go())
+
+
 
     def test_sleep_node(self):
         """ if Sleep() node functional """
@@ -62,6 +67,8 @@ class NodesTests(unittest.TestCase):
         @asyncio.coroutine
         def go():
            ret = yield from n.handle(m)
+           # Check return
+           self.assertTrue(isinstance(ret, message.Message))
            self.assertEqual(ret.payload, 'test', "Sleep node not !")
            return ret
 
@@ -88,6 +95,8 @@ class NodesTests(unittest.TestCase):
         def go():
            ret = yield from n1.handle(m)
            ext_new = yield from n2.handle(ret)
+           # Check return
+           self.assertTrue(isinstance(ret, message.Message))
            self.assertEqual(base, ext_new.payload, "B64 nodes not working !")
 
         self.loop.run_until_complete(go())
@@ -103,6 +112,9 @@ class NodesTests(unittest.TestCase):
         @asyncio.coroutine
         def go():
            ret = yield from n.handle(m)
+           # Check return
+           self.assertTrue(isinstance(ret, message.Message))
+
            return ret
 
         self.loop.run_until_complete(go())
@@ -120,6 +132,9 @@ class NodesTests(unittest.TestCase):
         @asyncio.coroutine
         def go():
            ret = yield from n.handle(m)
+           # Check return
+           self.assertTrue(isinstance(ret, message.Message))
+
            return ret
 
         self.loop.run_until_complete(go())
@@ -148,6 +163,9 @@ class NodesTests(unittest.TestCase):
         @asyncio.coroutine
         def go():
            ret = yield from n.handle(m)
+           # Check return
+           self.assertTrue(isinstance(ret, message.Message))
+
            return ret
 
         self.loop.run_until_complete(go())
@@ -168,6 +186,9 @@ class NodesTests(unittest.TestCase):
             @asyncio.coroutine
             def go():
                 ret = yield from n.handle(m)
+                # Check return
+                self.assertTrue(isinstance(ret, message.Message))
+
                 return ret
 
             self.loop.run_until_complete(go())

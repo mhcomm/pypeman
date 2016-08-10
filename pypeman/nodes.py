@@ -4,6 +4,7 @@ import types
 import asyncio
 import logging
 import base64
+import warnings
 
 import smtplib
 from email.mime.text import MIMEText
@@ -28,6 +29,9 @@ all = []
 
 # used to share external dependencies
 ext = {}
+
+# Can be redefined
+default_thread_pool = ThreadPoolExecutor(max_workers=3)
 
 def choose_first_not_none(*args):
     """ Choose first non None alternative in args.
@@ -83,7 +87,11 @@ class BaseNode:
         if self.passthrough:
             old_msg = msg.copy()
 
-        result = self.run(msg)
+        # Allow procees as coroutine function
+        if asyncio.iscoroutinefunction(self.process):
+            result = yield from self.async_run(msg)
+        else:
+            result = self.run(msg)
 
         if isinstance(result, asyncio.Future):
             result = yield from result
@@ -107,6 +115,12 @@ class BaseNode:
 
                 result = yield from self.next_node.handle(result)
 
+        return result
+
+    @asyncio.coroutine
+    def async_run(self, msg):
+        """ Used to overload behaviour like thread Node without rewriting handle process """
+        result = yield from self.process(msg)
         return result
 
     def run(self, msg):
@@ -162,19 +176,16 @@ class SetCtx(BaseNode):
         return msg
 
 
-global_thread_pool = ThreadPoolExecutor(max_workers=3)
-
 class ThreadNode(BaseNode):
     """ Inherit from this class instead of BaseNode to avoid
     long run node blocking main event loop.
     """
-    # TODO create class ThreadPool or channel ThreadPool or Global ?
 
     def __init__(self, *args, thread_pool=None, **kwargs):
         super().__init__(*args, **kwargs)
 
-        if global_thread_pool is None:
-            self.executor = global_thread_pool
+        if thread_pool is None:
+            self.executor = default_thread_pool
         else:
             self.executor = thread_pool
 
@@ -205,15 +216,18 @@ class Log(BaseNode):
 
         return msg
 
+
 class Sleep(BaseNode):
     """ Wait `duration` seconds before returning message."""
     def __init__(self, *args, duration=1, **kwargs):
         self.duration = duration
         super().__init__(*args, **kwargs)
 
+    @asyncio.coroutine
     def process(self, msg):
-        yield from asyncio.sleep(self.duration)
+        yield from asyncio.sleep(self.duration, loop=self.channel.loop)
         return msg
+
 
 class JsonToPython(BaseNode):
     """ Convert json message payload to python dict."""
@@ -323,14 +337,14 @@ class B64Decode(BaseNode):
         return msg
 
 
-# TODO put stores in specific file ?
-class NullStoreBackend():
+# TODO put Save in specific file ?
+class SaveNullBackend():
     """ For testing purpose """
     def store(self, message):
         pass
 
 
-class FileStoreBackend():
+class SaveFileBackend():
     """ Backend used to store message with `MessageStore` node.
     """
     def __init__(self, path, filename, channel):
@@ -341,6 +355,7 @@ class FileStoreBackend():
 
     def store(self, message):
         today = datetime.now()
+        timestamp = message.timestamp
 
         context = {'counter':self.counter,
                    'year': today.year,
@@ -348,6 +363,11 @@ class FileStoreBackend():
                    'day': today.day,
                    'hour': today.hour,
                    'second': today.second,
+                   'msg_year': timestamp.year,
+                   'msg_month': timestamp.month,
+                   'msg_day': timestamp.day,
+                   'msg_hour': timestamp.hour,
+                   'msg_second': timestamp.second,
                    'muid': message.uuid,
                    'cuid': getattr(self.channel, 'uuid', '???')
                    }
@@ -366,11 +386,11 @@ class FileStoreBackend():
         self.counter += 1
 
 
-class MessageSave(ThreadNode):
-    """ Store a message in specified store """
-    def __init__(self, *args, **kwargs):
+class Save(ThreadNode):
+    """ Save a message in specified uri """
+    def __init__(self, *args, uri=None, **kwargs):
 
-        self.uri = kwargs.pop('uri')
+        self.uri = uri
         parsed = parse.urlparse(self.uri)
 
         super().__init__(*args, **kwargs)
@@ -378,9 +398,9 @@ class MessageSave(ThreadNode):
         if parsed.scheme == 'file':
             filename = parsed.query.split('=')[1]
 
-            self.backend = FileStoreBackend(path=parsed.path, filename=filename, channel=self.channel)
+            self.backend = SaveFileBackend(path=parsed.path, filename=filename, channel=self.channel)
         else:
-            self.backend = NullStoreBackend()
+            self.backend = SaveNullBackend()
 
 
     def process(self, msg):
@@ -388,8 +408,11 @@ class MessageSave(ThreadNode):
         return msg
 
 
-class MessageStore(MessageSave):
-    pass
+class MessageStore(Save):
+    def __init__(self, *args, **kwargs):
+        warnings.warn("MessageStore node is deprecated. Replace it by Save node", DeprecationWarning)
+        super().__init__(*args, **kwargs)
+
 
 
 class HL7ToPython(BaseNode):
@@ -683,6 +706,8 @@ class Email(ThreadNode):
         self.ssl = ssl
 
     def send_email(self, subject, sender, recipients, content):
+        # TODO add crt arg
+
         msg = MIMEText(content)
         msg['Subject'] = subject
         msg['From'] = sender
@@ -698,6 +723,7 @@ class Email(ThreadNode):
 
         if self.user and self.password:
             s.login(self.user, self.password)
+
         if self.start_tls:
             s.starttls()
 
@@ -715,4 +741,6 @@ class Email(ThreadNode):
             recipients = [recipients]
 
         self.send_email(subject, sender, recipients, content)
+
+        return msg
 

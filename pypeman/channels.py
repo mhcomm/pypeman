@@ -133,34 +133,35 @@ class BaseChannel:
     def append(self, *args):
         self.add(*args)
 
-    def fork(self):
+    def fork(self, name=None):
         """
         Create a new channel that process a copy of the message at this point.
         :return: The forked channel
         """
-        s = SubChannel(parent_channel=self, loop=self.loop)
+        s = SubChannel(name=name, parent_channel=self, loop=self.loop)
         self._nodes.append(s)
         return s
 
-    def when(self, condition):
+    def when(self, condition, name=None):
         """
         New channel bifurcation that is executed only if condition is True.
         :param condition: Can be a value or a function with a message argument.
         :return: The conditional path channel.
         """
-        s = ConditionSubChannel(condition, parent_channel=self, loop=self.loop)
+        s = ConditionSubChannel(condition=condition, name=name, parent_channel=self, loop=self.loop)
         self._nodes.append(s)
         return s
 
-    def case(self, *conditions):
+    def case(self, *conditions, names=None):
         """
         Case between multiple conditions.
         :param conditions: multiple conditions
         :return: one channel by condition param.
         """
+        if names is None:
+            names = [None] * len(conditions)
 
-        c = Case(*conditions
-                 , parent_channel=self, loop=self.loop)
+        c = Case(*conditions, names=names, parent_channel=self, loop=self.loop)
         self._nodes.append(c)
         return [chan for cond, chan in c.cases]
 
@@ -293,7 +294,7 @@ class SubChannel(BaseChannel):
 class ConditionSubChannel(BaseChannel):
     """ ConditionSubchannel used for make alternative path but join at the end """
 
-    def __init__(self, condition, **kwargs):
+    def __init__(self, condition=lambda x:True, **kwargs):
         super().__init__(**kwargs)
         self.condition = condition
 
@@ -319,17 +320,20 @@ class ConditionSubChannel(BaseChannel):
 class Case():
     """ Case node internally used for `.case()` BaseChannel method. Don't use it.
     """
-    def __init__(self, *args, default=False, parent_channel=None, loop=None):
+    def __init__(self, *args, names=None, parent_channel=None, loop=None):
         self.next_node = None
         self.cases = []
+
+        if names is None:
+            names = []
 
         if loop is None:
             self.loop = asyncio.get_event_loop()
         else:
             self.loop = loop
 
-        for cond in args:
-            b = BaseChannel(parent_channel=parent_channel, loop=self.loop)
+        for cond, name in zip(args, names):
+            b = BaseChannel(name=name, parent_channel=parent_channel, loop=self.loop)
             self.cases.append((cond, b))
 
     def test_condition(self, condition, msg):

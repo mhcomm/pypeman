@@ -3,10 +3,12 @@ import unittest
 import asyncio
 import logging
 import time
+from unittest import mock
 
 from pypeman import nodes, message
 
-message_content = """{"test":1}"""
+from pypeman.tests.common import generate_msg
+
 
 class FakeChannel():
     def __init__(self, loop):
@@ -25,12 +27,6 @@ class LongNode(nodes.ThreadNode):
         time.sleep(1)
         return msg
 
-def generate_msg():
-    # Default message
-    m = message.Message()
-    m.payload = message_content
-
-    return m
 
 class NodesTests(unittest.TestCase):
     def setUp(self):
@@ -52,9 +48,13 @@ class NodesTests(unittest.TestCase):
         @asyncio.coroutine
         def go():
             ret = yield from n.handle(m)
+            # Check return
+            self.assertTrue(isinstance(ret, message.Message))
             return ret
 
         self.loop.run_until_complete(go())
+
+
 
     def test_sleep_node(self):
         """ if Sleep() node functional """
@@ -62,11 +62,14 @@ class NodesTests(unittest.TestCase):
         n = nodes.Sleep()
         n.channel = FakeChannel(self.loop)
 
-        m = generate_msg()
+        m = generate_msg(message_content='test')
 
         @asyncio.coroutine
         def go():
            ret = yield from n.handle(m)
+           # Check return
+           self.assertTrue(isinstance(ret, message.Message))
+           self.assertEqual(ret.payload, 'test', "Sleep node not !")
            return ret
 
         self.loop.run_until_complete(go())
@@ -92,6 +95,8 @@ class NodesTests(unittest.TestCase):
         def go():
            ret = yield from n1.handle(m)
            ext_new = yield from n2.handle(ret)
+           # Check return
+           self.assertTrue(isinstance(ret, message.Message))
            self.assertEqual(base, ext_new.payload, "B64 nodes not working !")
 
         self.loop.run_until_complete(go())
@@ -107,6 +112,9 @@ class NodesTests(unittest.TestCase):
         @asyncio.coroutine
         def go():
            ret = yield from n.handle(m)
+           # Check return
+           self.assertTrue(isinstance(ret, message.Message))
+
            return ret
 
         self.loop.run_until_complete(go())
@@ -124,6 +132,9 @@ class NodesTests(unittest.TestCase):
         @asyncio.coroutine
         def go():
            ret = yield from n.handle(m)
+           # Check return
+           self.assertTrue(isinstance(ret, message.Message))
+
            return ret
 
         self.loop.run_until_complete(go())
@@ -152,6 +163,41 @@ class NodesTests(unittest.TestCase):
         @asyncio.coroutine
         def go():
            ret = yield from n.handle(m)
+           # Check return
+           self.assertTrue(isinstance(ret, message.Message))
+
            return ret
 
         self.loop.run_until_complete(go())
+
+    def test_save_node(self):
+        """ if Save() node functional """
+
+        with mock.patch("builtins.open", mock.mock_open(read_data="data")) as mock_file, \
+                mock.patch('pypeman.nodes.os.makedirs') as mock_makedirs:
+            mock_makedirs.return_value = None
+
+            n = nodes.Save(uri='file:///tmp/test/?filename=%(msg_year)s/%(msg_month)s/message%(msg_day)s-%(counter)s.txt')
+            n.channel = FakeChannel(self.loop)
+
+            m = generate_msg(timestamp=(1981, 12, 28, 13, 37))
+            m.payload = "content"
+
+            @asyncio.coroutine
+            def go():
+                ret = yield from n.handle(m)
+                # Check return
+                self.assertTrue(isinstance(ret, message.Message))
+
+                return ret
+
+            self.loop.run_until_complete(go())
+
+            # Asserts
+            mock_makedirs.assert_called_once_with('/tmp/test/1981/12')
+            mock_file.assert_called_once_with('/tmp/test/1981/12/message28-0.txt', 'w')
+            handle = mock_file()
+            handle.write.assert_called_once_with('content')
+
+
+

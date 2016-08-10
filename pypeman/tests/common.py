@@ -40,7 +40,8 @@ def teardown_settings():
     except ImportError:
         pass
 
-def generate_msg(timestamp=None):
+default_message_content = """{"test":1}"""
+def generate_msg(timestamp=None, message_content=default_message_content):
     """ generates a default message """
     m = message.Message()
     if timestamp:

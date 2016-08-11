@@ -43,7 +43,7 @@ class Settings():
             print("SM %r" % settings_module)
             settings_mod = self.__dict__['_settings_mod'] = importlib.import_module(settings_module)
         except:
-            msg = "Can't import 'settings' module !"
+            msg = "Can't import '%s' module !" % self.__dict__['SETTINGS_MODULE']
             print(msg, file=sys.stderr)
             print(traceback.format_exc(), file=sys.stderr)
             raise ConfigError(msg)

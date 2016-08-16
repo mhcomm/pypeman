@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 # List all channel registered
 all = []
 
+_channels_names = set()
+
 # used to share external dependencies
 ext = {}
 
@@ -62,17 +64,11 @@ class BaseChannel:
             warnings.warn("Channels without names are deprecated", DeprecationWarning)
             self.name = self.__class__.__name__ + "_" + str(len(all))
 
-        if loop is None:
-            self.loop = asyncio.get_event_loop()
-        else:
-            self.loop = loop
-
-
         if parent_channel:
             # Use dot name hierarchy
             self.name = ".".join([parent_channel.name, self.name])
 
-            # TODO parent channels usefull ?
+            #  TODO parent channels usefull ?
             self.parent_uids = [parent_channel.uuid]
             self.parent_names = [parent_channel.name]
             if parent_channel.parent_uids:
@@ -80,6 +76,16 @@ class BaseChannel:
                 self.parent_names.append(parent_channel.parent_names)
         else:
             self.parent_uids = None
+
+        if self.name in _channels_names:
+            raise NameError("Duplicate channel name %r . Channel names must be unique !" % self.name )
+
+        _channels_names.add(self.name)
+
+        if loop is None:
+            self.loop = asyncio.get_event_loop()
+        else:
+            self.loop = loop
 
         self.logger = logging.getLogger('pypeman.channels.%s' % self.name)
 
@@ -91,6 +97,8 @@ class BaseChannel:
 
         # Used to avoid multiple messages processing at same time
         self.lock = asyncio.Lock(loop=self.loop)
+
+
 
 
     def requirements(self):

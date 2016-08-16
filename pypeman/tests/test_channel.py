@@ -79,7 +79,7 @@ class ChannelsTests(unittest.TestCase):
     def test_base_channel(self):
         """ if BaseChannel handling is working """
 
-        chan = BaseChannel(name="test_channel", loop=self.loop)
+        chan = BaseChannel(name="test_channel1", loop=self.loop)
         n = TestNode()
         msg = generate_msg()
 
@@ -94,7 +94,7 @@ class ChannelsTests(unittest.TestCase):
     def test_no_node_base_channel(self):
         """ if BaseChannel handling is working even if there is no node """
 
-        chan = BaseChannel(name="test_channel", loop=self.loop)
+        chan = BaseChannel(name="test_channel2", loop=self.loop)
         msg = generate_msg()
 
         # Launch channel processing
@@ -104,7 +104,7 @@ class ChannelsTests(unittest.TestCase):
     def test_sub_channel(self):
         """ if Sub Channel is working """
 
-        chan = BaseChannel(name="test_channel", loop=self.loop)
+        chan = BaseChannel(name="test_channel3", loop=self.loop)
         n1 = TestNode(name="main")
         n2 = TestNode(name="sub")
         n3 = TestNode(name="sub1")
@@ -123,12 +123,12 @@ class ChannelsTests(unittest.TestCase):
         self.assertTrue(n2.processed, "Sub Channel not working")
         self.assertTrue(n3.processed, "Sub Channel not working")
         self.assertTrue(n4.processed, "Sub Channel not working")
-        self.assertEqual(sub.name, "test_channel.subchannel", "Subchannel name is incorrect")
+        self.assertEqual(sub.name, "test_channel3.subchannel", "Subchannel name is incorrect")
 
     def test_sub_channel_with_exception(self):
         """ if Sub Channel exception handling is working """
 
-        chan = BaseChannel(name="test_channel", loop=self.loop)
+        chan = BaseChannel(name="test_channel4", loop=self.loop)
         n1 = TestNode(name="main")
         n2 = TestNode(name="sub")
         n3 = ExceptNode(name="sub2")
@@ -151,7 +151,7 @@ class ChannelsTests(unittest.TestCase):
     def test_cond_channel(self):
         """ if Conditionnal channel is working """
 
-        chan = BaseChannel(name="test_channel", loop=self.loop)
+        chan = BaseChannel(name="test_channel5", loop=self.loop)
         n1 = TestNode(name="main")
         n2 = TestNode(name="end_main")
         not_processed = TestNode(name="cond_notproc")
@@ -178,12 +178,12 @@ class ChannelsTests(unittest.TestCase):
         self.assertFalse(not_processed.processed, "Cond Channel when condition == False not working")
         self.assertTrue(processed.processed, "Cond Channel when condition == True not working")
         self.assertFalse(n2.processed, "Cond Channel don't became the main path")
-        self.assertEqual(cond2.name, "test_channel.condchannel", "Condchannel name is incorrect")
+        self.assertEqual(cond2.name, "test_channel5.condchannel", "Condchannel name is incorrect")
 
     def test_case_channel(self):
         """ if Conditionnal channel is working """
 
-        chan = BaseChannel(name="test_channel", loop=self.loop)
+        chan = BaseChannel(name="test_channel6", loop=self.loop)
         n1 = TestNode(name="main")
         n2 = TestNode(name="end_main")
         not_processed = TestNode(name="cond_notproc")
@@ -210,14 +210,14 @@ class ChannelsTests(unittest.TestCase):
         self.assertFalse(not_processed2.processed, "Case Channel when condition == False not working")
         self.assertTrue(processed.processed, "Case Channel when condition == True not working")
         self.assertTrue(n2.processed, "Cond Channel don't became the main path")
-        self.assertEqual(cond1.name, "test_channel.first", "Casechannel name is incorrect")
-        self.assertEqual(cond2.name, "test_channel.second", "Casechannel name is incorrect")
-        self.assertEqual(cond3.name, "test_channel.third", "Casechannel name is incorrect")
+        self.assertEqual(cond1.name, "test_channel6.first", "Casechannel name is incorrect")
+        self.assertEqual(cond2.name, "test_channel6.second", "Casechannel name is incorrect")
+        self.assertEqual(cond3.name, "test_channel6.third", "Casechannel name is incorrect")
 
     def test_channel_result(self):
         """ if BaseChannel handling return a good result """
 
-        chan = BaseChannel(name="test_channel", loop=self.loop)
+        chan = BaseChannel(name="test_channel7", loop=self.loop)
         msg = generate_msg()
 
         chan.add(nodes.JsonToPython(), nodes.PythonToJson())
@@ -234,7 +234,7 @@ class ChannelsTests(unittest.TestCase):
     def test_channel_exception(self):
         """ if BaseChannel handling return an exception in case of error in main branch """
 
-        chan = BaseChannel(name="test_channel", loop=self.loop)
+        chan = BaseChannel(name="test_channel8", loop=self.loop)
         msg = generate_msg()
 
         chan.add(nodes.JsonToPython(), nodes.PythonToJson(), ExceptNode())
@@ -247,7 +247,7 @@ class ChannelsTests(unittest.TestCase):
     def test_null_message_store(self):
         """ We can store a message in NullMessageStore """
 
-        chan = BaseChannel(name="test_channel", loop=self.loop, message_store_factory=msgstore.FakeMessageStoreFactory())
+        chan = BaseChannel(name="test_channel9", loop=self.loop, message_store_factory=msgstore.FakeMessageStoreFactory())
         n = TestNode()
         msg = generate_msg()
 
@@ -264,7 +264,7 @@ class ChannelsTests(unittest.TestCase):
 
         store_factory = msgstore.MemoryMessageStoreFactory()
 
-        chan = BaseChannel(name="test_channel", loop=self.loop, message_store_factory=store_factory)
+        chan = BaseChannel(name="test_channel10", loop=self.loop, message_store_factory=store_factory)
 
         n = TestNode()
         n_error = TestConditionalErrorNode()
@@ -318,7 +318,7 @@ class ChannelsTests(unittest.TestCase):
 
         store_factory = msgstore.FileMessageStoreFactory(path=tempdir)
 
-        chan = BaseChannel(name="test_channel", loop=self.loop, message_store_factory=store_factory)
+        chan = BaseChannel(name="test_channel11", loop=self.loop, message_store_factory=store_factory)
 
         n = TestNode()
         n_error = TestConditionalErrorNode()

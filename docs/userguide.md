@@ -21,15 +21,20 @@ Channels are main components of pypeman.
 When you want to process a message,
 you first create a channel then add nodes to process the message.
 
+Channel ``name`` argument is mandatory and must be unique through the whole project.
+
 You can specify a message store (see below) at channel initialisation
-if you want to save all processed message. Use `message_store` argument with
-an instance of wanted message store.
+if you want to save all processed message. Use `message_store_factory` argument with
+an instance of wanted message store factory.
 
 * Add node with `.add(*nodes)`
 * Duplicate path with `.fork()`
 * Make conditionnal alternative path with `.when(condition)`
 * Make conditionnal case paths with `.case(condition1, condition2, ...)` returns one channel for each
   arg condition.
+
+If you want to create new channel, inherit from the base class and call ``self.handle(msg)`` method
+with generated message.
 
 ### HttpChannel
 
@@ -42,8 +47,7 @@ Watch for file change or creation. File content becomes message payload. Filenam
 
 ### TimeChannel
 
-Periodic execution of task.
- 
+Periodic execution of tasks.
 
 ## Nodes
 
@@ -70,7 +74,6 @@ Useful attributes:
 * meta: message metadata, should be used to add extra information about the payload.
 * context: previous message can be saved in context dict for further access.
 
-
 ## Endpoints
 
 Endpoints are server instances used by channel to get message from net protocols like HTTP, Soap or HL7, ....
@@ -80,12 +83,14 @@ They listen to a specific port for a specific protocol.
 
 A Message store is really useful to keep a copy of all messages sent to a channel.
 It's like a log but with complete message data and metadata. This way you can trace all
-processing or replay a specific message (Not implemented yet).
+processing or replay a specific message (Not implemented yet). Each channel can have his message store.
 
-### FileMessageStore
+You don't use message stores directly but MessageStoreFactory instance to allow reusing of a configuration.
 
-A `FileMessageStore` save all messages in file in a directory hierachy.
+### FileMessageStoreFactory
 
-### MemoryMessageStore
+Give a `FileMessageStore` instanc that save all messages in file in a directory hierachy.
 
-Store messages in memory. Lost each time you stop pypeman.
+### MemoryMessageStoreFactory
+
+Give a `MemoryMessageStore` instance that save messages in memory. Lost each time you stop pypeman.

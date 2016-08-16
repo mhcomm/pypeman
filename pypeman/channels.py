@@ -98,9 +98,6 @@ class BaseChannel:
         # Used to avoid multiple messages processing at same time
         self.lock = asyncio.Lock(loop=self.loop)
 
-
-
-
     def requirements(self):
         """ List dependencies of modules if any """
         return self.dependencies

@@ -331,7 +331,6 @@ class ChannelsTests(unittest.TestCase):
         # This message should be in error
         msg5 = generate_msg(timestamp=(1982, 11, 12, 14, 35))
 
-
         chan.add(n)
         chan.add(n_error)
 
@@ -364,6 +363,7 @@ class ChannelsTests(unittest.TestCase):
         dict_msg = chan.message_store.get('1982/11/12/19821112_1435_%s' % msg5.uuid.hex)
         self.assertEqual(dict_msg['state'], 'error', "Message %s should be in error state!" % msg5)
 
+        self.assertTrue(os.path.exists("%s/%s/1982/11/28/19821128_1235_%s" % (tempdir, chan.name, msg3.uuid.hex)))
 
         # TODO put in tear_down ?
         shutil.rmtree(tempdir, ignore_errors=True)

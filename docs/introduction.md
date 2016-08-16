@@ -11,6 +11,12 @@ It's main purpose is to exchange and process data to connect platform in an hete
 
 Pypeman is developed in python>3.4 using intensively asyncio technologies.
 
+Main objectives of this project are to make it:
+* easy to configure,
+* easy to test,
+* easy to debug,
+* lightweight,
+* handle ~10.000 messages/day on a raspberry
 
 Source on [github](https://github.com/mhcomm/pypeman`)
 

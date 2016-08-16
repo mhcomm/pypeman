@@ -134,6 +134,7 @@ class MemoryMessageStore(MessageStore):
 class FileMessageStoreFactory(MessageStoreFactory):
     """ Return an FileMessageStore message store instance"""
 
+    # TODO add an option to reguraly archive old file or delete them
     def __init__(self, path):
         super().__init__()
         self.base_path = path
@@ -147,6 +148,7 @@ class FileMessageStore(MessageStore):
 
     def __init__(self, path, store_id):
         super().__init__()
+
         self.base_path = os.path.join(path, store_id)
 
         # Match msg file name

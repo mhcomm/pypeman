@@ -85,9 +85,9 @@ class BaseChannel:
 
         self.next_node = None
 
-        message_store_factory = message_store_factory or msgstore.NullMessageStoreFactory()
+        self.message_store_factory = message_store_factory or msgstore.NullMessageStoreFactory()
 
-        self.message_store = message_store_factory.get_store(self.name)
+        self.message_store = self.message_store_factory.get_store(self.name)
 
         # Used to avoid multiple messages processing at same time
         self.lock = asyncio.Lock(loop=self.loop)
@@ -137,26 +137,32 @@ class BaseChannel:
     def append(self, *args):
         self.add(*args)
 
-    def fork(self, name=None):
+    def fork(self, name=None, message_store_factory=None):
         """
         Create a new channel that process a copy of the message at this point.
         :return: The forked channel
         """
-        s = SubChannel(name=name, parent_channel=self, loop=self.loop)
+        if message_store_factory is None:
+            message_store_factory = self.message_store_factory
+
+        s = SubChannel(name=name, parent_channel=self, message_store_factory=message_store_factory, loop=self.loop)
         self._nodes.append(s)
         return s
 
-    def when(self, condition, name=None):
+    def when(self, condition, name=None, message_store_factory=None):
         """
         New channel bifurcation that is executed only if condition is True.
         :param condition: Can be a value or a function with a message argument.
         :return: The conditional path channel.
         """
-        s = ConditionSubChannel(condition=condition, name=name, parent_channel=self, loop=self.loop)
+        if message_store_factory is None:
+            message_store_factory = self.message_store_factory
+
+        s = ConditionSubChannel(condition=condition, name=name, parent_channel=self, message_store_factory=message_store_factory, loop=self.loop)
         self._nodes.append(s)
         return s
 
-    def case(self, *conditions, names=None):
+    def case(self, *conditions, names=None, message_store_factory=None):
         """
         Case between multiple conditions.
         :param conditions: multiple conditions
@@ -165,13 +171,17 @@ class BaseChannel:
         if names is None:
             names = [None] * len(conditions)
 
-        c = Case(*conditions, names=names, parent_channel=self, loop=self.loop)
+        if message_store_factory is None:
+            message_store_factory = self.message_store_factory
+
+        c = Case(*conditions, names=names, parent_channel=self, message_store_factory=message_store_factory, loop=self.loop)
         self._nodes.append(c)
         return [chan for cond, chan in c.cases]
 
     @asyncio.coroutine
     def handle(self, msg):
-        """ Overload this method only if you know what you are doing.
+        """ Overload this method only if you know what you are doing but call it from
+        child class to add behaviour.
         :param msg: To be processed msg.
         :return: Processed message
         """
@@ -324,7 +334,7 @@ class ConditionSubChannel(BaseChannel):
 class Case():
     """ Case node internally used for `.case()` BaseChannel method. Don't use it.
     """
-    def __init__(self, *args, names=None, parent_channel=None, loop=None):
+    def __init__(self, *args, names=None, parent_channel=None, message_store_factory=None, loop=None):
         self.next_node = None
         self.cases = []
 
@@ -336,8 +346,11 @@ class Case():
         else:
             self.loop = loop
 
+        if message_store_factory is None:
+            message_store_factory = msgstore.NullMessageStoreFactory()
+
         for cond, name in zip(args, names):
-            b = BaseChannel(name=name, parent_channel=parent_channel, loop=self.loop)
+            b = BaseChannel(name=name, parent_channel=parent_channel, message_store_factory=message_store_factory, loop=self.loop)
             self.cases.append((cond, b))
 
     def test_condition(self, condition, msg):
@@ -383,14 +396,14 @@ class HttpChannel(BaseChannel):
     @asyncio.coroutine
     def start(self):
         yield from super().start()
-        self.http_endpoint.add_route(self.method, self.url, self.handle)
+        self.http_endpoint.add_route(self.method, self.url, self.handle_request)
 
     @asyncio.coroutine
-    def handle(self, request):
+    def handle_request(self, request):
         content = yield from request.text()
         msg = message.Message(content_type='http_request', payload=content, meta={'method': request.method})
         try:
-            result = yield from super().handle(msg)
+            result = yield from self.handle(msg)
             encoding = self.encoding or 'utf-8'
             return ext['aiohttp_web'].Response(body=result.payload.encode(encoding), status=result.meta.get('status', 200))
 
@@ -499,12 +512,6 @@ class TimeChannel(BaseChannel):
         yield from self.handle(msg)
 
 
-    @asyncio.coroutine
-    def handle(self, msg):
-        result = yield from super().handle(msg)
-        return result
-
-
 class MLLPChannel(BaseChannel):
     dependencies = ['hl7']
 
@@ -526,14 +533,14 @@ class MLLPChannel(BaseChannel):
     @asyncio.coroutine
     def start(self):
         yield from super().start()
-        self.mllp_endpoint.set_handler(handler=self.handle)
+        self.mllp_endpoint.set_handler(handler=self.handle_hl7_message)
 
     @asyncio.coroutine
-    def handle(self, hl7_message):
+    def handle_hl7_message(self, hl7_message):
         content = hl7_message.decode(self.encoding)
         msg = message.Message(content_type='text/hl7', payload=content, meta={})
         try:
-            result = yield from super().handle(msg)
+            result = yield from self.handle(msg)
             return result.payload.encode(self.encoding)
         except Dropped:
             ack = ext['hl7'].parse(content, encoding=self.encoding)

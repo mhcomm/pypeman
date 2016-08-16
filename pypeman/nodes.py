@@ -416,7 +416,6 @@ class MessageStore(Save):
         super().__init__(*args, **kwargs)
 
 
-
 class HL7ToPython(BaseNode):
     """ Convert hl7 payload to python struct."""
 
@@ -542,7 +541,7 @@ class FileWriter(BaseNode):
         return msg
 
 
-class MappingNode(BaseNode):
+class Map(BaseNode):
     """ Used to map input message keys->values to another keys->values """
 
     def __init__(self, *args, **kwargs):
@@ -589,7 +588,13 @@ class MappingNode(BaseNode):
         return msg
 
 
-class RequestNode(BaseNode):
+class MappingNode(Map):
+    def __init__(self, *args, **kwargs):
+        warnings.warn("MappingNode node is deprecated. Replace it by 'Map' node", DeprecationWarning)
+        super().__init__(*args, **kwargs)
+
+
+class HttpRequest(BaseNode):
     """ Http request node """
     dependencies = ['aiohttp']
 
@@ -655,6 +660,12 @@ class RequestNode(BaseNode):
         """ handles request """
         msg.payload = yield from self.handle_request(msg)
         return msg
+
+
+class RequestNode(HttpRequest):
+    def __init__(self, *args, **kwargs):
+        warnings.warn("RequestNode node is deprecated. New name is 'HttpRequest' node", DeprecationWarning)
+        super().__init__(*args, **kwargs)
 
 
 class ToOrderedDict(BaseNode):

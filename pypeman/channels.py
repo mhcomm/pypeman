@@ -67,10 +67,12 @@ class BaseChannel:
         else:
             self.loop = loop
 
-        self.logger = logging.getLogger('pypeman.channels')
 
         if parent_channel:
+            # Use dot name hierarchy
             self.name = ".".join([parent_channel.name, self.name])
+
+            # TODO parent channels usefull ?
             self.parent_uids = [parent_channel.uuid]
             self.parent_names = [parent_channel.name]
             if parent_channel.parent_uids:
@@ -78,6 +80,8 @@ class BaseChannel:
                 self.parent_names.append(parent_channel.parent_names)
         else:
             self.parent_uids = None
+
+        self.logger = logging.getLogger('pypeman.channels.%s' % self.name)
 
         self.next_node = None
 

@@ -241,7 +241,7 @@ class ChannelsTests(unittest.TestCase):
     def test_channel_events(self):
         """ if BaseChannel handling return a good result """
 
-        chan = BaseChannel(name="test_channel7.1", loop=self.loop)
+        chan = BaseChannel(name="test_channel7.5", loop=self.loop)
         msg = generate_msg()
 
         chan.add(nodes.JsonToPython(), nodes.PythonToJson())
@@ -272,6 +272,26 @@ class ChannelsTests(unittest.TestCase):
         valid_sequence = [BaseChannel.STOPPED, BaseChannel.STARTING, BaseChannel.WAITING,
                           BaseChannel.PROCESSING, BaseChannel.WAITING, BaseChannel.STOPPING, BaseChannel.STOPPED]
         self.assertEqual(state_sequence, valid_sequence, "Sequence state is not valid")
+
+    def test_channel_stopped_dont_process_message(self):
+        """ if BaseChannel handling return a good result """
+
+        chan = BaseChannel(name="test_channel7.7", loop=self.loop)
+        msg = generate_msg()
+
+        chan.add(nodes.JsonToPython(), nodes.PythonToJson())
+
+        @asyncio.coroutine
+        def go():
+            result = yield from chan.handle(msg)
+
+        # Launch channel processing
+        self.start_channels()
+        self.loop.run_until_complete(go())
+        self.loop.run_until_complete(chan.stop())
+
+        with self.assertRaises(channels.ChannelStopped) as cm:
+            self.loop.run_until_complete(go())
 
     def test_channel_exception(self):
         """ if BaseChannel handling return an exception in case of error in main branch """

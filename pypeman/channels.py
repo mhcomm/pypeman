@@ -139,8 +139,9 @@ class BaseChannel:
     def stop(self):
         """ Stop the channel """
         self.status = BaseChannel.STOPPING
-        # TODO Verify that all messages are processed
-        self.status = BaseChannel.STOPPED
+        # Verify that all messages are processed
+        with (yield from self.lock):
+            self.status = BaseChannel.STOPPED
 
     def add(self, *args):
         """
@@ -205,17 +206,17 @@ class BaseChannel:
         :return: Processed message
         """
 
+        # Store message before any processing
+        # TODO If store fails, do we stop processing ?
+        # TODO Do we store message even if channel is stopped ?
+        msg_store_id = self.message_store.store(msg)
+
         if self.status in [BaseChannel.STOPPED, BaseChannel.STOPPING]:
-            raise ChannelStopped()
+            raise ChannelStopped("Channel is stopped so you can't send message.")
 
         self.logger.info("%s handle %s", self, msg)
 
-        # Store message before any processing
-        # TODO If store fails, do we stop processing ?
-        msg_store_id = self.message_store.store(msg)
-
-        # Only one message at time
-        # TODO use keep_order var
+        # Only one message processing at time
         with (yield from self.lock):
             self.status = BaseChannel.PROCESSING
             try:

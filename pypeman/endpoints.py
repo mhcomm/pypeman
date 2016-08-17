@@ -30,7 +30,7 @@ class BaseEndpoint:
 class HTTPEndpoint(BaseEndpoint):
     dependencies = ['aiohttp']
 
-    def __init__(self, adress=None, address='127.0.0.1', port='8080'):
+    def __init__(self, adress=None, address='127.0.0.1', port='8080', loop=None):
         super().__init__()
         self._app = None
         if adress:
@@ -40,6 +40,7 @@ class HTTPEndpoint(BaseEndpoint):
             self.address = address
 
         self.port = port
+        self.loop = loop or asyncio.get_event_loop()
 
     def import_modules(self):
         if 'aiohttp_web' not in ext:
@@ -49,16 +50,14 @@ class HTTPEndpoint(BaseEndpoint):
 
     def add_route(self,*args, **kwargs):
         if not self._app:
-            loop = asyncio.get_event_loop()
-            self._app = ext['aiohttp_web'].Application(loop=loop)
+            self._app = ext['aiohttp_web'].Application(loop=self.loop)
         # TODO route should be added later
         self._app.router.add_route(*args, **kwargs)
 
     @asyncio.coroutine
     def start(self):
         if self._app is not None:
-            loop = asyncio.get_event_loop()
-            srv = yield from loop.create_server(self._app.make_handler(), self.address, self.port)
+            srv = yield from self.loop.create_server(self._app.make_handler(), self.address, self.port)
             print("Server started at http://{}:{}".format(self.address, self.port))
             return srv
         else:

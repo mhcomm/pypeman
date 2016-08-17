@@ -11,9 +11,11 @@ from pypeman.channels import BaseChannel
 from pypeman import message
 from pypeman import nodes
 from pypeman import msgstore
+from pypeman import events
 from pypeman.tests.common import TestException
 
 message_content = """{"test":1}"""
+
 
 class TestNode(nodes.BaseNode):
     def __init__(self, *args, **kwargs):
@@ -44,7 +46,6 @@ class ExceptNode(TestNode):
         result = super().process(msg)
         raise TestException()
 
-
 def generate_msg(timestamp=(1981, 12, 28, 13, 37)):
     # Default message
     m = message.Message()
@@ -53,14 +54,13 @@ def generate_msg(timestamp=(1981, 12, 28, 13, 37)):
 
     return m
 
-
 class ChannelsTests(unittest.TestCase):
     def clean_loop(self):
         # Useful to execute future callbacks
         pending = asyncio.Task.all_tasks(loop=self.loop)
-        self.loop.run_until_complete(asyncio.gather(*pending))
 
-        self.loop.close()
+        if pending:
+            self.loop.run_until_complete(asyncio.gather(*pending))
 
     def start_channels(self):
         # Start channels
@@ -70,11 +70,18 @@ class ChannelsTests(unittest.TestCase):
 
     def setUp(self):
         # Create class event loop used for tests to avoid failing
-        # previous tests to impact next test ? (Not shure)
+        # previous tests to impact next test ? (Not sure)
         self.loop = asyncio.new_event_loop()
+        self.loop.set_debug(True)
         # Remove thread event loop to be sure we are not using
         # another event loop somewhere
         asyncio.set_event_loop(None)
+
+        # Avoid calling already tested channels
+        channels.all.clear()
+
+    def tearDown(self):
+        self.clean_loop()
 
     def test_base_channel(self):
         """ if BaseChannel handling is working """
@@ -224,12 +231,47 @@ class ChannelsTests(unittest.TestCase):
 
         @asyncio.coroutine
         def go():
-            result = yield from chan.process(msg)
+            result = yield from chan.handle(msg)
             self.assertEqual(result.payload, msg.payload, "Channel handle not working")
 
         # Launch channel processing
         self.start_channels()
         self.loop.run_until_complete(go())
+
+    def test_channel_events(self):
+        """ if BaseChannel handling return a good result """
+
+        chan = BaseChannel(name="test_channel7.1", loop=self.loop)
+        msg = generate_msg()
+
+        chan.add(nodes.JsonToPython(), nodes.PythonToJson())
+
+        state_sequence = [chan.status]
+
+        @events.channel_change_state.receiver
+        def handle_change_state(channel=None, old_state=None, new_state=None):
+            print(channel.name, old_state, new_state)
+            state_sequence.append(new_state)
+
+        @events.channel_change_state.receiver
+        @asyncio.coroutine
+        def handle_change_state_async(channel=None, old_state=None, new_state=None):
+            print(channel.name, old_state, new_state)
+
+        @asyncio.coroutine
+        def go():
+            result = yield from chan.handle(msg)
+
+        # Launch channel processing
+        self.start_channels()
+        self.loop.run_until_complete(go())
+        self.loop.run_until_complete(chan.stop())
+
+        print(state_sequence)
+
+        valid_sequence = [BaseChannel.STOPPED, BaseChannel.STARTING, BaseChannel.WAITING,
+                          BaseChannel.PROCESSING, BaseChannel.WAITING, BaseChannel.STOPPING, BaseChannel.STOPPED]
+        self.assertEqual(state_sequence, valid_sequence, "Sequence state is not valid")
 
     def test_channel_exception(self):
         """ if BaseChannel handling return an exception in case of error in main branch """
@@ -288,11 +330,9 @@ class ChannelsTests(unittest.TestCase):
         self.loop.run_until_complete(chan.handle(msg3))
         self.loop.run_until_complete(chan.handle(msg4))
 
-        try:
+        with self.assertRaises(TestException) as cm:
             # This message should be in error state
             self.loop.run_until_complete(chan.handle(msg5))
-        except TestException as e:
-            pass
 
         msg_stored = list(chan.message_store.search(chan.name))
 
@@ -341,11 +381,9 @@ class ChannelsTests(unittest.TestCase):
         self.loop.run_until_complete(chan.handle(msg3))
         self.loop.run_until_complete(chan.handle(msg4))
 
-        try:
+        with self.assertRaises(TestException) as cm:
             # This message should be in error state
             self.loop.run_until_complete(chan.handle(msg5))
-        except TestException as e:
-            pass
 
         msg_stored = list(chan.message_store.search(chan.name))
 

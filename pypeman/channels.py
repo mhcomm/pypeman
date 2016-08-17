@@ -11,7 +11,7 @@ import warnings
 # For compatibility purpose
 from asyncio import async as ensure_future
 
-from pypeman import endpoints, message, msgstore
+from pypeman import message, msgstore, events
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +43,8 @@ class Break(Exception):
 
 
 class ChannelStopped(Exception):
+    """ The channel is stopped and can't process message.
+    """
     pass
 
 
@@ -56,7 +58,7 @@ class BaseChannel:
 
         all.append(self)
         self._nodes = []
-        self.status = None
+        self._status = BaseChannel.STOPPED
 
         if name:
             self.name = name
@@ -105,6 +107,18 @@ class BaseChannel:
     def import_modules(self):
         """ Use this method to import specific external modules listed in dependencies """
         pass
+
+    @property
+    def status(self):
+        return self._status
+
+    @status.setter
+    def status(self, value):
+        old_state = self._status
+        self._status = value
+        # Launch change state event
+        ensure_future(events.channel_change_state.fire(channel=self, old_state=old_state, new_state=value),
+                      loop=self.loop)
 
     @asyncio.coroutine
     def start(self):
@@ -192,7 +206,7 @@ class BaseChannel:
         """
 
         if self.status in [BaseChannel.STOPPED, BaseChannel.STOPPING]:
-            raise ChannelStopped
+            raise ChannelStopped()
 
         self.logger.info("%s handle %s", self, msg)
 
@@ -485,7 +499,7 @@ class FileWatcherChannel(BaseChannel):
                                 msg.payload = file.read()
                                 msg.meta['filename'] = filename
                                 msg.meta['filepath'] = filepath
-                                ensure_future(super().handle(msg))
+                                ensure_future(super().handle(msg), loop=self.loop)
 
         finally:
             if not self.status in (BaseChannel.STOPPING, BaseChannel.STOPPED,):

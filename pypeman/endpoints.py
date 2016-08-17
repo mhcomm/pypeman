@@ -73,13 +73,14 @@ class MLLPProtocol(asyncio.Protocol):
     .. [2] http://www.hl7standards.com/blog/2007/02/01/ack-message-original-mode-acknowledgement/
     """
 
-    def __init__(self, handler):
+    def __init__(self, handler, loop=None):
         super().__init__()
         self._buffer = b''
         self.start_block = b'\x0b'  # <VT>, vertical tab
         self.end_block = b'\x1c'  # <FS>, file separator
         self.carriage_return = b'\x0d'  # <CR>, \r
         self.handler = handler
+        self.loop = loop or asyncio.get_event_loop()
 
     def connection_made(self, transport):
         """
@@ -112,7 +113,7 @@ class MLLPProtocol(asyncio.Protocol):
 
             # only pass messages with data
             if len(raw_message) > 0:
-                result = ensure_future(self.handler(raw_message))
+                result = ensure_future(self.handler(raw_message), loop=self.loop)
                 result.add_done_callback(self.process_response)
 
 
@@ -135,11 +136,12 @@ class MLLPProtocol(asyncio.Protocol):
 class MLLPEndpoint(BaseEndpoint):
     dependencies = ['hl7']
 
-    def __init__(self, address='127.0.0.1', port='2100', encoding='utf-8'):
+    def __init__(self, address='127.0.0.1', port='2100', encoding='utf-8', loop=None):
         super().__init__()
         self.handlers = []
         self.address = address
         self.port = port
+        self.loop = loop or asyncio.get_event_loop()
 
         if encoding != 'utf-8':
             warnings.warn("MLLPEndpoint 'encoding' parameters is deprecated", DeprecationWarning)
@@ -156,8 +158,7 @@ class MLLPEndpoint(BaseEndpoint):
     @asyncio.coroutine
     def start(self):
         if self.handler:
-            loop = asyncio.get_event_loop()
-            srv = yield from loop.create_server(lambda: MLLPProtocol(self.handler), self.address, self.port)
+            srv = yield from self.loop.create_server(lambda: MLLPProtocol(self.handler, loop=self.loop), self.address, self.port)
             print("MLLP server started at http://{}:{}".format(self.address, self.port))
             return srv
         else:

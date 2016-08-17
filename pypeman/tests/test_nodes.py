@@ -55,7 +55,6 @@ class NodesTests(unittest.TestCase):
         self.loop.run_until_complete(go())
 
 
-
     def test_sleep_node(self):
         """ if Sleep() node functional """
 

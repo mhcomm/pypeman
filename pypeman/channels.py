@@ -8,6 +8,8 @@ import re
 import types
 import warnings
 
+# For compatibility purpose
+from asyncio import async as ensure_future
 
 from pypeman import endpoints, message, msgstore
 
@@ -68,6 +70,7 @@ class BaseChannel:
         self.logger = logging.getLogger('pypeman.channels')
 
         if parent_channel:
+            self.name = ".".join([parent_channel.name, self.name])
             self.parent_uids = [parent_channel.uuid]
             self.parent_names = [parent_channel.name]
             if parent_channel.parent_uids:
@@ -127,24 +130,40 @@ class BaseChannel:
             self._nodes.append(node)
         return self
 
-    def fork(self):
+    def append(self, *args):
+        self.add(*args)
+
+    def fork(self, name=None):
         """
         Create a new channel that process a copy of the message at this point.
         :return: The forked channel
         """
-        s = SubChannel(parent_channel=self, loop=self.loop)
+        s = SubChannel(name=name, parent_channel=self, loop=self.loop)
         self._nodes.append(s)
         return s
 
-    def when(self, condition):
+    def when(self, condition, name=None):
         """
         New channel bifurcation that is executed only if condition is True.
         :param condition: Can be a value or a function with a message argument.
-        :return: The conditionnal path channel.
+        :return: The conditional path channel.
         """
-        s = ConditionSubChannel(condition, parent_channel=self, loop=self.loop)
+        s = ConditionSubChannel(condition=condition, name=name, parent_channel=self, loop=self.loop)
         self._nodes.append(s)
         return s
+
+    def case(self, *conditions, names=None):
+        """
+        Case between multiple conditions.
+        :param conditions: multiple conditions
+        :return: one channel by condition param.
+        """
+        if names is None:
+            names = [None] * len(conditions)
+
+        c = Case(*conditions, names=names, parent_channel=self, loop=self.loop)
+        self._nodes.append(c)
+        return [chan for cond, chan in c.cases]
 
     @asyncio.coroutine
     def handle(self, msg):
@@ -256,10 +275,18 @@ class BaseChannel:
 class SubChannel(BaseChannel):
     """ Subchannel used for fork """
 
+    def callback(self, fut):
+        try:
+            result = fut.result()
+            logger.debug("Subchannel %s end process message %s", self, result)
+        except:
+            self.logger.exception("Error while processing msg in subchannel %s", self)
+
     @asyncio.coroutine
     def process(self, msg):
         if self._nodes:
-            asyncio.async(self._nodes[0].handle(msg.copy()), loop=self.loop)
+            fut = ensure_future(self._nodes[0].handle(msg.copy()), loop=self.loop)
+            fut.add_done_callback(self.callback)
 
         return msg
 
@@ -267,14 +294,15 @@ class SubChannel(BaseChannel):
 class ConditionSubChannel(BaseChannel):
     """ ConditionSubchannel used for make alternative path but join at the end """
 
-    def __init__(self, condition, **kwargs):
+    def __init__(self, condition=lambda x:True, **kwargs):
         super().__init__(**kwargs)
         self.condition = condition
 
     def test_condition(self, msg):
         if callable(self.condition):
             return self.condition(msg)
-        return True
+        else:
+            return self.condition
 
     @asyncio.coroutine
     def subhandle(self, msg):
@@ -289,28 +317,48 @@ class ConditionSubChannel(BaseChannel):
         return result
 
 
-class CaseSubChannel(BaseChannel):
-    """ CaseSubchannel used for make alternative path without join at the end """
+class Case():
+    """ Case node internally used for `.case()` BaseChannel method. Don't use it.
+    """
+    def __init__(self, *args, names=None, parent_channel=None, loop=None):
+        self.next_node = None
+        self.cases = []
 
-    def __init__(self, condition, **kwargs):
-        super().__init__(**kwargs)
-        self.condition = condition
+        if names is None:
+            names = []
 
-    def test_condition(self, msg):
-        if callable(self.condition):
-            return self.condition(msg)
-        return True
+        if loop is None:
+            self.loop = asyncio.get_event_loop()
+        else:
+            self.loop = loop
+
+        for cond, name in zip(args, names):
+            b = BaseChannel(name=name, parent_channel=parent_channel, loop=self.loop)
+            self.cases.append((cond, b))
+
+    def test_condition(self, condition, msg):
+        if callable(condition):
+            return condition(msg)
+        else:
+            return condition
 
     @asyncio.coroutine
-    def process(self, msg):
-        if self.test_condition(msg):
-            result = yield from self._nodes[0].handle(msg)
-            return result
+    def handle(self, msg):
+        result = msg
+        for cond, channel in self.cases:
+            if self.test_condition(cond, msg):
+                result = yield from channel.handle(msg)
+                break
 
-        return msg
+        if self.next_node:
+            result = yield from self.next_node.handle(result)
+
+        return result
 
 
 class HttpChannel(BaseChannel):
+    """ Channel that handle http messages.
+    """
     dependencies = ['aiohttp']
     app = None
 
@@ -375,7 +423,7 @@ class FileWatcherChannel(BaseChannel):
     @asyncio.coroutine
     def start(self):
         yield from super().start()
-        asyncio.async(self.watch_for_file(), loop=self.loop)
+        ensure_future(self.watch_for_file(), loop=self.loop)
 
     def file_status(self, filename):
         if filename in self.data:
@@ -415,11 +463,11 @@ class FileWatcherChannel(BaseChannel):
                                 msg.payload = file.read()
                                 msg.meta['filename'] = filename
                                 msg.meta['filepath'] = filepath
-                                asyncio.async(super().handle(msg))
+                                ensure_future(super().handle(msg))
 
         finally:
             if not self.status in (BaseChannel.STOPPING, BaseChannel.STOPPED,):
-                asyncio.async(self.watch_for_file(), loop=self.loop)
+                ensure_future(self.watch_for_file(), loop=self.loop)
 
 
 class TimeChannel(BaseChannel):
@@ -482,7 +530,7 @@ class MLLPChannel(BaseChannel):
         msg = message.Message(content_type='text/hl7', payload=content, meta={})
         try:
             result = yield from super().handle(msg)
-            return result.payload
+            return result.payload.encode(self.encoding)
         except Dropped:
             ack = ext['hl7'].parse(content, encoding=self.encoding)
             return str(ack.create_ack('AA')).encode(self.encoding)

@@ -1,9 +1,11 @@
 import asyncio
-import sys
 import warnings
 import logging
 
 logger = logging.getLogger("pypeman.endpoints")
+
+# For compatibility purpose
+from asyncio import async as ensure_future
 
 all = []
 
@@ -110,7 +112,7 @@ class MLLPProtocol(asyncio.Protocol):
 
             # only pass messages with data
             if len(raw_message) > 0:
-                result = asyncio.async(self.handler(raw_message))
+                result = ensure_future(self.handler(raw_message))
                 result.add_done_callback(self.process_response)
 
 

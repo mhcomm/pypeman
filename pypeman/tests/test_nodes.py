@@ -1,10 +1,14 @@
+import os
 import unittest
 import asyncio
 import logging
-from pypeman import nodes, message
 import time
+from unittest import mock
 
-message_content = """{"test":1}"""
+from pypeman import nodes, message
+
+from pypeman.tests.common import generate_msg
+
 
 class FakeChannel():
     def __init__(self, loop):
@@ -23,24 +27,18 @@ class LongNode(nodes.ThreadNode):
         time.sleep(1)
         return msg
 
-def generate_msg():
-    # Default message
-    m = message.Message()
-    m.payload = message_content
-
-    return m
 
 class NodesTests(unittest.TestCase):
-   def setUp(self):
-       # Create class event loop used for tests to avoid failing
-       # previous tests to impact next test ? (Not shure)
-       self.loop = asyncio.new_event_loop()
-       # Remove thread event loop to be sure we are not using
-       # another event loop somewhere
-       asyncio.set_event_loop(None)
+    def setUp(self):
+        # Create class event loop used for tests to avoid failing
+        # previous tests to impact next test ? (Not sure)
+        self.loop = asyncio.new_event_loop()
+        # Remove thread event loop to be sure we are not using
+        # another event loop somewhere
+        asyncio.set_event_loop(None)
 
-   def test_log_node(self):
-        """ if Log() node is functionnal """
+    def test_log_node(self):
+        """ if Log() node functional """
 
         n = nodes.Log()
         n.channel = FakeChannel(self.loop)
@@ -50,39 +48,156 @@ class NodesTests(unittest.TestCase):
         @asyncio.coroutine
         def go():
             ret = yield from n.handle(m)
+            # Check return
+            self.assertTrue(isinstance(ret, message.Message))
             return ret
 
         self.loop.run_until_complete(go())
 
-   def test_json_to_python_node(self):
-       """ if JsonToPython() node is functionnal """
 
-       n = nodes.JsonToPython()
-       n.channel = FakeChannel(self.loop)
 
-       m = generate_msg()
+    def test_sleep_node(self):
+        """ if Sleep() node functional """
 
-       @asyncio.coroutine
-       def go():
+        n = nodes.Sleep()
+        n.channel = FakeChannel(self.loop)
+
+        m = generate_msg(message_content='test')
+
+        @asyncio.coroutine
+        def go():
            ret = yield from n.handle(m)
+           # Check return
+           self.assertTrue(isinstance(ret, message.Message))
+           self.assertEqual(ret.payload, 'test', "Sleep node not !")
            return ret
 
-       self.loop.run_until_complete(go())
+        self.loop.run_until_complete(go())
 
-   def test_thread_node(self):
-       """ if Thread node is functionnal """
+    def test_b64_nodes(self):
+        """ if B64 nodes are functional """
 
-       # TODO test if another task can be executed in //
+        n1 = nodes.B64Encode()
+        n2 = nodes.B64Decode()
 
-       n = LongNode()
-       n.channel = FakeChannel(self.loop)
+        channel = FakeChannel(self.loop)
 
-       m = generate_msg()
+        n1.channel = channel
+        n2.channel = channel
 
-       @asyncio.coroutine
-       def go():
+        m = generate_msg()
+
+        m.payload = b'hello'
+
+        base = bytes(m.payload)
+
+        @asyncio.coroutine
+        def go():
+           ret = yield from n1.handle(m)
+           ext_new = yield from n2.handle(ret)
+           # Check return
+           self.assertTrue(isinstance(ret, message.Message))
+           self.assertEqual(base, ext_new.payload, "B64 nodes not working !")
+
+        self.loop.run_until_complete(go())
+
+    def test_json_to_python_node(self):
+        """ if JsonToPython() node functional """
+
+        n = nodes.JsonToPython()
+        n.channel = FakeChannel(self.loop)
+
+        m = generate_msg()
+
+        @asyncio.coroutine
+        def go():
            ret = yield from n.handle(m)
+           # Check return
+           self.assertTrue(isinstance(ret, message.Message))
+
            return ret
 
-       self.loop.run_until_complete(go())
+        self.loop.run_until_complete(go())
+
+    def test_thread_node(self):
+        """ if Thread node functional """
+
+        # TODO test if another task can be executed in //
+
+        n = LongNode()
+        n.channel = FakeChannel(self.loop)
+
+        m = generate_msg()
+
+        @asyncio.coroutine
+        def go():
+           ret = yield from n.handle(m)
+           # Check return
+           self.assertTrue(isinstance(ret, message.Message))
+
+           return ret
+
+        self.loop.run_until_complete(go())
+
+    @unittest.skipIf(not os.environ.get('PYPEMAN_TEST_SMTP_USER')
+                     or not os.environ.get('PYPEMAN_TEST_SMTP_PASSWORD')
+                     or not os.environ.get('PYPEMAN_TEST_RECIPIENT_EMAIL'),
+                     "Email node test skipped. Set PYPEMAN_TEST_SMTP_USER, PYPEMAN_TEST_SMTP_PASSWORD and "
+                        "PYPEMAN_TEST_RECIPIENT_EMAIL to enable it.")
+    def test_email_node(self):
+        """ if Email() node is functional """
+
+        # Set this three vars to enable the skipped test.
+        # Use mailtrap free account to test it.
+        recipients = os.environ['PYPEMAN_TEST_RECIPIENT_EMAIL']
+        smtp_user = os.environ['PYPEMAN_TEST_SMTP_USER']
+        smtp_password = os.environ['PYPEMAN_TEST_SMTP_PASSWORD']
+
+        n = nodes.Email(host="mailtrap.io", port=2525, start_tls=False, ssl=False, user=smtp_user, password=smtp_password,
+                        subject="Sent from email node of Pypeman", sender=recipients, recipients=recipients)
+        n.channel = FakeChannel(self.loop)
+
+        m = generate_msg()
+        m.payload = "Message content is full of silence !"
+
+        @asyncio.coroutine
+        def go():
+           ret = yield from n.handle(m)
+           # Check return
+           self.assertTrue(isinstance(ret, message.Message))
+
+           return ret
+
+        self.loop.run_until_complete(go())
+
+    def test_save_node(self):
+        """ if Save() node functional """
+
+        with mock.patch("builtins.open", mock.mock_open(read_data="data")) as mock_file, \
+                mock.patch('pypeman.nodes.os.makedirs') as mock_makedirs:
+            mock_makedirs.return_value = None
+
+            n = nodes.Save(uri='file:///tmp/test/?filename=%(msg_year)s/%(msg_month)s/message%(msg_day)s-%(counter)s.txt')
+            n.channel = FakeChannel(self.loop)
+
+            m = generate_msg(timestamp=(1981, 12, 28, 13, 37))
+            m.payload = "content"
+
+            @asyncio.coroutine
+            def go():
+                ret = yield from n.handle(m)
+                # Check return
+                self.assertTrue(isinstance(ret, message.Message))
+
+                return ret
+
+            self.loop.run_until_complete(go())
+
+            # Asserts
+            mock_makedirs.assert_called_once_with('/tmp/test/1981/12')
+            mock_file.assert_called_once_with('/tmp/test/1981/12/message28-0.txt', 'w')
+            handle = mock_file()
+            handle.write.assert_called_once_with('content')
+
+
 

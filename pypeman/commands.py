@@ -21,6 +21,7 @@ import begin
 import warnings
 from functools import partial
 
+import pypeman
 from pypeman.helpers.reloader import reloader_opt
 from pypeman import channels
 from pypeman import nodes
@@ -37,18 +38,18 @@ def load_project():
         if not 'project' in msg:
             print("IMPORT ERROR project")
             raise
+        print("Missing 'project.py' file !")
+        sys.exit(-1)
     except:
-        import traceback
-
         traceback.print_exc()
         raise
 
 
 def main(debug_asyncio=False, profile=False, cli=False):
-    print('\nStart...')
 
 
     load_project()
+    print('\nStarting...')
 
     loop = asyncio.get_event_loop()
 
@@ -156,6 +157,7 @@ def requirements():
 
     [print(d) for d in dep]
 
+
 @begin.subcommand
 def startproject(dirname : "name of dir to install project to"):
     """ Creates a pypeman project from scrach """
@@ -170,7 +172,8 @@ def debug():
 
 
 @begin.start
-def run(test=False, 
-
-        ):
+def run(test=False, version=False):
     """ Pypeman is a minimalistic but pragmatic ESB/ETL in python """
+    if version:
+        print(pypeman.__version__)
+        sys.exit(0)

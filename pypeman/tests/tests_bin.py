@@ -13,6 +13,9 @@ from pypeman.helpers.tempfile import mktempfname
 
 logger = logging.getLogger(__name__)
 
+CWD = os.path.join('pypeman', 'tests', 'test_app')
+
+
 class BinPypemanTestCase(unittest.TestCase):
     """ tests for the bin/pypeman cli """
 
@@ -22,7 +25,7 @@ class BinPypemanTestCase(unittest.TestCase):
     
     def test_01_can_call_help(self):
         """ option -h is working """
-        logger.warning("FILE = %r / NAME = %r", __file__, __name__)
+        logger.info("FILE = %r / NAME = %r", __file__, __name__)
 
         # disable next line for testing. till pypeman works with option '-h'
         #os.environ['PYPEMAN_SETTINGS_MODULE'] = 'pypeman.tst_helpers.test_setting_1'
@@ -30,7 +33,7 @@ class BinPypemanTestCase(unittest.TestCase):
         out_fname = mktempfname()
 
         with open(out_fname, 'wb') as fout:
-            proc = subprocess.Popen(cmd, stdout=fout, stderr=fout)
+            proc = subprocess.Popen(cmd, stdout=fout, stderr=fout, cwd=CWD)
             proc.wait()
         ret_code = proc.returncode
 
@@ -48,7 +51,7 @@ class BinPypemanTestCase(unittest.TestCase):
         out_fname = mktempfname()
 
         with open(out_fname, 'wb') as fout:
-            proc = subprocess.Popen(cmd, stdout=fout, stderr=fout)
+            proc = subprocess.Popen(cmd, stdout=fout, stderr=fout, cwd=CWD)
             proc.wait()
         ret_code = proc.returncode
 
@@ -66,7 +69,9 @@ class BinPypemanTestCase(unittest.TestCase):
         out_fname = mktempfname()
 
         with open(out_fname, 'wb') as fout:
-            proc = subprocess.Popen(cmd, stdout=fout, stderr=fout)
+            import os
+            print(os.getcwd())
+            proc = subprocess.Popen(cmd, stdout=fout, stderr=fout, cwd=CWD)
             proc.wait()
         ret_code = proc.returncode
 
@@ -76,3 +81,5 @@ class BinPypemanTestCase(unittest.TestCase):
             nose.tools.eq_(ret_code, 0, data)
 
         os.unlink(out_fname)
+
+test_suite =  BinPypemanTestCase

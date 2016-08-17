@@ -4,6 +4,11 @@ import types
 import asyncio
 import logging
 import ssl
+import base64
+import warnings
+
+import smtplib
+from email.mime.text import MIMEText
 
 from datetime import datetime
 from collections import OrderedDict
@@ -25,6 +30,19 @@ all = []
 
 # used to share external dependencies
 ext = {}
+
+# Can be redefined
+default_thread_pool = ThreadPoolExecutor(max_workers=3)
+
+def choose_first_not_none(*args):
+    """ Choose first non None alternative in args.
+    :param args: alternative list
+    :return: the first non None alternative.
+    """
+    for a in args:
+        if a is not None:
+            return a
+    return None
 
 
 class BaseNode:
@@ -70,7 +88,11 @@ class BaseNode:
         if self.passthrough:
             old_msg = msg.copy()
 
-        result = self.run(msg)
+        # Allow procees as coroutine function
+        if asyncio.iscoroutinefunction(self.process):
+            result = yield from self.async_run(msg)
+        else:
+            result = self.run(msg)
 
         if isinstance(result, asyncio.Future):
             result = yield from result
@@ -94,6 +116,12 @@ class BaseNode:
 
                 result = yield from self.next_node.handle(result)
 
+        return result
+
+    @asyncio.coroutine
+    def async_run(self, msg):
+        """ Used to overload behaviour like thread Node without rewriting handle process """
+        result = yield from self.process(msg)
         return result
 
     def run(self, msg):
@@ -154,11 +182,14 @@ class ThreadNode(BaseNode):
     """ Inherit from this class instead of BaseNode to avoid
     long run node blocking main event loop.
     """
-    # TODO create class ThreadPool or channel ThreadPool or Global ?
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, thread_pool=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.executor = ThreadPoolExecutor(max_workers=3)
+
+        if thread_pool is None:
+            self.executor = default_thread_pool
+        else:
+            self.executor = thread_pool
 
     def run(self, msg):
         result = self.channel.loop.run_in_executor(self.executor, self.process, msg)
@@ -188,11 +219,23 @@ class Log(BaseNode):
         return msg
 
 
+class Sleep(BaseNode):
+    """ Wait `duration` seconds before returning message."""
+    def __init__(self, *args, duration=1, **kwargs):
+        self.duration = duration
+        super().__init__(*args, **kwargs)
+
+    @asyncio.coroutine
+    def process(self, msg):
+        yield from asyncio.sleep(self.duration, loop=self.channel.loop)
+        return msg
+
+
 class JsonToPython(BaseNode):
     """ Convert json message payload to python dict."""
     # TODO encoding management
-    def __init__(self, *args, **kwargs):
-        self.encoding = kwargs.pop('encoding', 'utf-8')
+    def __init__(self, *args, encoding='utf-8', **kwargs):
+        self.encoding = encoding
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
@@ -272,14 +315,38 @@ class Decode(BaseNode):
         return msg
 
 
-# TODO put stores in specific file ?
-class NullStoreBackend():
+class B64Encode(BaseNode):
+    """ Encode payload in specified encoding to byte.
+    """
+    def __init__(self, *args, altchars=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.altchars = altchars
+
+    def process(self, msg):
+        msg.payload = base64.b64encode(msg.payload, altchars=self.altchars)
+        return msg
+
+
+class B64Decode(BaseNode):
+    """ Decode payload from byte to specified encoding
+    """
+    def __init__(self, *args, altchars=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.altchars = altchars
+
+    def process(self, msg):
+        msg.payload = base64.b64decode(msg.payload, altchars=self.altchars)
+        return msg
+
+
+# TODO put Save in specific file ?
+class SaveNullBackend():
     """ For testing purpose """
     def store(self, message):
         pass
 
 
-class FileStoreBackend():
+class SaveFileBackend():
     """ Backend used to store message with `MessageStore` node.
     """
     def __init__(self, path, filename, channel):
@@ -290,6 +357,7 @@ class FileStoreBackend():
 
     def store(self, message):
         today = datetime.now()
+        timestamp = message.timestamp
 
         context = {'counter':self.counter,
                    'year': today.year,
@@ -297,6 +365,11 @@ class FileStoreBackend():
                    'day': today.day,
                    'hour': today.hour,
                    'second': today.second,
+                   'msg_year': timestamp.year,
+                   'msg_month': timestamp.month,
+                   'msg_day': timestamp.day,
+                   'msg_hour': timestamp.hour,
+                   'msg_second': timestamp.second,
                    'muid': message.uuid,
                    'cuid': getattr(self.channel, 'uuid', '???')
                    }
@@ -315,11 +388,11 @@ class FileStoreBackend():
         self.counter += 1
 
 
-class MessageStore(ThreadNode):
-    """ Store a message in specified store """
-    def __init__(self, *args, **kwargs):
+class Save(ThreadNode):
+    """ Save a message in specified uri """
+    def __init__(self, *args, uri=None, **kwargs):
 
-        self.uri = kwargs.pop('uri')
+        self.uri = uri
         parsed = parse.urlparse(self.uri)
 
         super().__init__(*args, **kwargs)
@@ -327,14 +400,21 @@ class MessageStore(ThreadNode):
         if parsed.scheme == 'file':
             filename = parsed.query.split('=')[1]
 
-            self.backend = FileStoreBackend(path=parsed.path, filename=filename, channel=self.channel)
+            self.backend = SaveFileBackend(path=parsed.path, filename=filename, channel=self.channel)
         else:
-            self.backend = NullStoreBackend()
+            self.backend = SaveNullBackend()
 
 
     def process(self, msg):
         self.backend.store(msg)
         return msg
+
+
+class MessageStore(Save):
+    def __init__(self, *args, **kwargs):
+        warnings.warn("MessageStore node is deprecated. Replace it by Save node", DeprecationWarning)
+        super().__init__(*args, **kwargs)
+
 
 
 class HL7ToPython(BaseNode):
@@ -627,3 +707,60 @@ class ToOrderedDict(BaseNode):
             setattr(dest, parts[-1], new_dict)
 
         return msg
+
+class Email(ThreadNode):
+    """ Node that send Email.
+    """
+    def __init__(self, *args, host=None, port=None, user=None, password=None, ssl=False, start_tls=False,
+                 subject=None, sender=None, recipients=None, content=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.subject = subject or ""
+        self.sender = sender
+        self.recipients = recipients
+        self.content = content
+        self.host = host
+        self.port = port
+        self.user = user
+        self.password = password
+        self.start_tls = start_tls
+        self.ssl = ssl
+
+    def send_email(self, subject, sender, recipients, content):
+        # TODO add crt arg
+
+        msg = MIMEText(content)
+        msg['Subject'] = subject
+        msg['From'] = sender
+        msg['To'] = ', '.join(recipients)
+
+        # Send the message via the configured smtp server.
+        # TODO keep same connection during some time ?
+        s = None
+        if self.ssl:
+            s = smtplib.SMTP_SSL(self.host, self.port)
+        else:
+            s = smtplib.SMTP(self.host, self.port)
+
+        if self.user and self.password:
+            s.login(self.user, self.password)
+
+        if self.start_tls:
+            s.starttls()
+
+        s.sendmail(sender, recipients, msg.as_string())
+
+        s.quit()
+
+    def process(self, msg):
+        content = choose_first_not_none(self.content, msg.payload)
+        subject = choose_first_not_none(self.subject, msg.meta.get('subject'), 'No subject')
+        sender = choose_first_not_none(self.sender, msg.meta.get('sender'), 'pypeman@example.com')
+        recipients = choose_first_not_none(self.recipients, msg.meta.get('recipients'), [])
+
+        if isinstance(recipients, str):
+            recipients = [recipients]
+
+        self.send_email(subject, sender, recipients, content)
+
+        return msg
+

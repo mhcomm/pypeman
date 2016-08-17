@@ -5,6 +5,8 @@ TESTING = False # bool. can be set by env var PYPEMAN_TESTING (0|1|true|false) p
 
 HTTP_ENDPOINT_CONFIG = ['0.0.0.0', '8080']
 
+handlers = [ 'console' ]
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -26,7 +28,7 @@ LOGGING = {
         # root loggers
         '': {
             'level': 'INFO',
-            'handlers': ['console'],
+            'handlers': handlers,
         },
     }
 }

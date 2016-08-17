@@ -53,7 +53,7 @@ class BaseChannel:
 
     dependencies = [] # List of module requirements
 
-    def __init__(self, name=None, parent_channel=None, loop=None, force_msg_order=True, message_store_factory=None):
+    def __init__(self, name=None, parent_channel=None, loop=None, message_store_factory=None):
         self.uuid = uuid.uuid4()
 
         all.append(self)
@@ -271,6 +271,18 @@ class BaseChannel:
         else:
             return msg
 
+    @asyncio.coroutine
+    def replay(self, msg_id):
+        """
+        This method allow you to replay a message from channel `message_store`.
+        :param msg_id: Message id to replay
+        :return: the result of the processing.
+        """
+        msg_dict = self.message_store.get(msg_id)
+        new_message = msg_dict['message'].renew()
+        result = self.handle(new_message)
+        return result
+
     def graph(self, prefix='', dot=False):
         for node in self._nodes:
             if isinstance(node, SubChannel):
@@ -361,10 +373,7 @@ class Case():
         if names is None:
             names = []
 
-        if loop is None:
-            self.loop = asyncio.get_event_loop()
-        else:
-            self.loop = loop
+        self.loop = loop or asyncio.get_event_loop()
 
         if message_store_factory is None:
             message_store_factory = msgstore.NullMessageStoreFactory()

@@ -354,7 +354,7 @@ class ChannelsTests(unittest.TestCase):
             # This message should be in error state
             self.loop.run_until_complete(chan.handle(msg5))
 
-        msg_stored = list(chan.message_store.search(chan.name))
+        msg_stored = list(chan.message_store.search())
 
         for msg in msg_stored:
             print(msg)
@@ -370,6 +370,39 @@ class ChannelsTests(unittest.TestCase):
         dict_msg = chan.message_store.get('%s' % msg5.uuid.hex)
         self.assertEqual(dict_msg['state'], 'error', "Message %s should be in error state!" % msg5)
 
+
+    def test_replay_from_memory_message_store(self):
+        """ We can store a message in FileMessageStore """
+
+        store_factory = msgstore.MemoryMessageStoreFactory()
+
+        chan = BaseChannel(name="test_channel10.5", loop=self.loop, message_store_factory=store_factory)
+
+        n = TestNode()
+
+        msg = generate_msg()
+        msg2 = generate_msg(timestamp=(1982, 11, 27, 12, 35))
+
+
+        chan.add(n)
+
+        # Launch channel processing
+
+        self.start_channels()
+        self.loop.run_until_complete(chan.handle(msg))
+        self.loop.run_until_complete(chan.handle(msg2))
+
+        msg_stored = list(chan.message_store.search())
+
+        for msg in msg_stored:
+            print(msg)
+
+        self.assertEqual(len(msg_stored), 2, "Should be 3 messages in store!")
+
+        self.loop.run_until_complete(chan.replay(msg_stored[0]['id']))
+
+        msg_stored = list(chan.message_store.search())
+        self.assertEqual(len(msg_stored), 3, "Should be 3 messages in store!")
 
     def test_file_message_store(self):
         """ We can store a message in FileMessageStore """
@@ -405,7 +438,7 @@ class ChannelsTests(unittest.TestCase):
             # This message should be in error state
             self.loop.run_until_complete(chan.handle(msg5))
 
-        msg_stored = list(chan.message_store.search(chan.name))
+        msg_stored = list(chan.message_store.search())
 
         for msg in msg_stored:
             print(msg)

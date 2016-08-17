@@ -62,6 +62,19 @@ class MessageTests(unittest.TestCase):
 
         self.assertEqual(m.ctx['test'].payload['question'], compare_to.ctx['test'].payload['question'], "Bad ctx copy")
 
+    def test_message_renew(self):
+        m = create_message()
+
+        compare_to = m.renew()
+
+        self.assertEqual(m.payload['answer'], compare_to.payload['answer'], "Payload not well copied")
+        self.assertNotEqual(m.uuid.hex, compare_to.uuid.hex, "Uuid should not be copied")
+        self.assertNotEqual(m.timestamp, compare_to.timestamp, "Timestamp should not be copied")
+        self.assertEqual(m.meta['question'], compare_to.meta['question'], "Bad meta copy")
+
+        self.assertEqual(m.ctx['test'].payload['question'], compare_to.ctx['test'].payload['question'], "Bad ctx copy")
+
+
 
 
 

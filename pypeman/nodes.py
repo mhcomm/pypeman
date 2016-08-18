@@ -3,6 +3,7 @@ import json
 import types
 import asyncio
 import logging
+import ssl
 import base64
 import warnings
 
@@ -138,6 +139,7 @@ class BaseNode:
 
     def __str__(self):
         return "<%s(%s)>" % (self.channel.name, self.name)
+
 
 class RaiseError(BaseNode):
     def process(self, msg):
@@ -587,29 +589,29 @@ class MappingNode(BaseNode):
         return msg
 
 
-class RequestNode(ThreadNode):
+class RequestNode(BaseNode):
     """ Http request node """
-    dependencies = ['requests']
+    dependencies = ['aiohttp']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.url = kwargs.pop('url')
-        self.content_type = kwargs.pop('content_type', None)
+        self.method = kwargs.pop('method', None)
+        self.headers = kwargs.pop('headers', None)
         self.auth = kwargs.pop('auth', None)
-        self.verify = kwargs.pop('verify', False)
+        self.verify = kwargs.pop('verify', True)
+        self.client_cert = kwargs.pop('client_cert', None)
         self.url = self.url.replace('%(meta.', '%(')
         self.payload_in_url_dict = 'payload.' in self.url
-
         # TODO: create used payload keys for better perf of generate_request_url()
 
     def import_modules(self):
         """ import modules """
-        if 'requests' not in ext:
-            import requests
-            ext['requests'] = requests
+        if 'aiohttp' not in ext:
+            import aiohttp
+            ext['aiohttp'] = aiohttp
 
     def generate_request_url(self, msg):
-
         url_dict = msg.meta
         if self.payload_in_url_dict:
             url_dict = dict(url_dict)
@@ -617,23 +619,41 @@ class RequestNode(ThreadNode):
                 for key, val in msg.payload.items():
                     url_dict['payload.' + key] = val
             except AttributeError:
-                logger.exception("Payload must be a python dict if used to generate url. This can be fixed using JsonToPython node before your RequestNode")
+                self.channel.logger.exception("Payload must be a python dict if used to generate url. This can be fixed using JsonToPython node before your RequestNode")
                 raise
-
-        logger.debug("Completing url %r with data from %r" % (self.url, url_dict))
         return self.url % url_dict
 
+    @asyncio.coroutine
     def handle_request(self, msg):
         """ generate url and handle request """
         url = self.generate_request_url(msg)
-        logger.debug("Destination request url: %s", url)
-        resp = ext['requests'].get(url=url, auth=self.auth, verify=self.verify)
-        return str(resp.text)
+        conn=None
+        ssl_context=None
+        if self.client_cert:
+            if self.verify:
+                ssl_context = ssl.create_default_context()
+            else:
+                ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+            ssl_context.load_cert_chain(self.client_cert[0], self.client_cert[1])
+            conn = ext['aiohttp'].TCPConnector(ssl_context=ssl_context)
+        else:
+            conn = ext['aiohttp'].TCPConnector(verify_ssl=self.verify)
 
+        headers = self.headers
+        if not headers:
+            headers = msg.meta.get('headers')
+        method=self.method
+        if not method:
+            method = msg.meta.get('method','get')
+        with ext['aiohttp'].ClientSession(connector=conn) as session:
+            resp = yield from session.request(method=method, url=url, auth=self.auth, headers=headers)
+            resp_text = yield from resp.text()
+            return str(resp_text)
+
+    @asyncio.coroutine
     def process(self, msg):
         """ handles request """
-        msg.payload = self.handle_request(msg)
-
+        msg.payload = yield from self.handle_request(msg)
         return msg
 
 
@@ -653,7 +673,6 @@ class ToOrderedDict(BaseNode):
         if path:
             self.path += '.' + path
         super().__init__(*args, **kwargs)
-
 
     def process(self, msg):
         current = msg
@@ -743,4 +762,3 @@ class Email(ThreadNode):
         self.send_email(subject, sender, recipients, content)
 
         return msg
-

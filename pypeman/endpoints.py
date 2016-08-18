@@ -1,5 +1,8 @@
 import asyncio
 import warnings
+import logging
+
+logger = logging.getLogger("pypeman.endpoints")
 
 # For compatibility purpose
 from asyncio import async as ensure_future
@@ -27,10 +30,15 @@ class BaseEndpoint:
 class HTTPEndpoint(BaseEndpoint):
     dependencies = ['aiohttp']
 
-    def __init__(self, adress='127.0.0.1', port='8080'):
+    def __init__(self, adress=None, address='127.0.0.1', port='8080'):
         super().__init__()
         self._app = None
-        self.address = adress
+        if adress:
+            self.address = adress
+            warnings.warn("Argument adress for endpoint is deprecated. 'address' argument will be ignored")
+        else:
+            self.address = address
+
         self.port = port
 
     def import_modules(self):
@@ -154,5 +162,3 @@ class MLLPEndpoint(BaseEndpoint):
             return srv
         else:
             print("No MLLP handlers.")
-
-

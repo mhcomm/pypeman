@@ -35,7 +35,7 @@ class HTTPEndpoint(BaseEndpoint):
         self._app = None
         if adress:
             self.address = adress
-            logger.warning("Argument adress for endpoint is deprecated. 'address' argument will be ignored")
+            warnings.warn("Argument adress for endpoint is deprecated. 'address' argument will be ignored")
         else:
             self.address = address
 

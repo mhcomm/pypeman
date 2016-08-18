@@ -619,7 +619,7 @@ class RequestNode(BaseNode):
                 for key, val in msg.payload.items():
                     url_dict['payload.' + key] = val
             except AttributeError:
-                logger.exception("Payload must be a python dict if used to generate url. This can be fixed using JsonToPython node before your RequestNode")
+                self.channel.logger.exception("Payload must be a python dict if used to generate url. This can be fixed using JsonToPython node before your RequestNode")
                 raise
         return self.url % url_dict
 
@@ -627,7 +627,6 @@ class RequestNode(BaseNode):
     def handle_request(self, msg):
         """ generate url and handle request """
         url = self.generate_request_url(msg)
-        logger.debug("Destination request url: %s", url)
         conn=None
         ssl_context=None
         if self.client_cert:
@@ -640,13 +639,13 @@ class RequestNode(BaseNode):
         else:
             conn = ext['aiohttp'].TCPConnector(verify_ssl=self.verify)
 
+        headers = self.headers
+        if not headers:
+            headers = msg.meta.get('headers')
+        method=self.method
+        if not method:
+            method = msg.meta.get('method','get')
         with ext['aiohttp'].ClientSession(connector=conn) as session:
-            headers = self.headers
-            if not headers:
-                headers = msg.meta.get('headers')
-            method=self.method
-            if not method:
-                method = msg.meta.get('headers','get')
             resp = yield from session.request(method=method, url=url, auth=self.auth, headers=headers)
             resp_text = yield from resp.text()
             return str(resp_text)
@@ -763,4 +762,3 @@ class Email(ThreadNode):
         self.send_email(subject, sender, recipients, content)
 
         return msg
-

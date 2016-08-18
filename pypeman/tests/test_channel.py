@@ -65,7 +65,6 @@ class ChannelsTests(unittest.TestCase):
     def start_channels(self):
         # Start channels
         for chan in channels.all:
-            chan.import_modules()
             self.loop.run_until_complete(chan.start())
 
     def setUp(self):

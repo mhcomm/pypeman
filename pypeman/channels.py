@@ -1,7 +1,5 @@
 import asyncio
-import datetime
 import os
-import sys
 import uuid
 import logging
 import re
@@ -19,9 +17,6 @@ logger = logging.getLogger(__name__)
 all = []
 
 _channels_names = set()
-
-# used to share external dependencies
-ext = {}
 
 
 class Dropped(Exception):
@@ -50,8 +45,6 @@ class ChannelStopped(Exception):
 
 class BaseChannel:
     STARTING, WAITING, PROCESSING, STOPPING, STOPPED  = range(5)
-
-    dependencies = [] # List of module requirements
 
     def __init__(self, name=None, parent_channel=None, loop=None, message_store_factory=None):
         self.uuid = uuid.uuid4()
@@ -102,14 +95,6 @@ class BaseChannel:
 
         # Used to avoid multiple messages processing at same time
         self.lock = asyncio.Lock(loop=self.loop)
-
-    def requirements(self):
-        """ List dependencies of modules if any """
-        return self.dependencies
-
-    def import_modules(self):
-        """ Use this method to import specific external modules listed in dependencies """
-        pass
 
     @property
     def status(self):

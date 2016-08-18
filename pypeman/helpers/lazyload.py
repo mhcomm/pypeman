@@ -43,6 +43,7 @@ def load(selfmodname, module, class_, dep=None):
         dep = []
 
     selfmod = importlib.import_module(selfmodname)
+
     def init(*args, **kwargs):
         C = load_class(module, class_, dep)
         setattr(selfmod, class_, C)

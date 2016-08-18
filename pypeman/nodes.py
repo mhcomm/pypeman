@@ -28,9 +28,6 @@ from copy import deepcopy
 # All declared nodes register here
 all = []
 
-# used to share external dependencies
-ext = {}
-
 # Can be redefined
 default_thread_pool = ThreadPoolExecutor(max_workers=3)
 
@@ -49,7 +46,6 @@ class BaseNode:
     """ Base of all Nodes.
     If you create a new node, you must inherit from this class and implement `process` method.
     """
-    dependencies = []
 
     def __init__(self, *args, **kwargs):
         self.channel = None
@@ -59,14 +55,6 @@ class BaseNode:
         self.store_input_as = kwargs.pop('store_input_as', None)
         self.passthrough = kwargs.pop('passthrough', None)
         self.next_node = None
-
-    def requirements(self):
-        """ List dependencies of modules if any """
-        return self.dependencies
-
-    def import_modules(self):
-        """ Use this method to import specific external modules listed in dependencies """
-        pass
 
     @asyncio.coroutine
     def handle(self, msg):

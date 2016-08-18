@@ -62,24 +62,4 @@ class BinPypemanTestCase(unittest.TestCase):
 
         os.unlink(out_fname)
 
-    def test_can_call_requirements(self):
-        """ subcommand requirements is working """
-
-        cmd = self.cmd + ['requirements']
-        out_fname = mktempfname()
-
-        with open(out_fname, 'wb') as fout:
-            import os
-            print(os.getcwd())
-            proc = subprocess.Popen(cmd, stdout=fout, stderr=fout, cwd=CWD)
-            proc.wait()
-        ret_code = proc.returncode
-
-        if ret_code:
-            with open(out_fname, 'rb') as fin:
-                data = fin.read()
-            nose.tools.eq_(ret_code, 0, data)
-
-        os.unlink(out_fname)
-
 test_suite =  BinPypemanTestCase

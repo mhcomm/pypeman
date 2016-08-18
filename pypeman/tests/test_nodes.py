@@ -199,4 +199,34 @@ class NodesTests(unittest.TestCase):
             handle.write.assert_called_once_with('content')
 
 
+    def test_xml_nodes(self):
+        """ if XML nodes are functional """
+        try:
+            import xmltodict
+        except ImportError:
+            raise unittest.SkipTest("Missing dependency xmltodict.")
+
+        n1 = nodes.XMLToPython()
+        n2 = nodes.PythonToXML()
+
+        channel = FakeChannel(self.loop)
+
+        n1.channel = channel
+        n2.channel = channel
+
+        m = generate_msg()
+
+        m.payload = '<?xml version="1.0" encoding="utf-8"?>\n<test>hello</test>'
+
+        base = str(m.payload)
+
+        @asyncio.coroutine
+        def go():
+           ret = yield from n1.handle(m)
+           ext_new = yield from n2.handle(ret)
+           # Check return
+           self.assertTrue(isinstance(ret, message.Message))
+           self.assertEqual(base, ext_new.payload, "XML nodes not working !")
+
+        self.loop.run_until_complete(go())
 

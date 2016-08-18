@@ -1,0 +1,5 @@
+# Mandatory
+hl7
+xmltodict
+aiohttp
+aiocron

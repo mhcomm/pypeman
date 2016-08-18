@@ -431,47 +431,6 @@ class Case():
         return result
 
 
-class HttpChannel(BaseChannel):
-    """ Channel that handle http messages.
-    """
-    dependencies = ['aiohttp']
-    app = None
-
-    def __init__(self, *args, endpoint=None, method='*', url='/', encoding=None, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.method = method
-        self.url = url
-        self.encoding = encoding
-        if endpoint is None:
-            raise TypeError('Missing "endpoint" argument')
-        self.http_endpoint = endpoint
-
-    def import_modules(self):
-        if 'aiohttp_web' not in ext:
-            from aiohttp import web
-            ext['aiohttp_web'] = web
-
-    @asyncio.coroutine
-    def start(self):
-        yield from super().start()
-        self.http_endpoint.add_route(self.method, self.url, self.handle_request)
-
-    @asyncio.coroutine
-    def handle_request(self, request):
-        content = yield from request.text()
-        msg = message.Message(content_type='http_request', payload=content, meta={'method': request.method})
-        try:
-            result = yield from self.handle(msg)
-            encoding = self.encoding or 'utf-8'
-            return ext['aiohttp_web'].Response(body=result.payload.encode(encoding), status=result.meta.get('status', 200))
-
-        except Dropped:
-            return ext['aiohttp_web'].Response(body="Dropped".encode('utf-8'), status=200)
-        except Exception as e:
-            logger.exception('Error while handling http message')
-            return ext['aiohttp_web'].Response(body=str(e).encode('utf-8'), status=503)
-
-
 class FileWatcherChannel(BaseChannel):
     NEW, UNCHANGED, MODIFIED, DELETED  = range(4)
 
@@ -544,68 +503,7 @@ class FileWatcherChannel(BaseChannel):
             if not self.status in (BaseChannel.STOPPING, BaseChannel.STOPPED,):
                 ensure_future(self.watch_for_file(), loop=self.loop)
 
-
-class TimeChannel(BaseChannel):
-    dependencies = ['aiocron']
-
-    def __init__(self, *args, cron='', **kwargs):
-        super().__init__(*args, **kwargs)
-        self.cron = cron
-
-    def import_modules(self):
-        if 'aiocron_crontab' not in ext:
-            from aiocron import crontab
-
-            ext['aiocron_crontab'] = crontab
-
-    @asyncio.coroutine
-    def start(self):
-        super().start()
-        ext['aiocron_crontab'](self.cron, func=self.tic, start=True)
-
-    @asyncio.coroutine
-    def tic(self):
-        msg = message.Message()
-        msg.payload = datetime.datetime.now()
-        yield from self.handle(msg)
-
-
-class MLLPChannel(BaseChannel):
-    dependencies = ['hl7']
-
-    def __init__(self, *args, endpoint=None, encoding='utf-8', **kwargs):
-        super().__init__(*args, **kwargs)
-        if endpoint is None:
-            raise TypeError('Missing "endpoint" argument')
-        self.mllp_endpoint = endpoint
-
-        if encoding is None:
-            encoding = sys.getdefaultencoding()
-        self.encoding = encoding
-
-    def import_modules(self):
-        if 'hl7' not in ext:
-            import hl7
-            ext['hl7'] = hl7
-
-    @asyncio.coroutine
-    def start(self):
-        yield from super().start()
-        self.mllp_endpoint.set_handler(handler=self.handle_hl7_message)
-
-    @asyncio.coroutine
-    def handle_hl7_message(self, hl7_message):
-        content = hl7_message.decode(self.encoding)
-        msg = message.Message(content_type='text/hl7', payload=content, meta={})
-        try:
-            result = yield from self.handle(msg)
-            return result.payload.encode(self.encoding)
-        except Dropped:
-            ack = ext['hl7'].parse(content, encoding=self.encoding)
-            return str(ack.create_ack('AA')).encode(self.encoding)
-        except Rejected:
-            ack = ext['hl7'].parse(content, encoding=self.encoding)
-            return str(ack.create_ack('AR')).encode(self.encoding)
-        except Exception:
-            ack = ext['hl7'].parse(content, encoding=self.encoding)
-            return str(ack.create_ack('AE')).encode(self.encoding)
+from pypeman.helpers import lazyload
+MLLPChannel = lazyload.load(__name__, 'pypeman.contrib.hl7', 'MLLPChannel', ['hl7'])
+HttpChannel = lazyload.load(__name__, 'pypeman.contrib.http', 'HttpChannel', ['aiohttp'])
+TimeChannel = lazyload.load(__name__, 'pypeman.contrib.time', 'TimeChannel', ['aiocron'])

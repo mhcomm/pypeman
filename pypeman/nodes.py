@@ -252,45 +252,6 @@ class PythonToJson(BaseNode):
         return msg
 
 
-class XMLToPython(BaseNode):
-    """ Convert XML message payload to python dict."""
-
-    dependencies = ['xmltodict']
-
-    def __init__(self, *args, **kwargs):
-        self.process_namespaces = kwargs.pop('process_namespaces', False)
-        super().__init__(*args, **kwargs)
-
-    def import_modules(self):
-        if 'xmltodict' not in ext:
-            import xmltodict
-            ext['xmltodict'] = xmltodict
-
-    def process(self, msg):
-        msg.payload = ext['xmltodict'].parse(msg.payload, process_namespaces=self.process_namespaces)
-        msg.content_type = 'application/python'
-        return msg
-
-
-class PythonToXML(BaseNode):
-    """ Convert python payload to XML."""
-    dependencies = ['xmltodict']
-
-    def __init__(self, *args, **kwargs):
-        self.pretty = kwargs.pop('pretty', False)
-        super().__init__(*args, **kwargs)
-
-    def import_modules(self):
-        if 'xmltodict' not in ext:
-            import xmltodict
-            ext['xmltodict'] = xmltodict
-
-    def process(self, msg):
-        msg.payload = ext['xmltodict'].unparse(msg.payload, pretty=self.pretty)
-        msg.content_type = 'application/xml'
-        return msg
-
-
 class Encode(BaseNode):
     """ Encode payload in specified encoding to byte.
     """
@@ -414,44 +375,6 @@ class MessageStore(Save):
     def __init__(self, *args, **kwargs):
         warnings.warn("MessageStore node is deprecated. Replace it by Save node", DeprecationWarning)
         super().__init__(*args, **kwargs)
-
-
-class HL7ToPython(BaseNode):
-    """ Convert hl7 payload to python struct."""
-
-    dependencies = ['hl7']
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def import_modules(self):
-        if 'hl7' not in ext:
-            import hl7
-            ext['hl7'] = hl7
-
-    def process(self, msg):
-        msg.payload = ext['hl7'].parse(msg.payload)
-        msg.content_type = 'application/python'
-        return msg
-
-
-class PythonToHL7(BaseNode):
-    """ Convert python payload to HL7."""
-
-    dependencies = ['hl7']
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def import_modules(self):
-        if 'hl7' not in ext:
-            import hl7
-            ext['hl7'] = hl7
-
-    def process(self, msg):
-        msg.payload = str(msg.payload)
-        msg.content_type = 'text/hl7'
-        return msg
 
 
 class FileReader(BaseNode):
@@ -773,3 +696,11 @@ class Email(ThreadNode):
         self.send_email(subject, sender, recipients, content)
 
         return msg
+
+
+from pypeman.helpers import lazyload
+XMLToPython = lazyload.load(__name__, 'pypeman.contrib.xml', "XMLToPython", ["xmltodict"])
+PythonToXML = lazyload.load(__name__, 'pypeman.contrib.xml', "PythonToXML", ["xmltodict"])
+HL7ToPython = lazyload.load(__name__, 'pypeman.contrib.hl7', "HL7ToPython", ["hl7"])
+PythonToHL7 = lazyload.load(__name__, 'pypeman.contrib.hl7', "PythonToHL7", ["hl7"])
+

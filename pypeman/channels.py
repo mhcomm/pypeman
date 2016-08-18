@@ -66,9 +66,12 @@ class BaseChannel:
             warnings.warn("Channels without names are deprecated", DeprecationWarning)
             self.name = self.__class__.__name__ + "_" + str(len(all))
 
+        self.parent = None
         if parent_channel:
             # Use dot name hierarchy
             self.name = ".".join([parent_channel.name, self.name])
+
+            self.parent = parent_channel
 
             #  TODO parent channels usefull ?
             self.parent_uids = [parent_channel.uuid]
@@ -286,33 +289,60 @@ class BaseChannel:
     def graph(self, prefix='', dot=False):
         for node in self._nodes:
             if isinstance(node, SubChannel):
-                print(prefix + '|—\\')
+                print(prefix + '|—\\ (%s)' % node.name)
                 node.graph(prefix= '|  ' + prefix)
             elif isinstance(node, ConditionSubChannel):
-                print(prefix + '|?\\')
+                print(prefix + '|?\\ (%s)' % node.name)
                 node.graph(prefix='|  ' + prefix)
                 print(prefix + '|  -> Out')
+            elif isinstance(node, Case):
+                for i, c in enumerate(node.cases):
+                    print(prefix + '|c%s\\' % i)
+                    c[1].graph(prefix='|  ' + prefix)
+                    print(prefix + '|<--')
             else:
                 print(prefix + '|-' + node.name)
 
-    def graph_dot(self, previous='', end=''):
+    def graph_dot(self, end=''):
         after = []
+        cases = None
+
+        print('#---')
+
+        previous = self.name
+
+        if end == '':
+            end = self.name
+
         for node in self._nodes:
             if isinstance(node, SubChannel):
-                after.append((previous, '', node))
-            elif isinstance(node, ConditionSubChannel):
-                after.append((previous, end, node))
-            else:
-                print('->' + node.name, end='')
-                previous = node.name
-        if end:
-            print("->" + end + ";")
-        else:
-            print(";")
+                print('"%s"->"%s";' % (previous, node.name))
+                after.append((None, node))
 
-        for prev, end, sub in after:
-            print(prev, end='')
-            sub.graph_dot(previous=prev, end=end)
+            elif isinstance(node, ConditionSubChannel):
+                print('"%s"->"%s" [style=dotted];' % (previous, node.name))
+                after.append((end, node))
+
+            elif isinstance(node, Case):
+                cases = [c[1] for c in node.cases]
+
+            else:
+                if cases:
+                    for c in cases:
+                        print('"%s"->"%s" [style=dotted];' % (previous, c.name))
+                        after.append((node.name, c))
+                    cases = None
+
+                else:
+                    print('"%s"->"%s";' % (previous, node.name))
+
+                previous = node.name
+
+        if end:
+            print('"%s"->"%s";' % (previous, end))
+
+        for end, sub in after:
+            sub.graph_dot(end=end)
 
     def __str__(self):
         return "<chan: %s>" % self.name
@@ -361,7 +391,6 @@ class ConditionSubChannel(BaseChannel):
                 result = msg
 
         return result
-
 
 class Case():
     """ Case node internally used for `.case()` BaseChannel method. Don't use it.

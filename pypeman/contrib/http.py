@@ -1,11 +1,11 @@
 import asyncio
+import ssl
+import warnings
 
 from pypeman import endpoints, channels, nodes, message
 
+import aiohttp
 from aiohttp import web
-
-# For compatibility purpose
-from asyncio import async as ensure_future
 
 class HTTPEndpoint(endpoints.BaseEndpoint):
 
@@ -64,3 +64,71 @@ class HttpChannel(channels.BaseChannel):
             return web.Response(body="Dropped".encode('utf-8'), status=200)
         except Exception as e:
             return web.Response(body=str(e).encode('utf-8'), status=503)
+
+
+class HttpRequest(nodes.BaseNode):
+    """ Http request node """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.url = kwargs.pop('url')
+        self.method = kwargs.pop('method', None)
+        self.headers = kwargs.pop('headers', None)
+        self.auth = kwargs.pop('auth', None)
+        self.verify = kwargs.pop('verify', True)
+        self.client_cert = kwargs.pop('client_cert', None)
+        self.url = self.url.replace('%(meta.', '%(')
+        self.payload_in_url_dict = 'payload.' in self.url
+        # TODO: create used payload keys for better perf of generate_request_url()
+
+    def generate_request_url(self, msg):
+        url_dict = msg.meta
+        if self.payload_in_url_dict:
+            url_dict = dict(url_dict)
+            try:
+                for key, val in msg.payload.items():
+                    url_dict['payload.' + key] = val
+            except AttributeError:
+                self.channel.logger.exception("Payload must be a python dict if used to generate url. This can be fixed using JsonToPython node before your RequestNode")
+                raise
+        return self.url % url_dict
+
+    @asyncio.coroutine
+    def handle_request(self, msg):
+        """ generate url and handle request """
+        url = self.generate_request_url(msg)
+
+        conn=None
+        ssl_context=None
+        if self.client_cert:
+            if self.verify:
+                ssl_context = ssl.create_default_context()
+            else:
+                ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+            ssl_context.load_cert_chain(self.client_cert[0], self.client_cert[1])
+            conn = aiohttp.TCPConnector(ssl_context=ssl_context)
+        else:
+            conn = aiohttp.TCPConnector(verify_ssl=self.verify)
+
+        headers = self.headers
+        if not headers:
+            headers = msg.meta.get('headers')
+        method=self.method
+        if not method:
+            method = msg.meta.get('method','get')
+        with aiohttp.ClientSession(connector=conn) as session:
+            resp = yield from session.request(method=method, url=url, auth=self.auth, headers=headers)
+            resp_text = yield from resp.text()
+            return str(resp_text)
+
+    @asyncio.coroutine
+    def process(self, msg):
+        """ handles request """
+        msg.payload = yield from self.handle_request(msg)
+        return msg
+
+
+class RequestNode(HttpRequest):
+    def __init__(self, *args, **kwargs):
+        warnings.warn("RequestNode node is deprecated. New name is 'HttpRequest' node", DeprecationWarning)
+        super().__init__(*args, **kwargs)

@@ -45,7 +45,7 @@ def generate_msg(timestamp=None, message_content=default_message_content):
     """ generates a default message """
     m = message.Message()
     if timestamp:
-        if type(timestamp) == tuple:
+        if isinstance(timestamp, tuple):
             m.timestamp = datetime.datetime(*timestamp)
         else: # assume it's a datetime object
             m.timestamp = timestamp

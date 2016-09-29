@@ -57,17 +57,8 @@ def main(debug_asyncio=False, profile=False, cli=False):
         loop.set_debug(True)
         warnings.simplefilter('default')
 
-    # Import modules for endpoints
-    for end in endpoints.all:
-        end.import_modules()
-
-    # Import modules for nodes
-    for node in nodes.all:
-        node.import_modules()
-
     # Start channels
     for chan in channels.all:
-        chan.import_modules()
         loop.run_until_complete(chan.start())
 
     # And endpoints
@@ -116,46 +107,31 @@ def start(reload: 'Make server autoreload (Dev only)'=False,
 
 
 @begin.subcommand
-def graph(dot: "Make dot compatible output"=False):
-    """ Show channel graph """
+def graph(dot: "Make dot compatible output (Can be see with http://ushiroad.com/jsviz/)"=False):
+    """ Show channel graph"""
 
     load_project()
 
     if dot:
         print("digraph testgraph{")
+
+        # Handle channel node shape
         for channel in channels.all:
-            if not issubclass(channel.__class__, channels.SubChannel) and not issubclass(channel.__class__, channels.ConditionSubChannel):
-                print("{node[shape=box]; %s; }" % channel.name)
-                print(channel.name, end='')
-                channel.graph_dot(previous=channel.name, end=channel.name)
+            print('{node[shape=box]; "%s"; }' % channel.name)
+
+        # Draw each graph
+        for channel in channels.all:
+            if not channel.parent:
+                channel.graph_dot()
+
         print("}")
     else:
         for channel in channels.all:
-            if not issubclass(channel.__class__, channels.SubChannel) and not issubclass(channel.__class__, channels.ConditionSubChannel):
+            if not channel.parent:
                 print(channel.__class__.__name__)
                 channel.graph()
                 print('|-> out')
                 print()
-
-
-@begin.subcommand
-def requirements():
-    """ List optional python dependencies """
-
-    load_project()
-
-    dep = set()
-
-    for channel in channels.all:
-        dep |= set(channel.requirements())
-
-    for node in nodes.all:
-        dep |= set(node.requirements())
-
-    for end in endpoints.all:
-        dep |= set(end.requirements())
-
-    [print(d) for d in dep]
 
 
 @begin.subcommand

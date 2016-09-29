@@ -39,6 +39,17 @@ class Message():
         """
         return copy.deepcopy(self)
 
+    def renew(self):
+        """
+        Copy the message. Useful for channel fork purpose.
+        :return:
+        """
+        msg = self.copy()
+
+        msg.uuid = uuid.uuid4()
+        msg.timestamp = datetime.datetime.now()
+        return msg
+
     def to_dict(self):
         """
         Convert a message object to a dict.

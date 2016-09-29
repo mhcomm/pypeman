@@ -3,7 +3,6 @@ import json
 import types
 import asyncio
 import logging
-import ssl
 import base64
 import warnings
 
@@ -28,9 +27,6 @@ from copy import deepcopy
 # All declared nodes register here
 all = []
 
-# used to share external dependencies
-ext = {}
-
 # Can be redefined
 default_thread_pool = ThreadPoolExecutor(max_workers=3)
 
@@ -49,7 +45,6 @@ class BaseNode:
     """ Base of all Nodes.
     If you create a new node, you must inherit from this class and implement `process` method.
     """
-    dependencies = []
 
     def __init__(self, *args, **kwargs):
         self.channel = None
@@ -59,14 +54,6 @@ class BaseNode:
         self.store_input_as = kwargs.pop('store_input_as', None)
         self.passthrough = kwargs.pop('passthrough', None)
         self.next_node = None
-
-    def requirements(self):
-        """ List dependencies of modules if any """
-        return self.dependencies
-
-    def import_modules(self):
-        """ Use this method to import specific external modules listed in dependencies """
-        pass
 
     @asyncio.coroutine
     def handle(self, msg):
@@ -252,45 +239,6 @@ class PythonToJson(BaseNode):
         return msg
 
 
-class XMLToPython(BaseNode):
-    """ Convert XML message payload to python dict."""
-
-    dependencies = ['xmltodict']
-
-    def __init__(self, *args, **kwargs):
-        self.process_namespaces = kwargs.pop('process_namespaces', False)
-        super().__init__(*args, **kwargs)
-
-    def import_modules(self):
-        if 'xmltodict' not in ext:
-            import xmltodict
-            ext['xmltodict'] = xmltodict
-
-    def process(self, msg):
-        msg.payload = ext['xmltodict'].parse(msg.payload, process_namespaces=self.process_namespaces)
-        msg.content_type = 'application/python'
-        return msg
-
-
-class PythonToXML(BaseNode):
-    """ Convert python payload to XML."""
-    dependencies = ['xmltodict']
-
-    def __init__(self, *args, **kwargs):
-        self.pretty = kwargs.pop('pretty', False)
-        super().__init__(*args, **kwargs)
-
-    def import_modules(self):
-        if 'xmltodict' not in ext:
-            import xmltodict
-            ext['xmltodict'] = xmltodict
-
-    def process(self, msg):
-        msg.payload = ext['xmltodict'].unparse(msg.payload, pretty=self.pretty)
-        msg.content_type = 'application/xml'
-        return msg
-
-
 class Encode(BaseNode):
     """ Encode payload in specified encoding to byte.
     """
@@ -416,45 +364,6 @@ class MessageStore(Save):
         super().__init__(*args, **kwargs)
 
 
-
-class HL7ToPython(BaseNode):
-    """ Convert hl7 payload to python struct."""
-
-    dependencies = ['hl7']
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def import_modules(self):
-        if 'hl7' not in ext:
-            import hl7
-            ext['hl7'] = hl7
-
-    def process(self, msg):
-        msg.payload = ext['hl7'].parse(msg.payload)
-        msg.content_type = 'application/python'
-        return msg
-
-
-class PythonToHL7(BaseNode):
-    """ Convert python payload to HL7."""
-
-    dependencies = ['hl7']
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def import_modules(self):
-        if 'hl7' not in ext:
-            import hl7
-            ext['hl7'] = hl7
-
-    def process(self, msg):
-        msg.payload = str(msg.payload)
-        msg.content_type = 'text/hl7'
-        return msg
-
-
 class FileReader(BaseNode):
     """ Reads a file and sets payload to the file's contents. """
     def __init__(self, filename=None, path=None, binary_file=False, *args, **kwargs):
@@ -542,7 +451,7 @@ class FileWriter(BaseNode):
         return msg
 
 
-class MappingNode(BaseNode):
+class Map(BaseNode):
     """ Used to map input message keys->values to another keys->values """
 
     def __init__(self, *args, **kwargs):
@@ -589,72 +498,10 @@ class MappingNode(BaseNode):
         return msg
 
 
-class RequestNode(BaseNode):
-    """ Http request node """
-    dependencies = ['aiohttp']
-
+class MappingNode(Map):
     def __init__(self, *args, **kwargs):
+        warnings.warn("MappingNode node is deprecated. Replace it by 'Map' node", DeprecationWarning)
         super().__init__(*args, **kwargs)
-        self.url = kwargs.pop('url')
-        self.method = kwargs.pop('method', None)
-        self.headers = kwargs.pop('headers', None)
-        self.auth = kwargs.pop('auth', None)
-        self.verify = kwargs.pop('verify', True)
-        self.client_cert = kwargs.pop('client_cert', None)
-        self.url = self.url.replace('%(meta.', '%(')
-        self.payload_in_url_dict = 'payload.' in self.url
-        # TODO: create used payload keys for better perf of generate_request_url()
-
-    def import_modules(self):
-        """ import modules """
-        if 'aiohttp' not in ext:
-            import aiohttp
-            ext['aiohttp'] = aiohttp
-
-    def generate_request_url(self, msg):
-        url_dict = msg.meta
-        if self.payload_in_url_dict:
-            url_dict = dict(url_dict)
-            try:
-                for key, val in msg.payload.items():
-                    url_dict['payload.' + key] = val
-            except AttributeError:
-                self.channel.logger.exception("Payload must be a python dict if used to generate url. This can be fixed using JsonToPython node before your RequestNode")
-                raise
-        return self.url % url_dict
-
-    @asyncio.coroutine
-    def handle_request(self, msg):
-        """ generate url and handle request """
-        url = self.generate_request_url(msg)
-        conn=None
-        ssl_context=None
-        if self.client_cert:
-            if self.verify:
-                ssl_context = ssl.create_default_context()
-            else:
-                ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
-            ssl_context.load_cert_chain(self.client_cert[0], self.client_cert[1])
-            conn = ext['aiohttp'].TCPConnector(ssl_context=ssl_context)
-        else:
-            conn = ext['aiohttp'].TCPConnector(verify_ssl=self.verify)
-
-        headers = self.headers
-        if not headers:
-            headers = msg.meta.get('headers')
-        method=self.method
-        if not method:
-            method = msg.meta.get('method','get')
-        with ext['aiohttp'].ClientSession(connector=conn) as session:
-            resp = yield from session.request(method=method, url=url, auth=self.auth, headers=headers)
-            resp_text = yield from resp.text()
-            return str(resp_text)
-
-    @asyncio.coroutine
-    def process(self, msg):
-        """ handles request """
-        msg.payload = yield from self.handle_request(msg)
-        return msg
 
 
 class ToOrderedDict(BaseNode):
@@ -762,3 +609,15 @@ class Email(ThreadNode):
         self.send_email(subject, sender, recipients, content)
 
         return msg
+
+
+# Contrib nodes
+from pypeman.helpers import lazyload
+XMLToPython = lazyload.load(__name__, 'pypeman.contrib.xml', "XMLToPython", ["xmltodict"])
+PythonToXML = lazyload.load(__name__, 'pypeman.contrib.xml', "PythonToXML", ["xmltodict"])
+HL7ToPython = lazyload.load(__name__, 'pypeman.contrib.hl7', "HL7ToPython", ["hl7"])
+PythonToHL7 = lazyload.load(__name__, 'pypeman.contrib.hl7', "PythonToHL7", ["hl7"])
+HttpRequest = lazyload.load(__name__, 'pypeman.contrib.http', "HttpRequest", ["aiohttp"])
+RequestNode = lazyload.load(__name__, 'pypeman.contrib.http', "RequestNode", ["aiohttp"])
+
+

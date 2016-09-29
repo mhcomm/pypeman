@@ -8,17 +8,17 @@ setup(name='pypeman',
       version=VERSION,
       description='Minimalistic but pragmatic ESB / ETL / EAI in Python',
       classifiers=[
-        'Development Status :: 3 - Alpha',
-        'License :: OSI Approved :: Apache Software License',
-        'Programming Language :: Python :: 3.4',
-        'Intended Audience :: Developers',
-        'Intended Audience :: Information Technology',
-        'Intended Audience :: Healthcare Industry',
-        'Operating System :: POSIX :: Linux',
-        'Topic :: Database',
-        'Topic :: Internet',
-        'Topic :: Internet :: File Transfer Protocol (FTP)',
-        'Programming Language :: Python',
+          'Development Status :: 3 - Alpha',
+          'License :: OSI Approved :: Apache Software License',
+          'Programming Language :: Python :: 3.4',
+          'Intended Audience :: Developers',
+          'Intended Audience :: Information Technology',
+          'Intended Audience :: Healthcare Industry',
+          'Operating System :: POSIX :: Linux',
+          'Topic :: Database',
+          'Topic :: Internet',
+          'Topic :: Internet :: File Transfer Protocol (FTP)',
+          'Programming Language :: Python',
       ],
       keywords='esb etl eai pipeline data processing asyncio http',
       url=URL,
@@ -28,12 +28,21 @@ setup(name='pypeman',
 
       license='Apache Software License',
       packages=['pypeman', 'pypeman.helpers'],
-      entry_points = { 'console_scripts': [
-            'pypeman = pypeman.commands:run.start',
-        ]},
+
+      entry_points={
+          'console_scripts': [
+              'pypeman = pypeman.commands:run.start',
+          ]
+      },
 
       test_suite='nose.collector',
       install_requires=['begins'],
-      tests_require=['nose', 'nose-cover3']
+      extras_require={
+          'hl7': ["hl7"],
+          'http': ["aiohttp"],
+          'xml': ["xmltodict"],
+          'time': ["aiocron"],
+          'all': ["hl7", "aiohttp", "xmltodict", "aiocron"]
+      },
+      tests_require=['nose', 'nose-cover3'],
 )
-

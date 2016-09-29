@@ -262,7 +262,7 @@ class BaseChannel:
     @asyncio.coroutine
     def replay(self, msg_id):
         """
-        This method allow you to replay a message from channel `message_store`.
+        This method allows you to replay a message from channel `message_store`.
         :param msg_id: Message id to replay
         :return: the result of the processing.
         """
@@ -491,4 +491,4 @@ class FileWatcherChannel(BaseChannel):
 from pypeman.helpers import lazyload
 MLLPChannel = lazyload.load(__name__, 'pypeman.contrib.hl7', 'MLLPChannel', ['hl7'])
 HttpChannel = lazyload.load(__name__, 'pypeman.contrib.http', 'HttpChannel', ['aiohttp'])
-TimeChannel = lazyload.load(__name__, 'pypeman.contrib.time', 'TimeChannel', ['aiocron'])
+CronChannel = lazyload.load(__name__, 'pypeman.contrib.time', 'CronChannel', ['aiocron'])

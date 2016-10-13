@@ -27,7 +27,7 @@ setup(name='pypeman',
       author_email='jeremie.pardou@mhcomm.fr',
 
       license='Apache Software License',
-      packages=['pypeman', 'pypeman.helpers'],
+      packages=['pypeman', 'pypeman.helpers', 'pypeman.contrib'],
 
       entry_points={
           'console_scripts': [

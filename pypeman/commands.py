@@ -107,7 +107,7 @@ def start(reload: 'Make server autoreload (Dev only)'=False,
 
 
 @begin.subcommand
-def graph(dot: "Make dot compatible output (Can be see with http://ushiroad.com/jsviz/)"=False):
+def graph(dot: "Make dot compatible output (Can be viewed with http://ushiroad.com/jsviz/)"=False):
     """ Show channel graph"""
 
     load_project()

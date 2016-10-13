@@ -32,7 +32,7 @@ class HTTPEndpoint(endpoints.BaseEndpoint):
             print("No HTTP route.")
 
 class HttpChannel(channels.BaseChannel):
-    """ Channel that handle http messages.
+    """ Channel that handles http messages.
     """
     dependencies = ['aiohttp']
     app = None

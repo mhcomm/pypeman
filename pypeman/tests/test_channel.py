@@ -83,7 +83,7 @@ class ChannelsTests(unittest.TestCase):
         self.clean_loop()
 
     def test_base_channel(self):
-        """ if BaseChannel handling is working """
+        """ Whether BaseChannel handling is working """
 
         chan = BaseChannel(name="test_channel1", loop=self.loop)
         n = TestNode()
@@ -98,7 +98,7 @@ class ChannelsTests(unittest.TestCase):
         self.assertTrue(n.processed, "Channel handle not working")
 
     def test_no_node_base_channel(self):
-        """ if BaseChannel handling is working even if there is no node """
+        """ Whether BaseChannel handling is working even if there is no node """
 
         chan = BaseChannel(name="test_channel2", loop=self.loop)
         msg = generate_msg()
@@ -108,7 +108,7 @@ class ChannelsTests(unittest.TestCase):
         self.loop.run_until_complete(chan.handle(msg))
 
     def test_sub_channel(self):
-        """ if Sub Channel is working """
+        """ Whether Sub Channel is working """
 
         chan = BaseChannel(name="test_channel3", loop=self.loop)
         n1 = TestNode(name="main")
@@ -132,7 +132,7 @@ class ChannelsTests(unittest.TestCase):
         self.assertEqual(sub.name, "test_channel3.subchannel", "Subchannel name is incorrect")
 
     def test_sub_channel_with_exception(self):
-        """ if Sub Channel exception handling is working """
+        """ Whether Sub Channel exception handling is working """
 
         chan = BaseChannel(name="test_channel4", loop=self.loop)
         n1 = TestNode(name="main")
@@ -155,7 +155,7 @@ class ChannelsTests(unittest.TestCase):
             self.clean_loop()
 
     def test_cond_channel(self):
-        """ if Conditionnal channel is working """
+        """ Whether Conditionnal channel is working """
 
         chan = BaseChannel(name="test_channel5", loop=self.loop)
         n1 = TestNode(name="main")
@@ -187,7 +187,7 @@ class ChannelsTests(unittest.TestCase):
         self.assertEqual(cond2.name, "test_channel5.condchannel", "Condchannel name is incorrect")
 
     def test_case_channel(self):
-        """ if Conditionnal channel is working """
+        """ Whether Conditionnal channel is working """
 
         chan = BaseChannel(name="test_channel6", loop=self.loop)
         n1 = TestNode(name="main")
@@ -221,7 +221,7 @@ class ChannelsTests(unittest.TestCase):
         self.assertEqual(cond3.name, "test_channel6.third", "Casechannel name is incorrect")
 
     def test_channel_result(self):
-        """ if BaseChannel handling return a good result """
+        """ Whether BaseChannel handling return a good result """
 
         chan = BaseChannel(name="test_channel7", loop=self.loop)
         msg = generate_msg()
@@ -238,7 +238,7 @@ class ChannelsTests(unittest.TestCase):
         self.loop.run_until_complete(go())
 
     def test_channel_events(self):
-        """ if BaseChannel handling return a good result """
+        """ Whether BaseChannel handling return a good result """
 
         chan = BaseChannel(name="test_channel7.5", loop=self.loop)
         msg = generate_msg()
@@ -273,7 +273,7 @@ class ChannelsTests(unittest.TestCase):
         self.assertEqual(state_sequence, valid_sequence, "Sequence state is not valid")
 
     def test_channel_stopped_dont_process_message(self):
-        """ if BaseChannel handling return a good result """
+        """ Whether BaseChannel handling return a good result """
 
         chan = BaseChannel(name="test_channel7.7", loop=self.loop)
         msg = generate_msg()
@@ -293,7 +293,7 @@ class ChannelsTests(unittest.TestCase):
             self.loop.run_until_complete(go())
 
     def test_channel_exception(self):
-        """ if BaseChannel handling return an exception in case of error in main branch """
+        """ Whether BaseChannel handling return an exception in case of error in main branch """
 
         chan = BaseChannel(name="test_channel8", loop=self.loop)
         msg = generate_msg()

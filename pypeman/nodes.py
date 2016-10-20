@@ -41,6 +41,29 @@ def choose_first_not_none(*args):
     return None
 
 
+def get_context(msg, date=None):
+    if date:
+        cdate = date
+    else:
+        cdate = datetime.now()
+
+    timestamp = msg.timestamp
+
+    context = {'year': date.year,
+               'month': date.month,
+               'day': date.day,
+               'hour': date.hour,
+               'second': date.second,
+               'msg_year': timestamp.year,
+               'msg_month': timestamp.month,
+               'msg_day': timestamp.day,
+               'msg_hour': timestamp.hour,
+               'msg_second': timestamp.second,
+               'muid': msg.uuid,
+               }
+    return context
+
+
 class BaseNode:
     """ Base of all Nodes.
     If you create a new node, you must inherit from this class and implement `process` method.
@@ -366,39 +389,75 @@ class MessageStore(Save):
 
 class FileReader(BaseNode):
     """ Reads a file and sets payload to the file's contents. """
-    def __init__(self, filename=None, path=None, binary_file=False, *args, **kwargs):
+    def __init__(self, filename=None, path=None, filepath=None, date=None, binary_file=False, *args, **kwargs):
         self.filename = filename
         self.path = path
+        self.filepath = filepath
         self.binary_file = binary_file
-        self.counter = 0
+        if self.filename or self.path:
+            warnings.warn("filename and path are deprecated, use filepath instead", DeprecationWarning)
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
-        if self.filename:
+        # if self.filename:
+        #     if callable(self.filename):
+        #         name = self.filename(msg)
+        #     else:
+        #         name = self.filename
+        # else:
+        #     name = msg.meta['filename']
+        #
+        # if self.path:
+        #     path = self.path
+        # else:
+        #     path = os.path.dirname(msg.meta['filepath'])
+        #
+        # filepath = os.path.join(path, name)
+
+
+        if self.filepath:
+            if callable(self.filepath):
+                filepath = self.filepath(msg)
+            else:
+                filepath = self.filepath
+
+
+        elif self.filename:
             if callable(self.filename):
                 name = self.filename(msg)
             else:
                 name = self.filename
-        else:
-            name = msg.meta['filename']
-
-        if self.path:
+            if self.path:
+                path = self.path
+            else:
+                path = os.path.dirname(msg.meta['filepath'])
+            filepath = os.path.join(path, name)
+        elif self.path:
             path = self.path
-        else:
-            path = os.path.dirname(msg.meta['filepath'])
+            if msg.meta['filename']:
+                name = msg.meta['filename']
+            else:
+                name = os.path.basename(msg.meta['filepath'])
+            filepath = os.path.join(path, name)
 
-        filepath = os.path.join(path, name)
+        else:
+            filepath = msg.meta['filepath']
+
+        context = get_context(msg, date)
+        filepath =  filepath % context
+        name = os.path.basename(filepath)
+
 
         if self.binary_file:
             mode = "rb"
         else:
             mode = "r"
+
         with open(filepath, mode) as file:
             msg.payload = file.read()
             msg.meta['filename'] = name
             msg.meta['filepath'] = filepath
 
-        self.counter += 1
         return msg
 
 
@@ -619,5 +678,3 @@ HL7ToPython = lazyload.load(__name__, 'pypeman.contrib.hl7', "HL7ToPython", ["hl
 PythonToHL7 = lazyload.load(__name__, 'pypeman.contrib.hl7', "PythonToHL7", ["hl7"])
 HttpRequest = lazyload.load(__name__, 'pypeman.contrib.http', "HttpRequest", ["aiohttp"])
 RequestNode = lazyload.load(__name__, 'pypeman.contrib.http', "RequestNode", ["aiohttp"])
-
-

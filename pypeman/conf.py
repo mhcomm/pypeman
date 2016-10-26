@@ -25,7 +25,6 @@ NOT_FOUND = object() # sentinel object
 class ConfigError(ImportError):
     """ custom exception """
 
-
 class Settings():
     """ pypeman projects settings. Rather similar implementations to django.conf.settings """
 
@@ -33,11 +32,7 @@ class Settings():
         self.__dict__['_settings_mod'] = None
         self.__dict__['SETTINGS_MODULE'] = os.environ.get('PYPEMAN_SETTINGS_MODULE', 'settings')
 
-        # TODO Not using lazy setting import as it cause trouble with logging for now
-        # TODO is lazy loading really necessary ?
-        self._init_settings()
-
-    def _init_settings(self):
+    def init_settings(self):
         try:
             settings_module = self.__dict__['SETTINGS_MODULE']
             settings_mod = self.__dict__['_settings_mod'] = importlib.import_module(settings_module)
@@ -64,7 +59,7 @@ class Settings():
             return self.__dict__[name]
 
         if not self.__dict__['_settings_mod']:
-            self._init_settings()
+            self.init_settings()
 
         return self.__dict__[name]
 

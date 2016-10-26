@@ -7,7 +7,7 @@ import sys
 import types
 import warnings
 
-# For compatibility purpose
+# For compatibility purpose
 from asyncio import async as ensure_future
 
 from pypeman import message, msgstore, events
@@ -52,6 +52,7 @@ class BaseChannel:
 
         all.append(self)
         self._nodes = []
+        self._node_map = {}
         self._status = BaseChannel.STOPPED
 
         if name:
@@ -132,6 +133,26 @@ class BaseChannel:
         with (yield from self.lock):
             self.status = BaseChannel.STOPPED
 
+    def register_node(self, node):
+        self._node_map[node.name] = node
+        if self.parent:
+            self.parent.register_node(node)
+
+    def _reset_test(self):
+        """ Enable test mode and reset node data.
+        :return: None
+        """
+        for node in self._nodes:
+            node._reset_test()
+
+    def get_node(self, name):
+        """ Return node with name in argument.
+        :param name: The searched node.
+        :return: instance of Node or None if not found.
+        """
+
+        return self._node_map.get(name)
+
     def add(self, *args):
         """
         Add specified nodes to channel.
@@ -141,6 +162,8 @@ class BaseChannel:
         for node in args:
             node.channel = self
             self._nodes.append(node)
+            self.register_node(node)
+
         return self
 
     def append(self, *args):
@@ -397,6 +420,10 @@ class Case():
             b = BaseChannel(name=name, parent_channel=parent_channel, message_store_factory=message_store_factory, loop=self.loop)
             self.cases.append((cond, b))
 
+    def _reset_test(self):
+        for c in self.cases:
+            c[1]._reset_test()
+
     def test_condition(self, condition, msg):
         if callable(condition):
             return condition(msg)
@@ -458,7 +485,7 @@ class FileWatcherChannel(BaseChannel):
             return FileWatcherChannel.NEW
 
     def watch_for_file(self):
-        yield from asyncio.sleep(self.interval)
+        yield from asyncio.sleep(self.interval, loop=self.loop)
         try:
             if os.path.exists(self.path):
                 listfile = os.listdir(self.path)

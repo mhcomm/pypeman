@@ -55,6 +55,26 @@ class NodesTests(unittest.TestCase):
         self.loop.run_until_complete(go())
 
 
+    def test_base_node(self):
+        """ if Sleep() node functional """
+
+        n = nodes.BaseNode()
+        n.channel = FakeChannel(self.loop)
+
+        m = generate_msg(message_content='test')
+
+        @asyncio.coroutine
+        def go():
+           ret = yield from n.handle(m)
+           # Check return
+           self.assertTrue(isinstance(ret, message.Message))
+           self.assertEqual(ret.payload, 'test', "Base node not working !")
+           self.assertEqual(n.processed, 1, "Processed msg count broken")
+           return ret
+
+        self.loop.run_until_complete(go())
+
+
     def test_sleep_node(self):
         """ if Sleep() node functional """
 
@@ -68,7 +88,7 @@ class NodesTests(unittest.TestCase):
            ret = yield from n.handle(m)
            # Check return
            self.assertTrue(isinstance(ret, message.Message))
-           self.assertEqual(ret.payload, 'test', "Sleep node not !")
+           self.assertEqual(ret.payload, 'test', "Sleep node not working !")
            return ret
 
         self.loop.run_until_complete(go())
@@ -106,13 +126,14 @@ class NodesTests(unittest.TestCase):
         n = nodes.JsonToPython()
         n.channel = FakeChannel(self.loop)
 
-        m = generate_msg()
+        m = generate_msg(message_content='{"test":1}')
 
         @asyncio.coroutine
         def go():
            ret = yield from n.handle(m)
            # Check return
            self.assertTrue(isinstance(ret, message.Message))
+           self.assertEqual(ret.payload, {"test":1}, "JsonToPython node not working !")
 
            return ret
 

@@ -3,6 +3,7 @@ import os
 import uuid
 import logging
 import re
+import sys
 import types
 import warnings
 
@@ -488,7 +489,13 @@ class FileWatcherChannel(BaseChannel):
             if not self.status in (BaseChannel.STOPPING, BaseChannel.STOPPED,):
                 ensure_future(self.watch_for_file(), loop=self.loop)
 
+
+
 from pypeman.helpers import lazyload
-MLLPChannel = lazyload.load(__name__, 'pypeman.contrib.hl7', 'MLLPChannel', ['hl7'])
-HttpChannel = lazyload.load(__name__, 'pypeman.contrib.http', 'HttpChannel', ['aiohttp'])
-CronChannel = lazyload.load(__name__, 'pypeman.contrib.time', 'CronChannel', ['aiocron'])
+
+wrap = lazyload.Wrapper(__name__)
+
+wrap.add_lazy('pypeman.contrib.hl7', 'MLLPChannel', ['hl7'])
+wrap.add_lazy('pypeman.contrib.http', 'HttpChannel', ['aiohttp'])
+wrap.add_lazy('pypeman.contrib.time', 'CronChannel', ['aiocron'])
+

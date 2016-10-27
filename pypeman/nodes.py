@@ -613,11 +613,14 @@ class Email(ThreadNode):
 
 # Contrib nodes
 from pypeman.helpers import lazyload
-XMLToPython = lazyload.load(__name__, 'pypeman.contrib.xml', "XMLToPython", ["xmltodict"])
-PythonToXML = lazyload.load(__name__, 'pypeman.contrib.xml', "PythonToXML", ["xmltodict"])
-HL7ToPython = lazyload.load(__name__, 'pypeman.contrib.hl7', "HL7ToPython", ["hl7"])
-PythonToHL7 = lazyload.load(__name__, 'pypeman.contrib.hl7', "PythonToHL7", ["hl7"])
-HttpRequest = lazyload.load(__name__, 'pypeman.contrib.http', "HttpRequest", ["aiohttp"])
-RequestNode = lazyload.load(__name__, 'pypeman.contrib.http', "RequestNode", ["aiohttp"])
+
+wrap = lazyload.Wrapper(__name__)
+
+wrap.add_lazy('pypeman.contrib.xml', "XMLToPython", ["xmltodict"])
+wrap.add_lazy('pypeman.contrib.xml', "PythonToXML", ["xmltodict"])
+wrap.add_lazy('pypeman.contrib.hl7', "HL7ToPython", ["hl7"])
+wrap.add_lazy('pypeman.contrib.hl7', "PythonToHL7", ["hl7"])
+wrap.add_lazy('pypeman.contrib.http', "HttpRequest", ["aiohttp"])
+wrap.add_lazy('pypeman.contrib.http', "RequestNode", ["aiohttp"])
 
 

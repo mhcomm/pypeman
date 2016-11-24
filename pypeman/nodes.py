@@ -49,11 +49,11 @@ def get_context(msg, date=None):
 
     timestamp = msg.timestamp
 
-    context = {'year': date.year,
-               'month': date.month,
-               'day': date.day,
-               'hour': date.hour,
-               'second': date.second,
+    context = {'year': cdate.year,
+               'month': cdate.month,
+               'day': cdate.day,
+               'hour': cdate.hour,
+               'second': cdate.second,
                'msg_year': timestamp.year,
                'msg_month': timestamp.month,
                'msg_day': timestamp.day,
@@ -216,7 +216,7 @@ class Log(BaseNode):
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
-        self.channel.logger.log(self.lvl, '%s %s', repr(self), repr(msg))
+        self.channel.logger.log(self.lvl, '%s %s', str(self), repr(msg))
 
         if self.channel.parent_uids:
             self.channel.logger.log(self.lvl, 'Parent channels: %r', repr(self.channel.parent_names))
@@ -389,31 +389,16 @@ class MessageStore(Save):
 
 class FileReader(BaseNode):
     """ Reads a file and sets payload to the file's contents. """
-    def __init__(self, filename=None, path=None, filepath=None, date=None, binary_file=False, *args, **kwargs):
+    def __init__(self, filename=None, filepath=None, date=None, binary_file=False, *args, **kwargs):
         self.filename = filename
-        self.path = path
         self.filepath = filepath
         self.binary_file = binary_file
-        if self.filename or self.path:
-            warnings.warn("filename and path are deprecated, use filepath instead", DeprecationWarning)
+        if self.filename:
+            warnings.warn("filename deprecated, use filepath instead", DeprecationWarning)
+        self.date = date
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
-        # if self.filename:
-        #     if callable(self.filename):
-        #         name = self.filename(msg)
-        #     else:
-        #         name = self.filename
-        # else:
-        #     name = msg.meta['filename']
-        #
-        # if self.path:
-        #     path = self.path
-        # else:
-        #     path = os.path.dirname(msg.meta['filepath'])
-        #
-        # filepath = os.path.join(path, name)
-
 
         if self.filepath:
             if callable(self.filepath):
@@ -427,23 +412,13 @@ class FileReader(BaseNode):
                 name = self.filename(msg)
             else:
                 name = self.filename
-            if self.path:
-                path = self.path
-            else:
-                path = os.path.dirname(msg.meta['filepath'])
-            filepath = os.path.join(path, name)
-        elif self.path:
-            path = self.path
-            if msg.meta['filename']:
-                name = msg.meta['filename']
-            else:
-                name = os.path.basename(msg.meta['filepath'])
+            path = os.path.dirname(msg.meta['filepath'])
             filepath = os.path.join(path, name)
 
         else:
             filepath = msg.meta['filepath']
 
-        context = get_context(msg, date)
+        context = get_context(msg, self.date)
         filepath =  filepath % context
         name = os.path.basename(filepath)
 
@@ -612,6 +587,7 @@ class ToOrderedDict(BaseNode):
             setattr(dest, parts[-1], new_dict)
 
         return msg
+
 
 class Email(ThreadNode):
     """ Node that send Email.

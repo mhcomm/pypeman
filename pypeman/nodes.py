@@ -472,13 +472,13 @@ class MessageStore(Save):
 
 class FileReader(BaseNode):
     """ Reads a file and sets payload to the file's contents. """
-    def __init__(self, filename=None, path=None, filepath=None, date=None, binary_file=False, *args, **kwargs):
+    def __init__(self, filename=None, filepath=None, date=None, binary_file=False, *args, **kwargs):
         self.filename = filename
-        self.path = path
         self.filepath = filepath
         self.binary_file = binary_file
-        if self.filename or self.path:
-            warnings.warn("filename and path are deprecated, use filepath instead", DeprecationWarning)
+        if self.filename:
+            warnings.warn("filename deprecated, use filepath instead", DeprecationWarning)
+        self.date = date
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
@@ -494,17 +494,7 @@ class FileReader(BaseNode):
                 name = self.filename(msg)
             else:
                 name = self.filename
-            if self.path:
-                path = self.path
-            else:
-                path = os.path.dirname(msg.meta['filepath'])
-            filepath = os.path.join(path, name)
-        elif self.path:
-            path = self.path
-            if msg.meta['filename']:
-                name = msg.meta['filename']
-            else:
-                name = os.path.basename(msg.meta['filepath'])
+            path = os.path.dirname(msg.meta['filepath'])
             filepath = os.path.join(path, name)
 
         else:

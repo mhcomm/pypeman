@@ -54,8 +54,6 @@ class MLLPProtocol(asyncio.Protocol):
             # strip the rest of the MLLP shell from the HL7 message
             raw_message = raw_message.strip(self.start_block + self.carriage_return)
 
-            print(repr(raw_message))
-
             # only pass messages with data
             if len(raw_message) > 0:
                 result = ensure_future(self.handler(raw_message), loop=self.loop)

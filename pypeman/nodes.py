@@ -126,9 +126,9 @@ class BaseNode:
             else:
                 msg = self._mock_input
 
-        msg = yield from self._handle(msg)
+        result = yield from self._handle(msg)
 
-        return msg
+        return result
 
     @asyncio.coroutine
     def async_run(self, msg):
@@ -174,7 +174,6 @@ class BaseNode:
 
     def _reset_test(self):
         """ Set test mode and reset test informations """
-        print("Reset node", self)
         self.processed = 0
 
         if not hasattr(self, '_handle'):

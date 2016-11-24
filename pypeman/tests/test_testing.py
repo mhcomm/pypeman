@@ -70,7 +70,7 @@ class ChannelsTests(unittest.TestCase):
         self.start_channels()
         chan._reset_test()
 
-        self.loop.run_until_complete(chan.handle(msg))
+        chan.handle_and_wait(msg)
 
         self.assertEqual(n.processed, 1, "Channel in test mode not working")
         self.assertTrue(hasattr(n, '_handle'), "Channel in test mode not working")
@@ -105,7 +105,7 @@ class ChannelsTests(unittest.TestCase):
         chan._reset_test()
         chan.get_node("testme").mock(input=msg_a)
 
-        ret = self.loop.run_until_complete(chan.handle(msg_x))
+        ret = chan.handle_and_wait(msg_x)
 
         self.assertEqual(n.processed, 1, "Channel in test mode not working")
         self.assertEqual(ret.payload, "A", "Mocking input broken")
@@ -114,7 +114,7 @@ class ChannelsTests(unittest.TestCase):
         # Mock output
         chan._reset_test()
         chan.get_node("testme").mock(output=msg_b)
-        ret = self.loop.run_until_complete(chan.handle(msg_x))
+        ret = chan.handle_and_wait(msg_x)
 
         self.assertEqual(n.processed, 1, "Channel in test mode not working")
         self.assertEqual(ret.payload, "B", "Mocking input broken")
@@ -123,7 +123,7 @@ class ChannelsTests(unittest.TestCase):
         # Mock both
         chan._reset_test()
         chan.get_node("testme").mock(input=msg_c, output=msg_d)
-        ret = self.loop.run_until_complete(chan.handle(msg_x))
+        ret = chan.handle_and_wait(msg_x)
 
         self.assertEqual(n.processed, 1, "Channel in test mode not working")
         self.assertEqual(ret.payload, "D", "Mocking both input and output broken")
@@ -131,7 +131,7 @@ class ChannelsTests(unittest.TestCase):
         # Mock both functions
         chan._reset_test()
         chan.get_node("testme").mock(input=concat_e, output=concat_f)
-        ret = self.loop.run_until_complete(chan.handle(msg_x))
+        ret = chan.handle_and_wait(msg_x)
 
         self.assertEqual(n.processed, 1, "Channel in test mode not working")
         self.assertEqual(ret.payload, "XEF", "Mocking with function broken")

@@ -210,6 +210,13 @@ class BaseChannel:
         self._nodes.append(c)
         return [chan for cond, chan in c.cases]
 
+    def handle_and_wait(self, msg):
+        """ Handle a message synchronously.
+        :param msg: Message to process
+        :return: Processed message.
+        """
+        return self.loop.run_until_complete(self.handle(msg))
+
     @asyncio.coroutine
     def handle(self, msg):
         """ Overload this method only if you know what you are doing but call it from

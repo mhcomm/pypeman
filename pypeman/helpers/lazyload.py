@@ -25,7 +25,7 @@ def load_class(module, class_, deps):
                 break
 
         if not found:
-            print("IMPORT ERROR...")
+            print("IMPORT ERROR...", file=sys.stderr)
             raise
 
         print("%s module not activated" % module)

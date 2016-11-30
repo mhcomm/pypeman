@@ -21,11 +21,9 @@ class TestNode(nodes.BaseNode):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Used to test if node is processed during test
-        #self.processed = False
 
     def process(self, msg):
         print("Process %s" % self.name)
-        #self.processed = True
         return msg
 
 

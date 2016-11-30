@@ -1,6 +1,6 @@
 # Channel testing
 
-## Getcing started
+## Getting started
 
 Testing framework use standard unittest python package. So you can write your tests as always in a `tests` package or
 module visible from your project. To use pypeman specifics helpers, your test case classes must inherit from
@@ -14,11 +14,11 @@ To launch test, just execute :
 
 **PypeTestCase.get_channel(channel_name)**
 
-To get a channel in test mode from your project file by is name.
+To get a channel in test mode from your project file by name.
 
 **Channel_instance.get_node(node_name)**
 
-To get a specific node by is name.
+To get a specific node by name.
 
 **Node_instance.mock(input=None, output=None)**
 

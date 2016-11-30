@@ -56,13 +56,14 @@ class NodesTests(unittest.TestCase):
 
 
     def test_base_node(self):
-        """ if Sleep() node functional """
+        """ if BaseNode() node functional """
 
         n = nodes.BaseNode()
         n.channel = FakeChannel(self.loop)
 
         m = generate_msg(message_content='test')
 
+        # TODO Simplify test
         @asyncio.coroutine
         def go():
            ret = yield from n.handle(m)

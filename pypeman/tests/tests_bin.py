@@ -23,6 +23,7 @@ class BinPypemanTestCase(unittest.TestCase):
         """ prep a test """
         pypeman = os.path.join(os.path.dirname(__file__), '..', '..', 'pypeman', 'commands.py')
         self.cmd = [ sys.executable, pypeman ] 
+        os.environ['PYTHONPATH'] = os.path.join(os.path.dirname(__file__), '..', '..')
         self.tempfiles = []
 
     def tearDown(self):
@@ -30,7 +31,6 @@ class BinPypemanTestCase(unittest.TestCase):
         for fname in self.tempfiles:
             if os.path.exists(fname):
                 os.unlink(fname)
-
 
     def run_pypeman(self, cmd, cwd=None):
         """ runs a command, gathers output and captures exit code 

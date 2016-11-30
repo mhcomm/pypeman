@@ -21,11 +21,9 @@ class TestNode(nodes.BaseNode):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Used to test if node is processed during test
-        self.processed = False
 
     def process(self, msg):
         print("Process %s" % self.name)
-        self.processed = True
         return msg
 
 
@@ -53,6 +51,7 @@ def generate_msg(timestamp=(1981, 12, 28, 13, 37)):
     m.payload = message_content
 
     return m
+
 
 class ChannelsTests(unittest.TestCase):
     def clean_loop(self):
@@ -147,12 +146,15 @@ class ChannelsTests(unittest.TestCase):
 
         # Launch channel processing
         self.start_channels()
+
         self.loop.run_until_complete(chan.handle(msg))
 
-        self.assertTrue(n2.processed, "Sub Channel not working")
+        self.assertEqual(n1.processed, 1, "Sub Channel not working")
 
         with self.assertRaises(TestException) as cm:
             self.clean_loop()
+
+        self.assertEqual(n2.processed, 1, "Sub Channel not working")
 
     def test_cond_channel(self):
         """ Whether Conditionnal channel is working """
@@ -368,7 +370,6 @@ class ChannelsTests(unittest.TestCase):
         # Test failed message
         dict_msg = chan.message_store.get('%s' % msg5.uuid.hex)
         self.assertEqual(dict_msg['state'], 'error', "Message %s should be in error state!" % msg5)
-
 
     def test_replay_from_memory_message_store(self):
         """ We can store a message in FileMessageStore """

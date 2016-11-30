@@ -8,7 +8,6 @@
 """
 # #############################################################################
 from __future__ import absolute_import
-from __future__ import print_function
 
 __author__    = "Klaus Foerster"
 
@@ -99,7 +98,3 @@ class CLI(object):
         cli_thread.daemon = daemon 
         cli_thread.start()
 
-
-# -----------------------------------------------------------------------------
-#   End of file
-# -----------------------------------------------------------------------------

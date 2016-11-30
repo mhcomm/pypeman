@@ -32,8 +32,10 @@ from pypeman.helpers.reloader import reloader_opt
 from pypeman import channels
 from pypeman import nodes
 from pypeman import endpoints
+from pypeman.conf import settings
 
 def load_project():
+    settings.init_settings()
     try:
         importlib.import_module('project')
     except ImportError as exc:
@@ -153,8 +155,18 @@ def debug():
     pass
 
 
+@begin.subcommand
+def test():
+    """ Launch project tests """
+    from unittest import main
+
+    load_project()
+
+    main(module='tests', argv=['pypeman'])
+
+
 @begin.start
-def run(test=False, version=False):
+def run(version=False):
     """ Pypeman is a minimalistic but pragmatic ESB/ETL in python """
     if version:
         print(pypeman.__version__)

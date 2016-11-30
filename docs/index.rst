@@ -18,8 +18,9 @@ See :doc:`introduction` for more info or :doc:`gettingstarted` for basic functio
 
    introduction
    gettingstarted
-   userguide
    example
+   userguide
+   testing
    api
    about
 

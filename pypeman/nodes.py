@@ -46,14 +46,18 @@ class BaseNode:
     If you create a new node, you must inherit from this class and implement `process` method.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, name=None, **kwargs):
         self.channel = None
         all.append(self)
-        self.name = kwargs.pop('name',self.__class__.__name__ + "_" + str(len(all)))
+
+        self.name = name or self.__class__.__name__ + "_" + str(len(all))
+
         self.store_output_as = kwargs.pop('store_output_as', None)
         self.store_input_as = kwargs.pop('store_input_as', None)
         self.passthrough = kwargs.pop('passthrough', None)
         self.next_node = None
+
+        self.processed = 0
 
     @asyncio.coroutine
     def handle(self, msg):
@@ -75,15 +79,16 @@ class BaseNode:
         if self.passthrough:
             old_msg = msg.copy()
 
-        # Allow procees as coroutine function
+        # Allow process as coroutine function
         if asyncio.iscoroutinefunction(self.process):
             result = yield from self.async_run(msg)
         else:
             result = self.run(msg)
 
+        self.processed += 1
+
         if isinstance(result, asyncio.Future):
             result = yield from result
-
 
         if self.next_node:
             if isinstance(result, types.GeneratorType):
@@ -106,6 +111,26 @@ class BaseNode:
         return result
 
     @asyncio.coroutine
+    def _test_handle(self, msg):
+        """ Specific handle for TEST mode to enable some testing and introspection operations like mock input and/or
+        output, or count processed message.
+        :param msg: Message to process.
+        :return: Processed message.
+        """
+        # Keep last input
+        self._last_input = msg.copy()
+
+        if self._mock_input:
+            if callable(self._mock_input):
+                msg = self._mock_input(msg)
+            else:
+                msg = self._mock_input
+
+        result = yield from self._handle(msg)
+
+        return result
+
+    @asyncio.coroutine
     def async_run(self, msg):
         """ Used to overload behaviour like thread Node without rewriting handle process """
         result = yield from self.process(msg)
@@ -123,6 +148,46 @@ class BaseNode:
         :return: The processed message
         """
         return msg
+
+    # Allow to mock input or
+    def mock(self, input=None, output=None):
+        """
+        Allow to mock input or output of a node for testing purpose.
+        :param input: A message to replace the input in this node.
+        :param output: A return message to replace processing of this mock.
+        :return:
+        """
+        if input:
+            self._mock_input = input
+
+        if output:
+            if not hasattr(self, '_orig_process'):
+                self._orig_process = self.process
+
+            def new_process(msg):
+                if callable(output):
+                    return output(msg)
+                else:
+                    return output
+
+            self.process = new_process
+
+    def _reset_test(self):
+        """ Set test mode and reset test informations """
+        self.processed = 0
+
+        if not hasattr(self, '_handle'):
+            self._handle = self.handle
+            self.handle = self._test_handle
+
+        if hasattr(self, '_orig_process'):
+            self.process = self._orig_process
+
+        self._mock_input = None
+        self._last_input = None
+
+    def last_input(self):
+        return self._last_input
 
     def __str__(self):
         return "<%s(%s)>" % (self.channel.name, self.name)
@@ -189,16 +254,17 @@ class Log(BaseNode):
     """
     def __init__(self, *args, **kwargs):
         self.lvl = kwargs.pop('level', logging.INFO)
-        self.show_ctx = kwargs.pop('show_ctx', None)
+        self.show_ctx = kwargs.pop('show_ctx', False)
+
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
-        self.channel.logger.log(self.lvl, '%s %s', repr(self), repr(msg))
+        self.channel.logger.log(self.lvl, '%s %s', str(self), str(msg))
 
         if self.channel.parent_uids:
-            self.channel.logger.log(self.lvl, 'Parent channels: %r', repr(self.channel.parent_names))
+            self.channel.logger.log(self.lvl, 'Parent channels: %s', ', '.join(self.channel.parent_names))
 
-        self.channel.logger.log(self.lvl, 'Payload: %r', repr(msg.payload))
+        self.channel.logger.log(self.lvl, 'Payload: %s', repr(msg.payload))
 
         if self.show_ctx:
             self.channel.logger.log(self.lvl, 'Contexts: %r', [repr(ctx) for ctx in msg.ctx])
@@ -613,11 +679,14 @@ class Email(ThreadNode):
 
 # Contrib nodes
 from pypeman.helpers import lazyload
-XMLToPython = lazyload.load(__name__, 'pypeman.contrib.xml', "XMLToPython", ["xmltodict"])
-PythonToXML = lazyload.load(__name__, 'pypeman.contrib.xml', "PythonToXML", ["xmltodict"])
-HL7ToPython = lazyload.load(__name__, 'pypeman.contrib.hl7', "HL7ToPython", ["hl7"])
-PythonToHL7 = lazyload.load(__name__, 'pypeman.contrib.hl7', "PythonToHL7", ["hl7"])
-HttpRequest = lazyload.load(__name__, 'pypeman.contrib.http', "HttpRequest", ["aiohttp"])
-RequestNode = lazyload.load(__name__, 'pypeman.contrib.http', "RequestNode", ["aiohttp"])
+
+wrap = lazyload.Wrapper(__name__)
+
+wrap.add_lazy('pypeman.contrib.xml', "XMLToPython", ["xmltodict"])
+wrap.add_lazy('pypeman.contrib.xml', "PythonToXML", ["xmltodict"])
+wrap.add_lazy('pypeman.contrib.hl7', "HL7ToPython", ["hl7"])
+wrap.add_lazy('pypeman.contrib.hl7', "PythonToHL7", ["hl7"])
+wrap.add_lazy('pypeman.contrib.http', "HttpRequest", ["aiohttp"])
+wrap.add_lazy('pypeman.contrib.http', "RequestNode", ["aiohttp"])
 
 

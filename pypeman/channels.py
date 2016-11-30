@@ -3,10 +3,11 @@ import os
 import uuid
 import logging
 import re
+import sys
 import types
 import warnings
 
-# For compatibility purpose
+# For compatibility purpose
 from asyncio import async as ensure_future
 
 from pypeman import message, msgstore, events
@@ -51,6 +52,7 @@ class BaseChannel:
 
         all.append(self)
         self._nodes = []
+        self._node_map = {}
         self._status = BaseChannel.STOPPED
 
         if name:
@@ -131,6 +133,26 @@ class BaseChannel:
         with (yield from self.lock):
             self.status = BaseChannel.STOPPED
 
+    def register_node(self, node):
+        self._node_map[node.name] = node
+        if self.parent:
+            self.parent.register_node(node)
+
+    def _reset_test(self):
+        """ Enable test mode and reset node data.
+        :return: None
+        """
+        for node in self._nodes:
+            node._reset_test()
+
+    def get_node(self, name):
+        """ Return node with name in argument.
+        :param name: The searched node.
+        :return: instance of Node or None if not found.
+        """
+
+        return self._node_map.get(name)
+
     def add(self, *args):
         """
         Add specified nodes to channel.
@@ -140,6 +162,8 @@ class BaseChannel:
         for node in args:
             node.channel = self
             self._nodes.append(node)
+            self.register_node(node)
+
         return self
 
     def append(self, *args):
@@ -185,6 +209,13 @@ class BaseChannel:
         c = Case(*conditions, names=names, parent_channel=self, message_store_factory=message_store_factory, loop=self.loop)
         self._nodes.append(c)
         return [chan for cond, chan in c.cases]
+
+    def handle_and_wait(self, msg):
+        """ Handle a message synchronously.
+        :param msg: Message to process
+        :return: Processed message.
+        """
+        return self.loop.run_until_complete(self.handle(msg))
 
     @asyncio.coroutine
     def handle(self, msg):
@@ -396,6 +427,10 @@ class Case():
             b = BaseChannel(name=name, parent_channel=parent_channel, message_store_factory=message_store_factory, loop=self.loop)
             self.cases.append((cond, b))
 
+    def _reset_test(self):
+        for c in self.cases:
+            c[1]._reset_test()
+
     def test_condition(self, condition, msg):
         if callable(condition):
             return condition(msg)
@@ -457,7 +492,7 @@ class FileWatcherChannel(BaseChannel):
             return FileWatcherChannel.NEW
 
     def watch_for_file(self):
-        yield from asyncio.sleep(self.interval)
+        yield from asyncio.sleep(self.interval, loop=self.loop)
         try:
             if os.path.exists(self.path):
                 listfile = os.listdir(self.path)
@@ -488,7 +523,13 @@ class FileWatcherChannel(BaseChannel):
             if not self.status in (BaseChannel.STOPPING, BaseChannel.STOPPED,):
                 ensure_future(self.watch_for_file(), loop=self.loop)
 
+
+
 from pypeman.helpers import lazyload
-MLLPChannel = lazyload.load(__name__, 'pypeman.contrib.hl7', 'MLLPChannel', ['hl7'])
-HttpChannel = lazyload.load(__name__, 'pypeman.contrib.http', 'HttpChannel', ['aiohttp'])
-CronChannel = lazyload.load(__name__, 'pypeman.contrib.time', 'CronChannel', ['aiocron'])
+
+wrap = lazyload.Wrapper(__name__)
+
+wrap.add_lazy('pypeman.contrib.hl7', 'MLLPChannel', ['hl7'])
+wrap.add_lazy('pypeman.contrib.http', 'HttpChannel', ['aiohttp'])
+wrap.add_lazy('pypeman.contrib.time', 'CronChannel', ['aiocron'])
+

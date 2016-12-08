@@ -76,6 +76,9 @@ class SimpleTestNode(nodes.BaseNode):
 
     def process(self, msg):
         print("Process %s" % self.name)
+        if self.delay:
+            time.sleep(self.delay)
+        self.logger.info("Process %s", msg)
         self.processed = True
         return msg
 

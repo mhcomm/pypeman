@@ -10,6 +10,7 @@ def mk_pjt_files(dirname):
         'project.py': PJT_TEMPLATE,
         'settings.py': SETTINGS_TEMPLATE,
         'dist_settings.py': DIST_SETTINGS_TEMPLATE,
+        'tests.py': TEST_TEMPLATE,
     }
 
     ctx = dict()
@@ -40,9 +41,15 @@ from pypeman.conf import settings
 #        msg.payload['new_key'] = "new_value"
 #        return msg
 #
-#filewatcher = channels.FileWatcherChannel(path='./', regex="test.*\.txt")
+#filewatcher = channels.FileWatcherChannel(name="jsontojson", path='./', regex="test.*\.txt")
 #
 #filewatcher.add(nodes.Log(), nodes.JsonToPython(), CustomNode(), nodes.PythonToJson(), nodes.Log())
+#
+
+# Example for testing purpose
+#filewatcher2 = channels.FileWatcherChannel(name="great", path='./', regex="empty.txt")
+#
+#filewatcher2.add(nodes.Log(name="first"), nodes.Log(name="second"))
 
 """
 
@@ -60,7 +67,7 @@ SETTINGS_TEMPLATE = """\
 
 from dist_settings import *
 
-# Here you can configure the logging for Pypeman 
+# Here you can configure the logging for Pypeman
 # the framework will call logging.config.dictConfig(settings.LOGGING)
 LOGGING = {
     'version': 1,
@@ -99,5 +106,34 @@ import os
 
 # settings var pointing to project's directory
 PJT_DIR = os.path.realpath(os.path.dirname(__file__))
+
+"""
+
+TEST_TEMPLATE = """\
+from pypeman.test import PypeTestCase
+from pypeman.message import Message
+
+class MyChanTest(PypeTestCase):
+
+    def test1_great_channel(self):
+        \"\"\" Test example \"\"\"
+        chan = self.get_channel("great")
+
+        msg = Message(payload="X")
+        msg_a = Message(payload="A")
+
+        def append_b(msg):
+            msg.payload += "B"
+            return msg
+
+        chan.get_node("first").mock(input=msg_a)
+        chan.get_node("second").mock(output=append_b)
+
+        result = chan.handle_and_wait(msg)
+
+        self.assertEqual(chan.get_node("first").processed, 1)
+        self.assertEqual(chan.get_node("first").last_input().payload, "X")
+        self.assertEqual(chan.get_node("second").last_input().payload, "A")
+        self.assertEqual(result.payload, 'AB')
 
 """

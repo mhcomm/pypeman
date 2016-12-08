@@ -1,5 +1,6 @@
 import importlib
 import traceback
+import sys
 
 def load_class(module, class_, deps):
     """
@@ -24,11 +25,12 @@ def load_class(module, class_, deps):
                 break
 
         if not found:
-            print("IMPORT ERROR...")
+            print("IMPORT ERROR...", file=sys.stderr)
             raise
 
         print("%s module not activated" % module)
         return None
+
 
 def load(selfmodname, module, class_, dep=None):
     """
@@ -50,3 +52,27 @@ def load(selfmodname, module, class_, dep=None):
         return C(*args, **kwargs)
 
     return init
+
+
+class Wrapper(object):
+    def __init__(self, wrapped):
+
+        self._wrapped = sys.modules[wrapped]
+        self._extra = {}
+
+        self.__dict__.update(self._wrapped.__dict__)
+
+        sys.modules[wrapped] = self
+
+    def add_lazy(self, module, name, deps):
+        self._extra[name] = (module, deps)
+
+    def __getattr__(self, name):
+        try:
+            return getattr(self._wrapped, name)
+        except AttributeError:
+            if name in self._extra:
+                setattr(self._wrapped, name, load_class(self._extra[name][0], name, self._extra[name][1]))
+                return getattr(self._wrapped, name)
+            else:
+                raise

@@ -1,7 +1,5 @@
 import asyncio
 
-from pypeman.helpers import lazyload
-
 all = []
 
 class BaseEndpoint:
@@ -13,7 +11,11 @@ class BaseEndpoint:
     def start(self):
         pass
 
+from pypeman.helpers import lazyload
 
-HTTPEndpoint = lazyload.load(__name__, 'pypeman.contrib.http', 'HTTPEndpoint', ['aiohttp'])
-MLLPEndpoint = lazyload.load(__name__, 'pypeman.contrib.hl7', 'MLLPEndpoint', ['hl7'])
+wrap = lazyload.Wrapper(__name__)
+
+wrap.add_lazy('pypeman.contrib.http', 'HTTPEndpoint', ['aiohttp'])
+wrap.add_lazy('pypeman.contrib.hl7', 'MLLPEndpoint', ['hl7'])
+
 

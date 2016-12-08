@@ -8,5 +8,4 @@ handlers['debug'] = {
     'level': 'DEBUG',
     }
 
-loggers['']['level'] = 'DEBUG'
-loggers['']['handlers'].append('debug')
+loggers['']['level'] = 'WARNING'

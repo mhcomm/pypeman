@@ -64,6 +64,15 @@ def get_context(msg, date=None):
     return context
 
 
+def callable_or_value(val, msg):
+        if callable(val):
+            name = val(msg)
+        else:
+            name = val
+
+        return name
+
+
 class BaseNode:
     """ Base of all Nodes.
     If you create a new node, you must inherit from this class and implement `process` method.
@@ -726,3 +735,7 @@ wrap.add_lazy('pypeman.contrib.hl7', "HL7ToPython", ["hl7"])
 wrap.add_lazy('pypeman.contrib.hl7', "PythonToHL7", ["hl7"])
 wrap.add_lazy('pypeman.contrib.http', "HttpRequest", ["aiohttp"])
 wrap.add_lazy('pypeman.contrib.http', "RequestNode", ["aiohttp"])
+wrap.add_lazy('pypeman.contrib.ftp', "FTPFileWriter", [])
+wrap.add_lazy('pypeman.contrib.ftp', "FTPFileReader", [])
+
+

@@ -110,6 +110,9 @@ class BaseChannel:
         ensure_future(events.channel_change_state.fire(channel=self, old_state=old_state, new_state=value),
                       loop=self.loop)
 
+    def is_stopping(self):
+        return self.status in (BaseChannel.STOPPING, BaseChannel.STOPPED,)
+
     @asyncio.coroutine
     def start(self):
         """ Start the channel """
@@ -512,9 +515,9 @@ class FileWatcherChannel(BaseChannel):
                             else:
                                 mode = "r"
 
-                            with open(filepath, mode) as file:
+                            with open(filepath, mode) as f:
                                 msg = message.Message()
-                                msg.payload = file.read()
+                                msg.payload = f.read()
                                 msg.meta['filename'] = filename
                                 msg.meta['filepath'] = filepath
                                 ensure_future(super().handle(msg), loop=self.loop)
@@ -524,7 +527,6 @@ class FileWatcherChannel(BaseChannel):
                 ensure_future(self.watch_for_file(), loop=self.loop)
 
 
-
 from pypeman.helpers import lazyload
 
 wrap = lazyload.Wrapper(__name__)
@@ -532,4 +534,5 @@ wrap = lazyload.Wrapper(__name__)
 wrap.add_lazy('pypeman.contrib.hl7', 'MLLPChannel', ['hl7'])
 wrap.add_lazy('pypeman.contrib.http', 'HttpChannel', ['aiohttp'])
 wrap.add_lazy('pypeman.contrib.time', 'CronChannel', ['aiocron'])
+wrap.add_lazy('pypeman.contrib.ftp', 'FTPWatcherChannel', [])
 

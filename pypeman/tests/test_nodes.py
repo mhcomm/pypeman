@@ -252,3 +252,51 @@ class NodesTests(unittest.TestCase):
 
         self.loop.run_until_complete(go())
 
+    def test_ftp_nodes(self):
+        """ Whether FTP nodes are functional """
+
+        channel = FakeChannel(self.loop)
+
+        ftp_config = dict(host="fake", credentials=("fake", "fake"))
+
+        fake_ftp = mock.MagicMock()
+        fake_ftp.download_file = mock.Mock(return_value=b"new_content")
+
+        fake_ftp_helper = mock.Mock(return_value=fake_ftp)
+
+        with mock.patch('pypeman.contrib.ftp.FTPHelper', new=fake_ftp_helper) as mock_ftp:
+
+            reader = nodes.FTPFileReader(filepath="test_read", **ftp_config)
+            reader_delete = nodes.FTPFileReader(filepath="test_delete", delete_after=True, **ftp_config)
+
+            writer = nodes.FTPFileWriter(filepath="test_write", **ftp_config)
+
+            reader.channel = channel
+            reader_delete.channel = channel
+            writer.channel = channel
+
+            m1 = generate_msg(message_content="to_be_replaced")
+            m1_delete = generate_msg(message_content="to_be_replaced")
+            m2 = generate_msg(message_content="message_content")
+
+
+            # Test reader
+            result = self.loop.run_until_complete(reader.handle(m1))
+
+            fake_ftp.download_file.assert_called_once_with('test_read')
+            self.assertEqual(result.payload, b"new_content", "FTP reader not working")
+
+            # Test reader with delete after
+            result = self.loop.run_until_complete(reader_delete.handle(m1_delete))
+
+            fake_ftp.delete.assert_called_once_with('test_delete')
+            self.assertEqual(result.payload, b"new_content", "FTP reader not working")
+
+            # test writer
+            result = self.loop.run_until_complete(writer.handle(m2))
+            fake_ftp.upload_file.assert_called_once_with('test_write', 'message_content')
+
+
+
+
+

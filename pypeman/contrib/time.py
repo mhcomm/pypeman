@@ -6,7 +6,9 @@ from pypeman import channels, message
 from aiocron import crontab
 
 class CronChannel(channels.BaseChannel):
-    """ Launch processing at specified time interval.
+    """
+    Periodic execution of tasks.
+    Launch processing at specified time interval.
     """
 
     def __init__(self, *args, cron='', **kwargs):

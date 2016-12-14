@@ -74,8 +74,10 @@ def callable_or_value(val, msg):
 
 
 class BaseNode:
-    """ Base of all Nodes.
-    If you create a new node, you must inherit from this class and implement `process` method.
+    """
+    Base of all Nodes.
+    If you create a new node, you must inherit from this class and
+    implement `process` method.
     """
 
     def __init__(self, *args, name=None, **kwargs):
@@ -146,6 +148,7 @@ class BaseNode:
     def _test_handle(self, msg):
         """ Specific handle for TEST mode to enable some testing and introspection operations like mock input and/or
         output, or count processed message.
+
         :param msg: Message to process.
         :return: Processed message.
         """
@@ -176,6 +179,7 @@ class BaseNode:
     def process(self, msg):
         """ Implement this function in child classes to create
         a new Node.
+
         :param msg: The incoming message
         :return: The processed message
         """
@@ -185,9 +189,9 @@ class BaseNode:
     def mock(self, input=None, output=None):
         """
         Allow to mock input or output of a node for testing purpose.
+
         :param input: A message to replace the input in this node.
         :param output: A return message to replace processing of this mock.
-        :return:
         """
         if input:
             self._mock_input = input
@@ -263,7 +267,8 @@ class SetCtx(BaseNode):
 
 
 class ThreadNode(BaseNode):
-    """ Inherit from this class instead of BaseNode to avoid
+    """
+    Inherit from this class instead of BaseNode to avoid
     long run node blocking main event loop.
     """
 
@@ -282,7 +287,8 @@ class ThreadNode(BaseNode):
 
 
 class Log(BaseNode):
-    """ Node to show some information about node, channel and message. Use for debug.
+    """
+    Node to show some information about node, channel and message. Use for debug.
     """
     def __init__(self, *args, **kwargs):
         self.lvl = kwargs.pop('level', logging.INFO)
@@ -394,7 +400,7 @@ class SaveNullBackend():
 
 
 class SaveFileBackend():
-    """ Backend used to store message with `MessageStore` node.
+    """ Backend used to store message with ``Save`` node.
     """
     def __init__(self, path, filename, channel):
         self.path = path

@@ -126,10 +126,12 @@ class FTPWatcherChannel(channels.BaseChannel):
     def download_file(self, filename):
         """
         Download a file from ftp asynchronously.
+
         :param filepath: file path to download.
-        :return: content of the file.
+
+        :return: Content of the downloaded file.
         """
-        if not self.is_stopping():
+        if not self.is_stopped():
             return self.ftphelper.download_file(self.basedir + '/' + filename)
 
     @asyncio.coroutine
@@ -137,7 +139,9 @@ class FTPWatcherChannel(channels.BaseChannel):
         """
         Download a file from ftp and launch channel processing on msg with result as payload.
         Also add a `filepath` header with ftp relative path of downloaded file.
+
         :param filename: file to download relative to `basedir`.
+
         :return: processed result
         """
 
@@ -147,7 +151,7 @@ class FTPWatcherChannel(channels.BaseChannel):
         msg.payload = payload
         msg.meta['filepath'] = self.basedir + '/' + filename
 
-        if not self.is_stopping():
+        if not self.is_stopped():
             result = yield from super().handle(msg)
 
             if self.delete_after:
@@ -160,8 +164,8 @@ class FTPWatcherChannel(channels.BaseChannel):
 
     @asyncio.coroutine
     def tick(self):
-        """ One iteration of watching.
-        :return: None
+        """
+        One iteration of watching.
         """
 
         ls = self.ftphelper.list_dir(self.basedir)
@@ -171,7 +175,7 @@ class FTPWatcherChannel(channels.BaseChannel):
         self.ls_prev = ls
 
         for filename in added:
-            if self.re.match(filename) and not self.is_stopping():
+            if self.re.match(filename) and not self.is_stopped():
                 ensure_future(self.get_file_and_process(filename), loop=self.loop)
 
     @asyncio.coroutine
@@ -179,13 +183,12 @@ class FTPWatcherChannel(channels.BaseChannel):
         """
         Watch recursively for ftp new files.
         If file match regex, it is downloaded then processed in a message.
-        :return: None
         """
         yield from asyncio.sleep(self.interval, loop=self.loop)
         try:
             yield from self.tick()
         finally:
-            if not self.is_stopping():
+            if not self.is_stopped():
                 ensure_future(self.watch_for_file(), loop=self.loop)
 
 

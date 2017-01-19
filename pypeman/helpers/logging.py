@@ -20,4 +20,6 @@ class DebugLogHandler(logging.Handler):
     def show_entries(self):
         print("Got %d entries" % len(self.log_trace))
         for idx, rec in enumerate(self.log_trace):
-            print("%2d %8.3f %r" % (idx, rec.relativeCreated/1000., rec.message))
+            print("%2d %8.3f %s:%d %r" % (idx, rec.relativeCreated/1000., 
+                rec.pathname,  rec.lineno,
+                rec.message))

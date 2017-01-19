@@ -704,5 +704,6 @@ wrap.add_lazy('pypeman.contrib.http', "HttpRequest", ["aiohttp"])
 wrap.add_lazy('pypeman.contrib.http', "RequestNode", ["aiohttp"])
 wrap.add_lazy('pypeman.contrib.ftp', "FTPFileWriter", [])
 wrap.add_lazy('pypeman.contrib.ftp', "FTPFileReader", [])
+wrap.add_lazy('pypeman.contrib.ftp', "FTPFileDeleter", [])
 
 

@@ -196,6 +196,7 @@ class NodesTests(unittest.TestCase):
 
         with mock.patch("builtins.open", mock.mock_open(read_data="data")) as mock_file, \
                 mock.patch('pypeman.nodes.os.makedirs') as mock_makedirs:
+
             mock_makedirs.return_value = None
 
             n = nodes.Save(uri='file:///tmp/test/?filename=%(msg_year)s/%(msg_month)s/message%(msg_day)s-%(counter)s.txt')
@@ -204,15 +205,9 @@ class NodesTests(unittest.TestCase):
             m = generate_msg(timestamp=(1981, 12, 28, 13, 37))
             m.payload = "content"
 
-            @asyncio.coroutine
-            def go():
-                ret = yield from n.handle(m)
-                # Check return
-                self.assertTrue(isinstance(ret, message.Message))
+            ret = self.loop.run_until_complete(n.handle(m))
 
-                return ret
-
-            self.loop.run_until_complete(go())
+            self.assertTrue(isinstance(ret, message.Message))
 
             # Asserts
             mock_makedirs.assert_called_once_with('/tmp/test/1981/12')
@@ -267,12 +262,12 @@ class NodesTests(unittest.TestCase):
         with mock.patch('pypeman.contrib.ftp.FTPHelper', new=fake_ftp_helper) as mock_ftp:
 
             reader = nodes.FTPFileReader(filepath="test_read", **ftp_config)
-            reader_delete = nodes.FTPFileReader(filepath="test_delete", delete_after=True, **ftp_config)
+            delete = nodes.FTPFileDeleter(filepath="test_delete", **ftp_config)
 
             writer = nodes.FTPFileWriter(filepath="test_write", **ftp_config)
 
             reader.channel = channel
-            reader_delete.channel = channel
+            delete.channel = channel
             writer.channel = channel
 
             m1 = generate_msg(message_content="to_be_replaced")
@@ -287,14 +282,14 @@ class NodesTests(unittest.TestCase):
             self.assertEqual(result.payload, b"new_content", "FTP reader not working")
 
             # Test reader with delete after
-            result = self.loop.run_until_complete(reader_delete.handle(m1_delete))
+            result = self.loop.run_until_complete(delete.handle(m1_delete))
 
             fake_ftp.delete.assert_called_once_with('test_delete')
-            self.assertEqual(result.payload, b"new_content", "FTP reader not working")
 
             # test writer
             result = self.loop.run_until_complete(writer.handle(m2))
-            fake_ftp.upload_file.assert_called_once_with('test_write', 'message_content')
+            fake_ftp.upload_file.assert_called_once_with('test_write.part', 'message_content')
+            fake_ftp.rename.assert_called_once_with('test_write.part', 'test_write')
 
 
 

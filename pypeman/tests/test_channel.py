@@ -281,7 +281,14 @@ class ChannelsTests(unittest.TestCase):
         ftp_config = dict(host="fake", port=22, credentials=("fake", "fake"))
 
         fake_ftp = mock.MagicMock()
-        fake_ftp.list_dir = mock.Mock(return_value=set(["file1", "file2"]))
+
+        mock_list_dir = mock.Mock(return_value=set(["file1", "file2"]))
+
+        # This hack avoid bug : https://bugs.python.org/issue25599#msg256903
+        def fake_list_dir(*args):
+            return mock_list_dir(*args)
+
+        fake_ftp.list_dir = fake_list_dir
         fake_ftp.download_file = mock.Mock(return_value=b"new_content")
 
         fake_ftp_helper = mock.Mock(return_value=fake_ftp)
@@ -303,13 +310,13 @@ class ChannelsTests(unittest.TestCase):
 
             self.clean_loop()
 
-            fake_ftp.list_dir.assert_called_once_with("testdir")
+            mock_list_dir.assert_called_once_with("testdir")
 
             fake_ftp.download_file.assert_any_call("testdir/file1")
             fake_ftp.download_file.assert_called_with("testdir/file2")
 
             # TODO Delete should be tested with a fixed version of run in executor
-            # otherwise with fall in bug : https://bugs.python.org/issue25599#msg256903
+            # otherwise we fall in bug : https://bugs.python.org/issue25599#msg256903
             # fake_ftp.delete.assert_called_with("testdir/file2")
 
             self.assertEqual(n.last_input().payload, b"new_content")
@@ -317,14 +324,29 @@ class ChannelsTests(unittest.TestCase):
             # Second tick. Should do nothing.
 
             fake_ftp.download_file.reset_mock()
-            fake_ftp.list_dir.reset_mock()
+            mock_list_dir.reset_mock()
 
             self.loop.run_until_complete(chan.tick())
 
             self.clean_loop()
 
-            fake_ftp.list_dir.assert_called_once_with("testdir")
+            mock_list_dir.assert_called_once_with("testdir")
             fake_ftp.download_file.assert_not_called()
+
+            # Third tick. Should download a new file.
+
+            mock_list_dir.return_value=set(["file1", "file2", "file3"])
+
+            fake_ftp.download_file.reset_mock()
+            mock_list_dir.reset_mock()
+
+            self.loop.run_until_complete(chan.tick())
+
+            self.clean_loop()
+
+            mock_list_dir.assert_called_once_with("testdir")
+            fake_ftp.download_file.assert_called_with("testdir/file3")
+
 
             # To avoid auto launch of ftp watch
             channels.all.remove(chan)

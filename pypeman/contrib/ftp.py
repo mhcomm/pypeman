@@ -22,7 +22,7 @@ class FTPConnection():
         """
         :param host: FTP host.
         :param port: FTP port
-        :param credentials: A tupple with (login, password,)
+        :param credentials: A tuple with (login, password,)
         :return:
         """
         self.host = host
@@ -79,7 +79,6 @@ class FTPHelper():
         Upload an file to ftp.
         :param filepath: Path of file to create.
         :param content: Content to upload.
-        :return:
         """
         input = BytesIO(content)
 
@@ -91,7 +90,20 @@ class FTPHelper():
 
         return content
 
+    def rename(self, fromfilepath, tofilepath):
+        """
+        Rename a file from path to another path in ftp.
+        :param fromfilepath: original file to rename.
+        :param tofilepath: destination file.
+        """
+        with FTPConnection(self.host, self.port, self.credentials) as ftp_conn:
+            ftp_conn.rename(fromfilepath, tofilepath)
+
     def delete(self, filepath):
+        """
+        Delete an FTP file.
+        :param filepath: File to delete.
+        """
         with FTPConnection(self.host, self.port, self.credentials) as ftp_conn:
             ftp_conn.delete(filepath)
 
@@ -168,7 +180,7 @@ class FTPWatcherChannel(channels.BaseChannel):
         One iteration of watching.
         """
 
-        ls = self.ftphelper.list_dir(self.basedir)
+        ls = yield from self.loop.run_in_executor(self.executor, self.ftphelper.list_dir, self.basedir)
 
         # Make diff from previous one.
         added = self.sort_function(ls-self.ls_prev)
@@ -196,13 +208,11 @@ class FTPFileReader(nodes.ThreadNode):
     """
     Node to read a file from FTP.
     """
-    def __init__(self, host="", port=21, credentials=None, filepath=None,
-                 delete_after=False, **kwargs):
+    def __init__(self, host="", port=21, credentials=None, filepath=None, **kwargs):
 
         super().__init__(**kwargs)
 
         self.filepath = filepath
-        self.delete_after = delete_after
 
         self.ftphelper = FTPHelper(host, port, credentials)
 
@@ -215,15 +225,12 @@ class FTPFileReader(nodes.ThreadNode):
         msg.payload = content
         msg.meta['filepath'] = filepath
 
-        if self.delete_after:
-            self.ftphelper.delete(filepath)
-
         return msg
 
 
-class FTPFileWriter(nodes.ThreadNode):
+class FTPFileDeleter(nodes.ThreadNode):
     """
-    Node to write content to FTP.
+    Node to delete a file from FTP.
     """
     def __init__(self, host="", port=21, credentials=None, filepath=None, **kwargs):
 
@@ -237,6 +244,28 @@ class FTPFileWriter(nodes.ThreadNode):
 
         filepath = nodes.choose_first_not_none(nodes.callable_or_value(self.filepath, msg), msg.meta.get('filepath'))
 
-        self.ftphelper.upload_file(filepath, msg.payload)
+        self.ftphelper.delete(filepath)
+
+        return msg
+
+class FTPFileWriter(nodes.ThreadNode):
+    """
+    Node to write content to FTP. File is first writed with `.part` concatened
+    to is name then renamed to avoid partial upload.
+    """
+    def __init__(self, host="", port=21, credentials=None, filepath=None, **kwargs):
+
+        super().__init__(**kwargs)
+
+        self.filepath = filepath
+
+        self.ftphelper = FTPHelper(host, port, credentials)
+
+    def process(self, msg):
+
+        filepath = nodes.choose_first_not_none(nodes.callable_or_value(self.filepath, msg), msg.meta.get('filepath'))
+
+        self.ftphelper.upload_file(filepath + '.part', msg.payload)
+        self.ftphelper.rename(filepath + '.part', filepath)
 
         return msg

@@ -21,12 +21,18 @@ class FakeChannel():
         self.loop = loop
 
 
+
 class LongNode(nodes.ThreadNode):
 
     def process(self, msg):
         time.sleep(1)
         return msg
 
+def tstfct(msg):
+    return '/fctpath'
+
+def tstfct2(msg):
+    return 'fctname'
 
 class NodesTests(unittest.TestCase):
     def setUp(self):
@@ -252,3 +258,55 @@ class NodesTests(unittest.TestCase):
 
         self.loop.run_until_complete(go())
 
+    def test_file_reader_node(self):
+        """if FileReader are functionnal"""
+
+        reader = nodes.FileReader(filepath='/filepath', filename='badname')
+        channel = FakeChannel(self.loop)
+
+        reader.channel = channel
+        msg1 = generate_msg()
+
+        with mock.patch("builtins.open", mock.mock_open(read_data="data")) as mock_file:
+            result = self.loop.run_until_complete(reader.handle(msg1))
+
+        mock_file.assert_called_once_with('/filepath', 'r')
+        self.assertEqual(result.payload, "data", "FileReader not working")
+
+        reader2 = nodes.FileReader()
+        reader2.channel = channel
+        msg2 = generate_msg()
+        msg2.meta['filepath'] = '/filepath2'
+        msg2.meta['filename'] = '/badpath'
+
+        with mock.patch("builtins.open", mock.mock_open(read_data="data2")) as mock_file:
+            result = self.loop.run_until_complete(reader2.handle(msg2))
+
+        mock_file.assert_called_once_with('/filepath2', 'r')
+        self.assertEqual(result.payload, "data2", "FileReader not working with meta")
+
+
+        reader3 = nodes.FileReader(filepath=tstfct, filename='badname')
+        reader3.channel = channel
+
+        msg3 = generate_msg()
+        msg3.meta['filepath'] = '/badpath'
+        msg3.meta['filename'] = 'badname2'
+
+        with mock.patch("builtins.open", mock.mock_open(read_data="data")) as mock_file:
+            result = self.loop.run_until_complete(reader3.handle(msg3))
+
+        mock_file.assert_called_once_with('/fctpath', 'r')
+
+
+        reader4 = nodes.FileReader(filename=tstfct2)
+        reader4.channel = channel
+
+        msg4 = generate_msg()
+        msg4.meta['filepath'] = '/filepath3/badname'
+        msg4.meta['filename'] = 'badname'
+
+        with mock.patch("builtins.open", mock.mock_open(read_data="data")) as mock_file:
+            result = self.loop.run_until_complete(reader4.handle(msg4))
+
+        mock_file.assert_called_once_with('/filepath3/fctname', 'r')

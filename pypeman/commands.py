@@ -34,6 +34,9 @@ from pypeman import nodes
 from pypeman import endpoints
 from pypeman.conf import settings
 
+from pypeman.xb_client import init_xb_client
+
+
 def load_project():
     settings.init_settings()
     try:
@@ -53,7 +56,7 @@ def load_project():
         raise
 
 
-def main(debug_asyncio=False, profile=False, cli=False):
+def main(debug_asyncio=False, profile=False, cli=False, xb=True):
 
 
     load_project()
@@ -87,6 +90,10 @@ def main(debug_asyncio=False, profile=False, cli=False):
         cli = CLI(namespace=namespace)
         cli.run_as_thread()
 
+    if xb:
+        print("Starting XB client...")
+        init_xb_client(loop=loop)
+    
     print('Waiting for messages...')
     try:
         loop.run_forever()

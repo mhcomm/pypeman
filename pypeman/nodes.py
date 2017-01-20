@@ -507,9 +507,12 @@ class FileWriter(BaseNode):
     """ Write a file with the message content. """
     def __init__(self, filename=None, path=None, binary_mode=False, safe_file=False, *args, **kwargs):
         self.filename = filename
+        if self.filename:
+            warnings.warn("filename deprecated, use filepath instead", DeprecationWarning)
         self.path = path
+        if self.path:
+            warnings.warn("path deprecated, use filepath instead", DeprecationWarning)
         self.binary_mode = binary_mode
-        self.counter = 0
         self.safe_file = safe_file
         super().__init__(*args, **kwargs)
 
@@ -547,7 +550,6 @@ class FileWriter(BaseNode):
         if self.safe_file:
             os.rename(dest, old_file)
 
-        self.counter += 1
 
         return msg
 
@@ -724,4 +726,3 @@ wrap.add_lazy('pypeman.contrib.hl7', "HL7ToPython", ["hl7"])
 wrap.add_lazy('pypeman.contrib.hl7', "PythonToHL7", ["hl7"])
 wrap.add_lazy('pypeman.contrib.http', "HttpRequest", ["aiohttp"])
 wrap.add_lazy('pypeman.contrib.http', "RequestNode", ["aiohttp"])
-

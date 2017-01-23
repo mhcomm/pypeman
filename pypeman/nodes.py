@@ -17,7 +17,7 @@ from urllib import parse
 from concurrent.futures import ThreadPoolExecutor
 
 from pypeman.message import Message
-from pypeman.channels import Dropped, Break
+from pypeman.channels import Dropped
 
 logger = logging.getLogger(__name__)
 loop = asyncio.get_event_loop()
@@ -238,12 +238,6 @@ class DropNode(BaseNode):
     """ This node used to tell the channel the message is Dropped. """
     def process(self, msg):
         raise Dropped()
-
-
-class BreakNode(BaseNode):
-    """ This node used to tell the channel the message is ????. """
-    def process(self, msg):
-        raise Break()
 
 
 class Empty(BaseNode):

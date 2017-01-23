@@ -21,19 +21,13 @@ _channels_names = set()
 
 
 class Dropped(Exception):
-    """ Used to stop process as message is unusefull. Default success should be returned.
+    """ Used to stop process as message is processed. Default success should be returned.
     """
     pass
 
 
 class Rejected(Exception):
     """ Used to tell caller the message is invalid with a error return.
-    """
-    pass
-
-
-class Break(Exception):
-    """ Used to break message processing and return default success.
     """
     pass
 
@@ -306,9 +300,6 @@ class BaseChannel:
                 raise
             except Rejected:
                 self.message_store.change_message_state(msg_store_id, message.Message.REJECTED)
-                raise
-            except Break:
-                self.message_store.change_message_state(msg_store_id, message.Message.PROCESSED)
                 raise
             except:
                 self.logger.exception('Error while processing message %s', msg)

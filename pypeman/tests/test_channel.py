@@ -274,7 +274,6 @@ class ChannelsTests(unittest.TestCase):
                           BaseChannel.PROCESSING, BaseChannel.WAITING, BaseChannel.STOPPING, BaseChannel.STOPPED]
         self.assertEqual(state_sequence, valid_sequence, "Sequence state is not valid")
 
-
     def test_ftp_channel(self):
         """ Whether FTPWatcherChannel is working"""
 

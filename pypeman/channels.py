@@ -562,6 +562,13 @@ class FileWatcherChannel(BaseChannel):
         else:
             return FileWatcherChannel.NEW
 
+    def _handle_callback(self, future):
+        try:
+            print("Okayyy")
+            future.result()
+        except Dropped:
+            pass
+
     def watch_for_file(self):
         yield from asyncio.sleep(self.interval, loop=self.loop)
         try:
@@ -572,7 +579,7 @@ class FileWatcherChannel(BaseChannel):
                 for filename in listfile:
                     if self.re.match(filename):
                         status = self.file_status(filename)
-                        # TODO watch deleted files ?
+
                         if status in [FileWatcherChannel.MODIFIED, FileWatcherChannel.NEW]:
                             filepath = os.path.join(self.path, filename)
                             self.data[filename] =  os.stat(filepath).st_mtime
@@ -588,7 +595,8 @@ class FileWatcherChannel(BaseChannel):
                                 msg.payload = f.read()
                                 msg.meta['filename'] = filename
                                 msg.meta['filepath'] = filepath
-                                ensure_future(super().handle(msg), loop=self.loop)
+                                fut = ensure_future(self.handle(msg), loop=self.loop)
+                                fut.add_done_callback(self._handle_callback)
 
         finally:
             if not self.status in (BaseChannel.STOPPING, BaseChannel.STOPPED,):

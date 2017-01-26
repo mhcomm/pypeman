@@ -21,19 +21,13 @@ _channels_names = set()
 
 
 class Dropped(Exception):
-    """ Used to stop process as message is unusefull. Default success should be returned.
+    """ Used to stop process as message is processed. Default success should be returned.
     """
     pass
 
 
 class Rejected(Exception):
     """ Used to tell caller the message is invalid with a error return.
-    """
-    pass
-
-
-class Break(Exception):
-    """ Used to break message processing and return default success.
     """
     pass
 
@@ -45,9 +39,26 @@ class ChannelStopped(Exception):
 
 
 class BaseChannel:
+    """
+    Base channel are generic channels.
+    If you want to create new channel, inherit from the base class and call ``self.handle(msg)`` method
+    with generated message.
+
+    :param name: Channel name is mandatory and must be unique through the whole project.
+        Name gives a way to get channel in test mode.
+
+    :param parent_channel: Used with sub channels. Don't specify yourself.
+
+    :param loop: To specify a custom event loop.
+
+    :param message_store_factory:     You can specify a message store (see below) at channel
+        initialisation if you want to save all processed message. Use
+        `message_store_factory` argument with  an instance of wanted message store factory.
+    """
     STARTING, WAITING, PROCESSING, STOPPING, STOPPED  = range(5)
 
     def __init__(self, name=None, parent_channel=None, loop=None, message_store_factory=None):
+
         self.uuid = uuid.uuid4()
 
         all.append(self)
@@ -73,7 +84,7 @@ class BaseChannel:
             self.parent_names = [parent_channel.name]
             if parent_channel.parent_uids:
                 self.parent_uids.append(parent_channel.parent_uids)
-                self.parent_names.append(parent_channel.parent_names)
+                self.parent_names += parent_channel.parent_names
         else:
             self.parent_uids = None
 
@@ -110,9 +121,18 @@ class BaseChannel:
         ensure_future(events.channel_change_state.fire(channel=self, old_state=old_state, new_state=value),
                       loop=self.loop)
 
+    def is_stopped(self):
+        """
+        :return: True if channel is in stopped or stopping state.
+        """
+        return self.status in (BaseChannel.STOPPING, BaseChannel.STOPPED,)
+
     @asyncio.coroutine
     def start(self):
-        """ Start the channel """
+        """
+        Start the channel. Called before starting processus. Can be overloaded to specify specific
+        start procedure.
+        """
         self.status = BaseChannel.STARTING
         self.init_node_graph()
         self.status = BaseChannel.WAITING
@@ -127,51 +147,69 @@ class BaseChannel:
 
     @asyncio.coroutine
     def stop(self):
-        """ Stop the channel """
+        """
+        Stop the channel. Called when pypeman shutdown.
+
+        """
         self.status = BaseChannel.STOPPING
         # Verify that all messages are processed
         with (yield from self.lock):
             self.status = BaseChannel.STOPPED
 
-    def register_node(self, node):
-        self._node_map[node.name] = node
-        if self.parent:
-            self.parent.register_node(node)
-
     def _reset_test(self):
         """ Enable test mode and reset node data.
-        :return: None
         """
         for node in self._nodes:
             node._reset_test()
 
+
+    def add(self, *args):
+        """
+        Add specified nodes to channel (Shortcut for append).
+
+        :param args: Nodes to add.
+        """
+        self.append(*args)
+
+    def _register_node(self, node):
+        """
+        Node registering to search.
+
+        :param node: node to register.
+        """
+        self._node_map[node.name] = node
+        if self.parent:
+            self.parent._register_node(node)
+
     def get_node(self, name):
-        """ Return node with name in argument.
-        :param name: The searched node.
-        :return: instance of Node or None if not found.
+        """
+        Return node with name in argument. Mainly used in tests.
+
+        :param name: The searched node name.
+
+        :return: Instance of Node or None if none found.
         """
 
         return self._node_map.get(name)
 
-    def add(self, *args):
+    def append(self, *args):
         """
-        Add specified nodes to channel.
-        :param args: Nodes to add
-        :return: -
+        Append specified nodes to channel.
+
+        :param args: Nodes to add.
         """
         for node in args:
             node.channel = self
             self._nodes.append(node)
-            self.register_node(node)
+            self._register_node(node)
 
         return self
-
-    def append(self, *args):
-        self.add(*args)
 
     def fork(self, name=None, message_store_factory=None):
         """
         Create a new channel that process a copy of the message at this point.
+        Subchannels are executed in parallel of main process.
+
         :return: The forked channel
         """
         if message_store_factory is None:
@@ -183,8 +221,11 @@ class BaseChannel:
 
     def when(self, condition, name=None, message_store_factory=None):
         """
-        New channel bifurcation that is executed only if condition is True.
-        :param condition: Can be a value or a function with a message argument.
+        New channel bifurcation that is executed only if condition is True. This channel
+        replace further current channel processing.
+
+        :param condition: Can be a value or a function that takes a message argument.
+
         :return: The conditional path channel.
         """
         if message_store_factory is None:
@@ -196,9 +237,19 @@ class BaseChannel:
 
     def case(self, *conditions, names=None, message_store_factory=None):
         """
-        Case between multiple conditions.
-        :param conditions: multiple conditions
-        :return: one channel by condition param.
+        Case between multiple conditions. For each condition specified, a
+        channel is returned by this method in same order as condition are given.
+        When processing a message, conditions are evaluated successively and
+        first returning true trigger the corresponding channel processing for the message.
+        When channel processing is finished, next node is called.
+
+        :param conditions: Multiple conditions, one for each returned channel. Should be boolean
+            or function that takes a ``msg`` argument and should return a boolean.
+
+        :param message_store_factory: Allow you to specify a message store factory for
+            all channel of this `case`.
+
+        :return: one channel by condition parameter.
         """
         if names is None:
             names = [None] * len(conditions)
@@ -211,7 +262,8 @@ class BaseChannel:
         return [chan for cond, chan in c.cases]
 
     def handle_and_wait(self, msg):
-        """ Handle a message synchronously.
+        """ Handle a message synchronously. Mainly used for testing purpose.
+
         :param msg: Message to process
         :return: Processed message.
         """
@@ -221,6 +273,7 @@ class BaseChannel:
     def handle(self, msg):
         """ Overload this method only if you know what you are doing but call it from
         child class to add behaviour.
+
         :param msg: To be processed msg.
         :return: Processed message
         """
@@ -248,9 +301,6 @@ class BaseChannel:
             except Rejected:
                 self.message_store.change_message_state(msg_store_id, message.Message.REJECTED)
                 raise
-            except Break:
-                self.message_store.change_message_state(msg_store_id, message.Message.PROCESSED)
-                raise
             except:
                 self.logger.exception('Error while processing message %s', msg)
                 self.message_store.change_message_state(msg_store_id, message.Message.ERROR)
@@ -260,8 +310,10 @@ class BaseChannel:
 
     @asyncio.coroutine
     def subhandle(self, msg):
-        """ Overload this method only if you know what you are doing.
+        """ Overload this method only if you know what you are doing. Called by ``handle`` method.
+
         :param msg: To be processed msg.
+
         :return: Processed message
         """
 
@@ -279,8 +331,10 @@ class BaseChannel:
 
     @asyncio.coroutine
     def process(self, msg):
-        """ Overload this method only if you know what you are doing.
+        """ Overload this method only if you know what you are doing. Called by ``subhandle`` method.
+
         :param msg: To be processed msg.
+
         :return: Processed message
         """
 
@@ -294,8 +348,10 @@ class BaseChannel:
     def replay(self, msg_id):
         """
         This method allows you to replay a message from channel `message_store`.
-        :param msg_id: Message id to replay
-        :return: the result of the processing.
+
+        :param msg_id: Message id to replay.
+
+        :return: The result of the processing.
         """
         msg_dict = self.message_store.get(msg_id)
         new_message = msg_dict['message'].renew()
@@ -303,6 +359,9 @@ class BaseChannel:
         return result
 
     def graph(self, prefix='', dot=False):
+        """
+        Generate a text graph for this channel.
+        """
         for node in self._nodes:
             if isinstance(node, SubChannel):
                 print(prefix + '|—\\ (%s)' % node.name)
@@ -320,6 +379,9 @@ class BaseChannel:
                 print(prefix + '|-' + node.name)
 
     def graph_dot(self, end=''):
+        """
+        Generate a compatible dot graph for this channel.
+        """
         after = []
         cases = None
 
@@ -365,7 +427,7 @@ class BaseChannel:
 
 
 class SubChannel(BaseChannel):
-    """ Subchannel used for fork """
+    """ Subchannel used for forking channel processing. """
 
     def callback(self, fut):
         try:
@@ -384,7 +446,10 @@ class SubChannel(BaseChannel):
 
 
 class ConditionSubChannel(BaseChannel):
-    """ ConditionSubchannel used for make alternative path but join at the end """
+    """
+    ConditionSubchannel used for make alternative path. This processing replace
+    all further channel processing.
+    """
 
     def __init__(self, condition=lambda x:True, **kwargs):
         super().__init__(**kwargs)
@@ -452,6 +517,12 @@ class Case():
 
 
 class FileWatcherChannel(BaseChannel):
+    """
+    Watch for file change or creation. File content becomes message payload.
+    ``filepath`` is in message meta.
+
+    """
+
     NEW, UNCHANGED, MODIFIED, DELETED  = range(4)
 
     def __init__(self, *args, path='', regex='.*', interval=1, binary_file=False, **kwargs):
@@ -491,6 +562,13 @@ class FileWatcherChannel(BaseChannel):
         else:
             return FileWatcherChannel.NEW
 
+    def _handle_callback(self, future):
+        try:
+            print("Okayyy")
+            future.result()
+        except Dropped:
+            pass
+
     def watch_for_file(self):
         yield from asyncio.sleep(self.interval, loop=self.loop)
         try:
@@ -501,7 +579,7 @@ class FileWatcherChannel(BaseChannel):
                 for filename in listfile:
                     if self.re.match(filename):
                         status = self.file_status(filename)
-                        # TODO watch deleted files ?
+
                         if status in [FileWatcherChannel.MODIFIED, FileWatcherChannel.NEW]:
                             filepath = os.path.join(self.path, filename)
                             self.data[filename] =  os.stat(filepath).st_mtime
@@ -512,17 +590,17 @@ class FileWatcherChannel(BaseChannel):
                             else:
                                 mode = "r"
 
-                            with open(filepath, mode) as file:
+                            with open(filepath, mode) as f:
                                 msg = message.Message()
-                                msg.payload = file.read()
+                                msg.payload = f.read()
                                 msg.meta['filename'] = filename
                                 msg.meta['filepath'] = filepath
-                                ensure_future(super().handle(msg), loop=self.loop)
+                                fut = ensure_future(self.handle(msg), loop=self.loop)
+                                fut.add_done_callback(self._handle_callback)
 
         finally:
             if not self.status in (BaseChannel.STOPPING, BaseChannel.STOPPED,):
                 ensure_future(self.watch_for_file(), loop=self.loop)
-
 
 
 from pypeman.helpers import lazyload
@@ -532,4 +610,5 @@ wrap = lazyload.Wrapper(__name__)
 wrap.add_lazy('pypeman.contrib.hl7', 'MLLPChannel', ['hl7'])
 wrap.add_lazy('pypeman.contrib.http', 'HttpChannel', ['aiohttp'])
 wrap.add_lazy('pypeman.contrib.time', 'CronChannel', ['aiocron'])
+wrap.add_lazy('pypeman.contrib.ftp', 'FTPWatcherChannel', [])
 

@@ -24,6 +24,7 @@ class MessageStore():
     def store(self, msg):
         """
         Store a message in the store.
+
         :param msg: The message to store.
         :return: Id for this specific message.
         """
@@ -31,14 +32,15 @@ class MessageStore():
     def change_message_state(self, id, new_state):
         """
         Change the `id` message state.
+
         :param id: Message specific store id.
         :param new_state: Target state.
-        :return: -
         """
 
     def get(self, id):
         """
         Return one message corresponding to given `id` with his status.
+
         :param id: Message id. Message store dependant.
         :return: A dict `{'id':<message_id>, 'state': <message_state>, 'message': <message_object>}`.
         """
@@ -46,6 +48,7 @@ class MessageStore():
     def search(self, order_by='timestamp'):
         """
         Return a list of message with store specific `id` and processed status.
+
         :param start: First element.
         :param count: Count of elements since first element.
         :param order_by: Message order. Allowed values : ['timestamp', 'status'].
@@ -93,7 +96,7 @@ class FakeMessageStore(MessageStore):
 
 
 class MemoryMessageStoreFactory(MessageStoreFactory):
-    """ Return a Memory message store """
+    """ Return a Memory message store. All message are loose at pypeman stop. """
     def __init__(self):
         self.base_dict = {}
 
@@ -132,7 +135,10 @@ class MemoryMessageStore(MessageStore):
 
 
 class FileMessageStoreFactory(MessageStoreFactory):
-    """ Return an FileMessageStore message store instance"""
+    """
+    Generate a FileMessageStore message store instance.
+    Store a file in `<base_path>/<store_id>/<month>/<day>/` hierachy.
+    """
 
     # TODO add an option to reguraly archive old file or delete them
     def __init__(self, path):

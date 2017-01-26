@@ -17,7 +17,7 @@ from urllib import parse
 from concurrent.futures import ThreadPoolExecutor
 
 from pypeman.message import Message
-from pypeman.channels import Dropped, Break
+from pypeman.channels import Dropped
 
 logger = logging.getLogger(__name__)
 loop = asyncio.get_event_loop()
@@ -41,9 +41,22 @@ def choose_first_not_none(*args):
     return None
 
 
+def callable_or_value(val, msg):
+    """
+    Return `val(msg)` if value is a callable else `val`.
+    """
+    if callable(val):
+        name = val(msg)
+    else:
+        name = val
+
+    return name
+
 class BaseNode:
-    """ Base of all Nodes.
-    If you create a new node, you must inherit from this class and implement `process` method.
+    """
+    Base of all Nodes.
+    If you create a new node, you must inherit from this class and
+    implement `process` method.
     """
 
     def __init__(self, *args, name=None, **kwargs):
@@ -114,6 +127,7 @@ class BaseNode:
     def _test_handle(self, msg):
         """ Specific handle for TEST mode to enable some testing and introspection operations like mock input and/or
         output, or count processed message.
+
         :param msg: Message to process.
         :return: Processed message.
         """
@@ -144,6 +158,7 @@ class BaseNode:
     def process(self, msg):
         """ Implement this function in child classes to create
         a new Node.
+
         :param msg: The incoming message
         :return: The processed message
         """
@@ -153,9 +168,9 @@ class BaseNode:
     def mock(self, input=None, output=None):
         """
         Allow to mock input or output of a node for testing purpose.
+
         :param input: A message to replace the input in this node.
         :param output: A return message to replace processing of this mock.
-        :return:
         """
         if input:
             self._mock_input = input
@@ -173,7 +188,7 @@ class BaseNode:
             self.process = new_process
 
     def _reset_test(self):
-        """ Set test mode and reset test informations """
+        """ Set test mode and reset test information """
         self.processed = 0
 
         if not hasattr(self, '_handle'):
@@ -198,16 +213,15 @@ class RaiseError(BaseNode):
         raise Exception("Test node")
 
 
-class DropNode(BaseNode):
+class Drop(BaseNode):
     """ This node used to tell the channel the message is Dropped. """
     def process(self, msg):
         raise Dropped()
 
-
-class BreakNode(BaseNode):
-    """ This node used to tell the channel the message is ????. """
-    def process(self, msg):
-        raise Break()
+class DropNode(Drop):
+    def __init__(self, *args, **kwargs):
+        warnings.warn("DropNode node is deprecated. Replace it by Drop node", DeprecationWarning)
+        super().__init__(*args, **kwargs)
 
 
 class Empty(BaseNode):
@@ -231,7 +245,8 @@ class SetCtx(BaseNode):
 
 
 class ThreadNode(BaseNode):
-    """ Inherit from this class instead of BaseNode to avoid
+    """
+    Inherit from this class instead of BaseNode to avoid
     long run node blocking main event loop.
     """
 
@@ -250,7 +265,8 @@ class ThreadNode(BaseNode):
 
 
 class Log(BaseNode):
-    """ Node to show some information about node, channel and message. Use for debug.
+    """
+    Node to show some information about node, channel and message. Use for debug.
     """
     def __init__(self, *args, **kwargs):
         self.lvl = kwargs.pop('level', logging.INFO)
@@ -361,7 +377,7 @@ class SaveNullBackend():
 
 
 class SaveFileBackend():
-    """ Backend used to store message with `MessageStore` node.
+    """ Backend used to store message with ``Save`` node.
     """
     def __init__(self, path, filename, channel):
         self.path = path
@@ -688,5 +704,8 @@ wrap.add_lazy('pypeman.contrib.hl7', "HL7ToPython", ["hl7"])
 wrap.add_lazy('pypeman.contrib.hl7', "PythonToHL7", ["hl7"])
 wrap.add_lazy('pypeman.contrib.http', "HttpRequest", ["aiohttp"])
 wrap.add_lazy('pypeman.contrib.http', "RequestNode", ["aiohttp"])
+wrap.add_lazy('pypeman.contrib.ftp', "FTPFileWriter", [])
+wrap.add_lazy('pypeman.contrib.ftp', "FTPFileReader", [])
+wrap.add_lazy('pypeman.contrib.ftp', "FTPFileDeleter", [])
 
 

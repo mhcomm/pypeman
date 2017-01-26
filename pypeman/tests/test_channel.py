@@ -4,7 +4,7 @@ import asyncio
 import datetime
 import shutil
 import tempfile
-
+from unittest import mock
 
 from pypeman import channels
 from pypeman.channels import BaseChannel
@@ -273,6 +273,85 @@ class ChannelsTests(unittest.TestCase):
         valid_sequence = [BaseChannel.STOPPED, BaseChannel.STARTING, BaseChannel.WAITING,
                           BaseChannel.PROCESSING, BaseChannel.WAITING, BaseChannel.STOPPING, BaseChannel.STOPPED]
         self.assertEqual(state_sequence, valid_sequence, "Sequence state is not valid")
+
+    def test_ftp_channel(self):
+        """ Whether FTPWatcherChannel is working"""
+
+        ftp_config = dict(host="fake", port=22, credentials=("fake", "fake"))
+
+        fake_ftp = mock.MagicMock()
+
+        mock_list_dir = mock.Mock(return_value=set(["file1", "file2"]))
+
+        # This hack avoid bug : https://bugs.python.org/issue25599#msg256903
+        def fake_list_dir(*args):
+            return mock_list_dir(*args)
+
+        fake_ftp.list_dir = fake_list_dir
+        fake_ftp.download_file = mock.Mock(return_value=b"new_content")
+
+        fake_ftp_helper = mock.Mock(return_value=fake_ftp)
+
+        with mock.patch('pypeman.contrib.ftp.FTPHelper', new=fake_ftp_helper) as mock_ftp:
+            chan = channels.FTPWatcherChannel(name="ftpchan", regex=".*", loop=self.loop,
+                                              basedir="testdir", # delete_after=True,
+                                              **ftp_config)
+
+            chan.watch_for_file = asyncio.coroutine(mock.Mock())
+
+            n = nodes.Log(name="test_ftp_chan")
+            chan.add(n)
+            n._reset_test()
+
+            self.start_channels()
+
+            self.loop.run_until_complete(chan.tick())
+
+            self.clean_loop()
+
+            mock_list_dir.assert_called_once_with("testdir")
+
+            fake_ftp.download_file.assert_any_call("testdir/file1")
+            fake_ftp.download_file.assert_called_with("testdir/file2")
+
+            # TODO Delete should be tested with a fixed version of run in executor
+            # otherwise we fall in bug : https://bugs.python.org/issue25599#msg256903
+            # fake_ftp.delete.assert_called_with("testdir/file2")
+
+            self.assertEqual(n.last_input().payload, b"new_content")
+
+            # Second tick. Should do nothing.
+
+            fake_ftp.download_file.reset_mock()
+            mock_list_dir.reset_mock()
+
+            self.loop.run_until_complete(chan.tick())
+
+            self.clean_loop()
+
+            mock_list_dir.assert_called_once_with("testdir")
+            fake_ftp.download_file.assert_not_called()
+
+            # Third tick. Should download a new file.
+
+            mock_list_dir.return_value=set(["file1", "file2", "file3"])
+
+            fake_ftp.download_file.reset_mock()
+            mock_list_dir.reset_mock()
+
+            self.loop.run_until_complete(chan.tick())
+
+            self.clean_loop()
+
+            mock_list_dir.assert_called_once_with("testdir")
+            fake_ftp.download_file.assert_called_with("testdir/file3")
+
+
+            # To avoid auto launch of ftp watch
+            channels.all.remove(chan)
+
+            del chan
+
 
     def test_channel_stopped_dont_process_message(self):
         """ Whether BaseChannel handling return a good result """

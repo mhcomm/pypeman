@@ -34,7 +34,7 @@ from pypeman import nodes
 from pypeman import endpoints
 from pypeman.conf import settings
 
-from pypeman.xb_client import init_xb_client
+from pypeman import wamp_client 
 
 
 def load_project():
@@ -56,7 +56,7 @@ def load_project():
         raise
 
 
-def main(debug_asyncio=False, profile=False, cli=False, xb=True):
+def main(debug_asyncio=False, profile=False, cli=False, webui=True):
 
 
     load_project()
@@ -90,9 +90,9 @@ def main(debug_asyncio=False, profile=False, cli=False, xb=True):
         cli = CLI(namespace=namespace)
         cli.run_as_thread()
 
-    if xb:
-        print("Starting XB client...")
-        init_xb_client(loop=loop)
+    if webui:
+        print("Starting web user interface...")
+        wamp_client.start_client(loop=loop)
     
     print('Waiting for messages...')
     try:
@@ -116,6 +116,8 @@ def start(reload: 'Make server autoreload (Dev only)'=False,
         debug_asyncio: 'Enable asyncio debug'=False,
         cli : "enables an IPython CLI for debugging (not perational)"=False,
         profile : "enables profiling / run stats (not operational)"=False,
+        # TODO : Allow to configure IP and port from CLI
+        webgui : "start web graphical interface (default at localhost:8081)"=False,
         ):
     """ Start pypeman """
     reloader_opt(partial(main, debug_asyncio=debug_asyncio, cli=cli, profile=profile), reload, 2)

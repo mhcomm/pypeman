@@ -344,7 +344,7 @@ class ChannelsTests(unittest.TestCase):
             self.clean_loop()
 
             mock_list_dir.assert_called_once_with("testdir")
-            fake_ftp.download_file.assert_called_with("testdir/file3")
+            fake_ftp.download_file.assert_called_once_with("testdir/file3")
 
 
             # To avoid auto launch of ftp watch

@@ -250,8 +250,8 @@ class FTPFileDeleter(nodes.ThreadNode):
 
 class FTPFileWriter(nodes.ThreadNode):
     """
-    Node to write content to FTP. File is first writed with `.part` concatened
-    to is name then renamed to avoid partial upload.
+    Node to write content to FTP. File is first written with `.part` concatenated
+    to its name then renamed to avoid partial upload.
     """
     def __init__(self, host="", port=21, credentials=None, filepath=None, **kwargs):
 

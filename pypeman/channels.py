@@ -564,7 +564,6 @@ class FileWatcherChannel(BaseChannel):
 
     def _handle_callback(self, future):
         try:
-            print("Okayyy")
             future.result()
         except Dropped:
             pass

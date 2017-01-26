@@ -72,7 +72,6 @@ def callable_or_value(val, msg):
         name = val(msg)
     else:
         name = val
-
     return name
 
 

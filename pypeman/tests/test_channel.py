@@ -274,7 +274,6 @@ class ChannelsTests(unittest.TestCase):
                           BaseChannel.PROCESSING, BaseChannel.WAITING, BaseChannel.STOPPING, BaseChannel.STOPPED]
         self.assertEqual(state_sequence, valid_sequence, "Sequence state is not valid")
 
-
     def test_ftp_channel(self):
         """ Whether FTPWatcherChannel is working"""
 
@@ -345,7 +344,7 @@ class ChannelsTests(unittest.TestCase):
             self.clean_loop()
 
             mock_list_dir.assert_called_once_with("testdir")
-            fake_ftp.download_file.assert_called_with("testdir/file3")
+            fake_ftp.download_file.assert_called_once_with("testdir/file3")
 
 
             # To avoid auto launch of ftp watch

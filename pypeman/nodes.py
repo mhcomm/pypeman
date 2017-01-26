@@ -42,12 +42,15 @@ def choose_first_not_none(*args):
 
 
 def callable_or_value(val, msg):
-        if callable(val):
-            name = val(msg)
-        else:
-            name = val
+    """
+    Return `val(msg)` if value is a callable else `val`.
+    """
+    if callable(val):
+        name = val(msg)
+    else:
+        name = val
 
-        return name
+    return name
 
 class BaseNode:
     """
@@ -185,7 +188,7 @@ class BaseNode:
             self.process = new_process
 
     def _reset_test(self):
-        """ Set test mode and reset test informations """
+        """ Set test mode and reset test information """
         self.processed = 0
 
         if not hasattr(self, '_handle'):
@@ -210,10 +213,15 @@ class RaiseError(BaseNode):
         raise Exception("Test node")
 
 
-class DropNode(BaseNode):
+class Drop(BaseNode):
     """ This node used to tell the channel the message is Dropped. """
     def process(self, msg):
         raise Dropped()
+
+class DropNode(Drop):
+    def __init__(self, *args, **kwargs):
+        warnings.warn("DropNode node is deprecated. Replace it by Drop node", DeprecationWarning)
+        super().__init__(*args, **kwargs)
 
 
 class Empty(BaseNode):

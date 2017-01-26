@@ -20,9 +20,10 @@ import logging
 
 logger = logging.getLogger("pypeman.store")
 
+# TODO : Find a way to import this from pypeman directly (channels or whatever)
 state_mapper = ['STARTING', 'WAITING', 'PROCESSING', 'STOPPING', 'STOPPED']
 
-XB_URL, XB_REALM = u"ws://localhost:8080/ws", "realm1"
+WAMP_SRV_URL, WAMP_REALM = u"ws://localhost:8080/ws", "realm1"
 host, port = 'localhost', 8080
 
 class PypemanSession(ApplicationSession):
@@ -93,21 +94,21 @@ class PypemanSession(ApplicationSession):
         yield from self.register(list_channels, u'pypeman.list_channels')
         yield from self.register(message_store, u'pypeman.message_store')
 
-def init_xb_client(loop=None, xb_url=XB_URL, xb_realm=XB_REALM):
+def start_client(loop=None, wamp_srv_url=WAMP_SRV_URL, realm=WAMP_REALM):
     if loop is None:
         loop = asyncio.get_event_loop()
 
     def create(): 
         try:
-            cfg = ComponentConfig(xb_realm) 
+            cfg = ComponentConfig(realm) 
             session = PypemanSession(cfg)
         except Exception as exc:
-            logger.exception("XB session could not be created", str(exc))
+            logger.exception("WAMP session could not be created", str(exc))
             loop.stop()
         else:
-            print("XB session successfully created.")
+            print("WAMP session successfully created.")
             return session
     
-    transport_factory = WampWebSocketClientFactory(create, url=xb_url)
+    transport_factory = WampWebSocketClientFactory(create, url=wamp_srv_url)
     coro = loop.create_connection(transport_factory, host, port, ssl=None)
     loop.run_until_complete(coro)

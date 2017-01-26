@@ -18,7 +18,6 @@ from pypeman.tests.common import setup_settings
 from pypeman.tests.common import teardown_settings
 
 
-
 SETTINGS_MODULE = 'pypeman.tests.test_app.settings'
 SETTINGS_MODULE2 = 'pypeman.tests.test_app.settings2'
 
@@ -45,6 +44,7 @@ class LoggingTests(unittest.TestCase, EvtLoopMixin):
         print("added handler")
 
     def tearDown(self):
+        setup_settings(SETTINGS_MODULE) 
         teardown_settings()
 
     def test_log(self):
@@ -59,11 +59,15 @@ class LoggingTests(unittest.TestCase, EvtLoopMixin):
         handler = self.loghandler # get test log handler
 
 
-        # test first logger
+        cnt0 = handler.num_entries()
+        # test second logger
         logger.debug("DEBUG")
-        self.assertEqual(handler.num_entries(), 1, "expected 1 log entry")
+        self.assertEqual(handler.num_entries()-cnt0, 0, "A0: expected 0 log entry")
         logger.info("INFO")
-        self.assertEqual(handler.num_entries(), 2, "expected 2 log entries")
+        self.assertEqual(handler.num_entries()-cnt0, 0, "A1: expected 0 log entry")
+        logger.warning("WARNING")
+        self.assertEqual(handler.num_entries()-cnt0, 1, "A2: expected 1 log entry")
+        logger.error("ERROR")
 
         # now reconfigure logging
         from pypeman.helpers.logging import DebugLogHandler
@@ -75,14 +79,12 @@ class LoggingTests(unittest.TestCase, EvtLoopMixin):
         handler = DebugLogHandler()
         logger.handlers.append(handler)
 
-        # test second logger
+        cnt0 = handler.num_entries()
+        # test first logger
         logger.debug("DEBUG")
-        self.assertEqual(handler.num_entries(), 0, "expected 0 log entry")
+        self.assertEqual(handler.num_entries()-cnt0, 1, "B: expected 1 log entry")
         logger.info("INFO")
-        self.assertEqual(handler.num_entries(), 0, "expected 0 log entry")
-        logger.warning("WARNING")
-        self.assertEqual(handler.num_entries(), 1, "expected 1 log entry")
-        logger.error("ERROR")
+        self.assertEqual(handler.num_entries()-cnt0, 2, "B: expected 2 log entries")
 
     def test_no_log(self):
         pass
@@ -106,6 +108,9 @@ class MainLoopTests(unittest.TestCase, EvtLoopMixin):
     def tearDown(self):
         if self.prev_debug_flag is not None:
             os.environ['PYTHONASYNCIODEBUG'] = self.prev_debug_flag
+        else:
+            del os.environ['PYTHONASYNCIODEBUG']
+        setup_settings(SETTINGS_MODULE) 
         teardown_settings()
 
 

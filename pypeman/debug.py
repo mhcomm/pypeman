@@ -34,14 +34,23 @@ class SlowAsyncIOStats:
         """ sets up collection of stats for slow asyncio tasks
 
         """
-        # set env var in order to allow reporting of slow
-        # tasks
-        enable_slow_logs()
+        # set env var in order to allow reporting of slow tasks
+        self.enable_slow_logs()
         
         # create a custom logger and attach it to the asyncio logging
         self.logger = logging.getLogger(asyncio.log.__package__)
         self.slow_handler = SlowLogHandler()
         self.logger.handlers.append(self.slow_handler)
+
+    @staticmethod
+    def enable_slow_logs():
+        """ enables logging of slow events """
+        os.environ['PYTHONASYNCIODEBUG'] = '1'
+
+    @staticmethod
+    def disable_slow_logs():
+        """ disables logging of slow events """
+        os.environ['PYTHONASYNCIODEBUG'] = '0'
 
     def get_stats(self):
         rslt = []
@@ -51,9 +60,6 @@ class SlowAsyncIOStats:
         self.slow_handler.show_entries()
 
 
-def enable_slow_logs():
-    """ enables logging of slow events """
-    os.environ['PYTHONASYNCIODEBUG'] = '1'
 
 def enable_slow_log_stats():
     """ enables asyncio stats for slow execution 

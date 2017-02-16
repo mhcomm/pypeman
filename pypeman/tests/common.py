@@ -60,7 +60,7 @@ class TestException(Exception):
     """ custom Exception """
 
 class SimpleTestNode(nodes.BaseNode):
-    """ simle node, that can be used for unit testing
+    """ simple node, that can be used for unit testing
     """
     def __init__(self, *args, **kwargs):
         """
@@ -75,7 +75,9 @@ class SimpleTestNode(nodes.BaseNode):
         self.processed = False
 
     def process(self, msg):
-        print("Process %s" % self.name)
+        if self.delay:
+            time.sleep(self.delay)
+        self.logger.info("Process %s", msg)
         self.processed = True
         return msg
 

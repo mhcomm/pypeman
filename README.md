@@ -7,3 +7,4 @@ Pypeman is a minimalist but pragmatic ESB / ETL in python.
 
 See [documentation](http://pypeman.readthedocs.org/en/latest/) for more informations.
 
+

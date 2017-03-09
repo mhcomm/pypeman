@@ -53,7 +53,7 @@ class NodesTests(unittest.TestCase):
         self.assertEqual(n.processed, 1, "Processed msg count broken")
 
     def test_base_logging(self):
-        """ whether BaseNode() node logging working"""
+        """ whether BaseNode() node logging works"""
 
         n = nodes.BaseNode(log_output=True)
         n.channel = FakeChannel(self.loop)

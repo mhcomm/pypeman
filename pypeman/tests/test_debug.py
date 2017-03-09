@@ -1,4 +1,4 @@
-""" 
+"""
 UnitTests checking, that debugging works as expected
 """
 
@@ -44,11 +44,11 @@ class LoggingTests(unittest.TestCase, EvtLoopMixin):
         print("added handler")
 
     def tearDown(self):
-        setup_settings(SETTINGS_MODULE) 
+        setup_settings(SETTINGS_MODULE)
         teardown_settings()
 
     def test_log(self):
-        """ can modify log config 
+        """ can modify log config
 
             changing log config may be important for other tests.
             thus let's try to change it and see its impact.
@@ -110,7 +110,7 @@ class MainLoopTests(unittest.TestCase, EvtLoopMixin):
             os.environ['PYTHONASYNCIODEBUG'] = self.prev_debug_flag
         else:
             del os.environ['PYTHONASYNCIODEBUG']
-        setup_settings(SETTINGS_MODULE) 
+        setup_settings(SETTINGS_MODULE)
         teardown_settings()
 
 
@@ -126,7 +126,7 @@ class MainLoopTests(unittest.TestCase, EvtLoopMixin):
         tst_logger = logging.getLogger('tests.debug.main_loop.slow')
         print(tst_logger.handlers)
 
-        chan = BaseChannel(loop=self.loop)
+        chan = BaseChannel(name="test_loop_slow", loop=self.loop)
         n1 = SimpleTestNode(delay=0.101, logger=tst_logger)
         n2 = SimpleTestNode(delay=0.109, logger=tst_logger)
         chan.add(n1)

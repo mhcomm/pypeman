@@ -12,7 +12,7 @@ from pypeman.tests.common import generate_msg
 
 class FakeChannel():
     def __init__(self, loop):
-        self.logger = logging.getLogger()
+        self.logger = mock.MagicMock()
         self.uuid = 'fakeChannel'
         self.name = 'fakeChannel'
         self.parent_uids = "parent_uid"
@@ -37,24 +37,6 @@ class NodesTests(unittest.TestCase):
         # another event loop somewhere
         asyncio.set_event_loop(None)
 
-    def test_log_node(self):
-        """ if Log() node functional """
-
-        n = nodes.Log()
-        n.channel = FakeChannel(self.loop)
-
-        m = generate_msg()
-
-        @asyncio.coroutine
-        def go():
-            ret = yield from n.handle(m)
-            # Check return
-            self.assertTrue(isinstance(ret, message.Message))
-            return ret
-
-        self.loop.run_until_complete(go())
-
-
     def test_base_node(self):
         """ if BaseNode() node functional """
 
@@ -63,18 +45,43 @@ class NodesTests(unittest.TestCase):
 
         m = generate_msg(message_content='test')
 
-        # TODO Simplify test
-        @asyncio.coroutine
-        def go():
-           ret = yield from n.handle(m)
-           # Check return
-           self.assertTrue(isinstance(ret, message.Message))
-           self.assertEqual(ret.payload, 'test', "Base node not working !")
-           self.assertEqual(n.processed, 1, "Processed msg count broken")
-           return ret
+        ret = self.loop.run_until_complete(n.handle(m))
 
-        self.loop.run_until_complete(go())
+        # Check return
+        self.assertTrue(isinstance(ret, message.Message))
+        self.assertEqual(ret.payload, 'test', "Base node not working !")
+        self.assertEqual(n.processed, 1, "Processed msg count broken")
 
+    def test_base_logging(self):
+        """ whether BaseNode() node logging working"""
+
+        n = nodes.BaseNode(log_output=True)
+        n.channel = FakeChannel(self.loop)
+
+        m = generate_msg(message_content='test')
+
+        ret = self.loop.run_until_complete(n.handle(m))
+
+        # Check return
+        self.assertTrue(isinstance(ret, message.Message))
+        self.assertEqual(ret.payload, 'test', "Base node not working !")
+        self.assertEqual(n.processed, 1, "Processed msg count broken")
+
+        n.channel.logger.log.assert_any_call(10, 'Payload: %r', 'test')
+        n.channel.logger.log.assert_called_with(10, 'Meta: %r', {'question': 'unknown'})
+
+
+    def test_log_node(self):
+        """ whether Log() node functional """
+
+        n = nodes.Log()
+        n.channel = FakeChannel(self.loop)
+
+        m = generate_msg()
+
+        ret = self.loop.run_until_complete(n.handle(m))
+
+        self.assertTrue(isinstance(ret, message.Message))
 
     def test_sleep_node(self):
         """ if Sleep() node functional """

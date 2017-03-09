@@ -6,7 +6,9 @@ from uuid import UUID
 import pickle
 import json
 import base64
+import logging
 
+default_logger = logging.getLogger(__name__)
 
 DATE_FORMAT = '%Y%m%d_%H%M'
 
@@ -29,9 +31,9 @@ class Message():
         if meta is None:
             meta = {}
         self.meta = meta
-        
+
         self.ctx = {}
-        
+
     def copy(self):
         """
         Copy the message. Useful for channel fork purpose.
@@ -90,8 +92,39 @@ class Message():
 
     @staticmethod
     def from_json(data):
+        """
+        Create a message from previously saved json data.
+
+        :param data: Data to read message from.
+        :return: a new message instance created from json data.
+        """
         msg = Message.from_dict(json.loads(data))
         return msg
+
+
+    def log(self, logger=default_logger, log_level=logging.DEBUG, payload=True, meta=True, context=False):
+        """
+        Log a message.
+
+        :param logger: Logger
+        :param log_level: log level for all log.
+        :param payload: whether log payload.
+        :param meta: whether log meta.
+        :param context: whether log context.
+        :return:
+        """
+
+        if payload:
+            logger.log(log_level, 'Payload: %r', self.payload)
+
+        if meta:
+            logger.log(log_level, 'Meta: %r', self.meta)
+
+        if context and self.ctx:
+            logger.log(log_level, 'Context for message ->')
+            for key, msg in self.ctx.items():
+                logger.log(log_level, '-- Key "%s" --', key)
+                msg.log(logger, log_level, payload, meta, context)
 
     def __str__(self):
         return "<msg: %s>" % self.uuid

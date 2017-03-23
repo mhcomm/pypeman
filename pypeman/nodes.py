@@ -41,6 +41,17 @@ def choose_first_not_none(*args):
     return None
 
 
+def callable_or_value(val, msg):
+    """
+    Return `val(msg)` if value is a callable else `val`.
+    """
+    if callable(val):
+        name = val(msg)
+    else:
+        name = val
+    return name
+
+
 def get_context(msg, date=None):
     if date:
         cdate = date
@@ -64,25 +75,18 @@ def get_context(msg, date=None):
     return context
 
 
-def callable_or_value(val, msg):
-    """
-    Return `val(msg)` if value is a callable else `val`.
-    """
-    if callable(val):
-        name = val(msg)
-    else:
-        name = val
-    return name
-
-
 class BaseNode:
     """
     Base of all Nodes.
     If you create a new node, you must inherit from this class and
     implement `process` method.
+
+    :param name: Name of node. Used in log or test.
+    :param log_output: To enable output logging for this node.
+
     """
 
-    def __init__(self, *args, name=None, **kwargs):
+    def __init__(self, *args, name=None, log_output=False, **kwargs):
         self.channel = None
         all.append(self)
 
@@ -94,6 +98,11 @@ class BaseNode:
         self.next_node = None
 
         self.processed = 0
+
+        if log_output:
+            # Enable logging
+            self._handle_without_log = self.handle
+            self.handle = self._log_handle
 
     @asyncio.coroutine
     def handle(self, msg):
@@ -143,6 +152,20 @@ class BaseNode:
                     result.meta = old_msg.meta
 
                 result = yield from self.next_node.handle(result)
+
+        return result
+
+    @asyncio.coroutine
+    def _log_handle(self, msg):
+        """
+        Used when node logging is enabled. Log after node processing.
+        """
+        result = yield from self._handle_without_log(msg)
+
+        self.channel.logger.info('%s node from handles %s', str(self), str(result))
+
+        # Log message
+        result.log(logger=self.channel.logger, log_level=logging.DEBUG)
 
         return result
 
@@ -304,10 +327,7 @@ class Log(BaseNode):
         if self.channel.parent_uids:
             self.channel.logger.log(self.lvl, 'Parent channels: %s', ', '.join(self.channel.parent_names))
 
-        self.channel.logger.log(self.lvl, 'Payload: %s', repr(msg.payload))
-
-        if self.show_ctx:
-            self.channel.logger.log(self.lvl, 'Contexts: %r', [repr(ctx) for ctx in msg.ctx])
+        msg.log(logger=self.channel.logger, payload=True, meta=True, context=self.show_ctx, log_level=self.lvl)
 
         return msg
 

@@ -12,7 +12,7 @@ from pypeman.tests.common import generate_msg
 
 class FakeChannel():
     def __init__(self, loop):
-        self.logger = logging.getLogger()
+        self.logger = mock.MagicMock()
         self.uuid = 'fakeChannel'
         self.name = 'fakeChannel'
         self.parent_uids = "parent_uid"
@@ -40,23 +40,6 @@ class NodesTests(unittest.TestCase):
         # another event loop somewhere
         asyncio.set_event_loop(None)
 
-    def test_log_node(self):
-        """ if Log() node functional """
-
-        n = nodes.Log()
-        n.channel = FakeChannel(self.loop)
-
-        m = generate_msg()
-
-        @asyncio.coroutine
-        def go():
-            ret = yield from n.handle(m)
-            # Check return
-            self.assertTrue(isinstance(ret, message.Message))
-            return ret
-
-        self.loop.run_until_complete(go())
-
     def test_base_node(self):
         """ if BaseNode() node functional """
 
@@ -65,18 +48,43 @@ class NodesTests(unittest.TestCase):
 
         m = generate_msg(message_content='test')
 
-        # TODO Simplify test
-        @asyncio.coroutine
-        def go():
-           ret = yield from n.handle(m)
-           # Check return
-           self.assertTrue(isinstance(ret, message.Message))
-           self.assertEqual(ret.payload, 'test', "Base node not working !")
-           self.assertEqual(n.processed, 1, "Processed msg count broken")
-           return ret
+        ret = self.loop.run_until_complete(n.handle(m))
 
-        self.loop.run_until_complete(go())
+        # Check return
+        self.assertTrue(isinstance(ret, message.Message))
+        self.assertEqual(ret.payload, 'test', "Base node not working !")
+        self.assertEqual(n.processed, 1, "Processed msg count broken")
 
+    def test_base_logging(self):
+        """ whether BaseNode() node logging works"""
+
+        n = nodes.BaseNode(log_output=True)
+        n.channel = FakeChannel(self.loop)
+
+        m = generate_msg(message_content='test')
+
+        ret = self.loop.run_until_complete(n.handle(m))
+
+        # Check return
+        self.assertTrue(isinstance(ret, message.Message))
+        self.assertEqual(ret.payload, 'test', "Base node not working !")
+        self.assertEqual(n.processed, 1, "Processed msg count broken")
+
+        n.channel.logger.log.assert_any_call(10, 'Payload: %r', 'test')
+        n.channel.logger.log.assert_called_with(10, 'Meta: %r', {'question': 'unknown'})
+
+
+    def test_log_node(self):
+        """ whether Log() node functional """
+
+        n = nodes.Log()
+        n.channel = FakeChannel(self.loop)
+
+        m = generate_msg()
+
+        ret = self.loop.run_until_complete(n.handle(m))
+
+        self.assertTrue(isinstance(ret, message.Message))
 
     def test_sleep_node(self):
         """ if Sleep() node functional """
@@ -249,52 +257,6 @@ class NodesTests(unittest.TestCase):
 
         self.loop.run_until_complete(go())
 
-    def test_file_reader_node(self):
-        """if FileReader are functionnal"""
-
-        reader = nodes.FileReader(filepath='/filepath', filename='badname')
-        channel = FakeChannel(self.loop)
-        reader.channel = channel
-        msg1 = generate_msg()
-
-        with mock.patch("builtins.open", mock.mock_open(read_data="data")) as mock_file:
-            result = self.loop.run_until_complete(reader.handle(msg1))
-
-        mock_file.assert_called_once_with('/filepath', 'r')
-        self.assertEqual(result.payload, "data", "FileReader not working")
-
-        reader2 = nodes.FileReader()
-        reader2.channel = channel
-        msg2 = generate_msg()
-        msg2.meta['filepath'] = '/filepath2'
-        msg2.meta['filename'] = '/badpath'
-
-        with mock.patch("builtins.open", mock.mock_open(read_data="data2")) as mock_file:
-            result = self.loop.run_until_complete(reader2.handle(msg2))
-
-        mock_file.assert_called_once_with('/filepath2', 'r')
-        self.assertEqual(result.payload, "data2", "FileReader not working with meta")
-
-        reader3 = nodes.FileReader(filepath=tstfct, filename='badname')
-        reader3.channel = channel
-        msg3 = generate_msg()
-        msg3.meta['filepath'] = '/badpath'
-        msg3.meta['filename'] = 'badname2'
-
-        with mock.patch("builtins.open", mock.mock_open(read_data="data")) as mock_file:
-            result = self.loop.run_until_complete(reader3.handle(msg3))
-
-        mock_file.assert_called_once_with('/fctpath', 'r')
-        reader4 = nodes.FileReader(filename=tstfct2)
-        reader4.channel = channel
-        msg4 = generate_msg()
-        msg4.meta['filepath'] = '/filepath3/badname'
-        msg4.meta['filename'] = 'badname'
-
-        with mock.patch("builtins.open", mock.mock_open(read_data="data")) as mock_file:
-            result = self.loop.run_until_complete(reader4.handle(msg4))
-
-        mock_file.assert_called_once_with('/filepath3/fctname', 'r')
 
     def test_ftp_nodes(self):
         """ Whether FTP nodes are functional """
@@ -339,6 +301,7 @@ class NodesTests(unittest.TestCase):
             fake_ftp.upload_file.assert_called_once_with('test_write.part', 'message_content')
             fake_ftp.rename.assert_called_once_with('test_write.part', 'test_write')
 
+    
     def test_file_reader_node(self):
         """if FileReader are functionnal"""
 

@@ -13,7 +13,7 @@ from pypeman import nodes
 from pypeman import message
 
 def setup_settings(module):
-    """ helper allows to have specific settings for a test 
+    """ helper allows to have specific settings for a test
     """
     os.environ['PYPEMAN_SETTINGS_MODULE'] = module
     import pypeman.default_settings
@@ -25,7 +25,7 @@ def setup_settings(module):
     from pypeman.conf import settings
 
 def teardown_settings():
-    """ helper allowing to reset settings to default 
+    """ helper allowing to reset settings to default
     """
     os.environ['PYPEMAN_SETTINGS_MODULE'] = 'pypeman.tests.settings.test_settings_default'
 
@@ -41,7 +41,8 @@ def teardown_settings():
         pass
 
 default_message_content = """{"test":1}"""
-def generate_msg(timestamp=None, message_content=default_message_content):
+default_message_meta = {'question': 'unknown'}
+def generate_msg(timestamp=None, message_content=default_message_content, message_meta=None):
     """ generates a default message """
     m = message.Message()
     if timestamp:
@@ -53,6 +54,11 @@ def generate_msg(timestamp=None, message_content=default_message_content):
         m.timestamp = datetime.datetime.utcnow()
 
     m.payload = message_content
+
+    if message_meta is None:
+        m.meta = default_message_meta
+    else:
+        m.meta = message_meta
 
     return m
 
@@ -70,7 +76,7 @@ class SimpleTestNode(nodes.BaseNode):
         self.delay = kwargs.pop('delay', 0)
         self.logger = kwargs.pop('logger', False) or logging.getLogger(__name__)
         super().__init__(*args, **kwargs)
-        
+
         # Used to test if node is processed during test
         self.processed = False
 

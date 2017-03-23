@@ -21,7 +21,7 @@ password: YOUR_PASSWORD_HERE
 
 # Checklist for releasing pypeman on pypi in version x.x.x #
 
-- [ ] Update HISTORY.rst
+- [ ] Update CHANGELOG.md
 - [ ] Update version number (can also be minor or major)
 ```
 vim pypeman/__init__.py # or 'bumpversion patch' if installed
@@ -36,7 +36,7 @@ tox
 ```
 - [ ] Commit the changes:
 ```
-git add HISTORY.rst
+git add CHANGELOG.md
 git commit -m "Changelog for upcoming release x.x.x."
 ```
 - [ ] tag the version

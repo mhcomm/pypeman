@@ -1,17 +1,14 @@
 import unittest
 from pypeman.message import Message
+from .common import generate_msg
+import logging
+from unittest import mock
 
 
-def create_message():
-    m = Message()
+def create_complex_message():
+    m = generate_msg(message_content={'answer': 42})
 
-    m.payload = {'answer': 42}
-    m.meta['question'] = 'unknown'
-
-    mctx = Message()
-
-    mctx.meta['answer'] = 42
-    mctx.payload = {'question': 'unknown'}
+    mctx = generate_msg(message_content={'question': 'known'}, message_meta={'answer': 43})
 
     m.ctx['test'] = mctx
 
@@ -23,7 +20,7 @@ class MessageTests(unittest.TestCase):
     def test_message_dict_conversion(self):
 
 
-        m = create_message()
+        m = create_complex_message()
 
         mdict = m.to_dict()
 
@@ -38,7 +35,7 @@ class MessageTests(unittest.TestCase):
         self.assertEqual(m.ctx['test'].payload['question'], compare_to.ctx['test'].payload['question'], "Bad ctx")
 
     def test_message_json_conversion(self):
-        m = create_message()
+        m = create_complex_message()
 
         msg_json = m.to_json()
 
@@ -52,7 +49,7 @@ class MessageTests(unittest.TestCase):
 
 
     def test_message_copy(self):
-        m = create_message()
+        m = create_complex_message()
 
         compare_to = m.copy()
 
@@ -63,7 +60,7 @@ class MessageTests(unittest.TestCase):
         self.assertEqual(m.ctx['test'].payload['question'], compare_to.ctx['test'].payload['question'], "Bad ctx copy")
 
     def test_message_renew(self):
-        m = create_message()
+        m = create_complex_message()
 
         compare_to = m.renew()
 
@@ -74,12 +71,17 @@ class MessageTests(unittest.TestCase):
 
         self.assertEqual(m.ctx['test'].payload['question'], compare_to.ctx['test'].payload['question'], "Bad ctx copy")
 
+    def test_message_logging(self):
+        """
+        Whether message logging is working well.
+        """
+        m = create_complex_message()
 
+        mock_logger = mock.MagicMock()
+        m.log(logger=mock_logger)
 
+        mock_logger.log.assert_called_with(logging.DEBUG, 'Meta: %r', {'question': 'unknown'})
+        mock_logger.reset()
 
-
-
-
-
-
-
+        m.log(logger=mock_logger, payload=True, meta=True, context=True, log_level=logging.INFO)
+        mock_logger.log.assert_called_with(logging.INFO, 'Meta: %r', {'answer': 43})

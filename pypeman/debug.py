@@ -24,9 +24,12 @@ class SlowLogHandler(logging.Handler):
         return len(self.log_trace)
 
     def show_entries(self):
-        print("Got %d entries" % len(self.log_trace))
+        print("Got %d slow entries" % len(self.log_trace))
         for idx, entry in enumerate(self.log_trace):
             print("%2d %r %r" % ((idx,) + entry))
+
+    def __len__(self):
+        return len(self.log_trace)
 
 
 class SlowAsyncIOStats:
@@ -52,13 +55,15 @@ class SlowAsyncIOStats:
         """ disables logging of slow events """
         os.environ['PYTHONASYNCIODEBUG'] = '0'
 
+    def __len__(self):
+        return len(self.slow_handler)
+
     def get_stats(self):
         rslt = []
         slow_handler = self.slow_handler
 
     def show_entries(self):
         self.slow_handler.show_entries()
-
 
 
 def enable_slow_log_stats():

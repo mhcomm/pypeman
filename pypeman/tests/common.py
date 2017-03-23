@@ -7,6 +7,8 @@ import time
 import datetime
 import logging
 from importlib import reload
+import asyncio
+from asyncio import coroutine
 
 
 from pypeman import nodes
@@ -74,16 +76,20 @@ class SimpleTestNode(nodes.BaseNode):
             :param logger: allows to pass a custom logger for tracing
         """
         self.delay = kwargs.pop('delay', 0)
+        self.async_delay = kwargs.pop('async_delay', None)
         self.logger = kwargs.pop('logger', False) or logging.getLogger(__name__)
         super().__init__(*args, **kwargs)
 
         # Used to test if node is processed during test
         self.processed = False
 
+    @coroutine
     def process(self, msg):
         if self.delay:
             time.sleep(self.delay)
-        self.logger.info("Process %s", msg)
+        if self.async_delay is not None:
+            yield from asyncio.sleep(self.async_delay)
+        self.logger.info("Process done: %s", msg)
         self.processed = True
         return msg
 

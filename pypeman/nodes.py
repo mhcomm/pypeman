@@ -336,8 +336,13 @@ class JsonToPython(BaseNode):
 
 class PythonToJson(BaseNode):
     """ Convert python payload to json."""
+    def __init__(self, *args, encoding='utf-8', **kwargs):
+        self.encoding = encoding
+        super().__init__(*args, **kwargs)
+        self.indent = kwargs.get('indent')
+    
     def process(self, msg):
-        msg.payload = json.dumps(msg.payload)
+        msg.payload = json.dumps(msg.payload, indent=self.indent)
         msg.content_type = 'application/json'
         return msg
 

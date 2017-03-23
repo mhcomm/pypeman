@@ -472,38 +472,29 @@ class MessageStore(Save):
 
 class FileReader(BaseNode):
     """ Reads a file and sets payload to the file's contents. """
-    def __init__(self, filename=None, filepath=None, date=None, binary_file=False, *args, **kwargs):
+    def __init__(self, filename=None, filepath=None, binary_file=False, *args, **kwargs):
         self.filename = filename
         self.filepath = filepath
         self.binary_file = binary_file
         if self.filename:
             warnings.warn("filename deprecated, use filepath instead", DeprecationWarning)
-        self.date = date
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
         if self.filepath:
-            if callable(self.filepath):
-                filepath = self.filepath(msg)
-            else:
-                filepath = self.filepath
-
+            filepath = callable_or_value(self.filepath, msg)
 
         elif self.filename:
-            if callable(self.filename):
-                name = self.filename(msg)
-            else:
-                name = self.filename
-            path = os.path.dirname(msg.meta['filepath'])
-            filepath = os.path.join(path, name)
+            filename = callable_or_value(self.filename, msg)
 
+            path = os.path.dirname(msg.meta['filepath'])
+            filepath = os.path.join(path, filename)
         else:
             filepath = msg.meta['filepath']
 
-        context = get_context(msg, self.date)
+        context = get_context(msg)
         filepath =  filepath % context
         name = os.path.basename(filepath)
-
 
         if self.binary_file:
             mode = "rb"
@@ -520,52 +511,33 @@ class FileReader(BaseNode):
 
 class FileWriter(BaseNode):
     """ Write a file with the message content. """
-    def __init__(self, filename=None, path=None, binary_mode=False, safe_file=False, *args, **kwargs):
-        self.filename = filename
-        if self.filename:
-            warnings.warn("filename deprecated, use filepath instead", DeprecationWarning)
-        self.path = path
-        if self.path:
-            warnings.warn("path deprecated, use filepath instead", DeprecationWarning)
+    def __init__(self, filepath=None, binary_mode=False, safe_file=True, *args, **kwargs):
+        self.filepath = filepath
         self.binary_mode = binary_mode
         self.safe_file = safe_file
+        self.first_filename = True
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
+        meta_filepath = msg.meta.get('filepath')
 
-        if self.filename:
-            name = self.filename
+        if self.filepath:
+            filepath = callable_or_value(self.filepath, msg)
         else:
-            name = msg.meta['filename']
+            filepath = meta_filepath
 
-        if self.path:
-            path = self.path
-        else:
-            path = os.path.dirname(msg.meta['filepath'])
+        if not filepath:
+            raise ValueError("filepath must be defined in parameters or in msg.meta")
 
-        today = datetime.now()
-
-        context = {'counter': self.counter,
-                   'year': today.year,
-                   'month': today.month,
-                   'day': today.day,
-                   'hour': today.hour,
-                   'second': today.second,
-                   }
-
-        dest = os.path.join(path, name % context)
-
+        context = get_context(msg)
+        dest =  filepath % context
         old_file = dest
         if self.safe_file:
             dest = old_file + '.tmp'
-
         with open(dest, 'w' + ('b' if self.binary_mode else '')) as file_:
             file_.write(msg.payload)
-
         if self.safe_file:
             os.rename(dest, old_file)
-
-
         return msg
 
 
@@ -744,4 +716,3 @@ wrap.add_lazy('pypeman.contrib.http', "RequestNode", ["aiohttp"])
 wrap.add_lazy('pypeman.contrib.ftp', "FTPFileWriter", [])
 wrap.add_lazy('pypeman.contrib.ftp', "FTPFileReader", [])
 wrap.add_lazy('pypeman.contrib.ftp', "FTPFileDeleter", [])
-

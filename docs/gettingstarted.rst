@@ -4,9 +4,10 @@ Getting started
 Installation
 ------------
 
-With pip (No official version get)... ::
+With pip ::
 
-    pip install git+https://github.com/mhcomm/pypeman.git#egg=pypeman
+    pip install pypeman
+
 
 ...or from source
 
@@ -29,7 +30,7 @@ Create a fresh project with: ::
 
     pypeman startproject <project_dirname>
 
-Previous command will create a new directory with a "settings.py" file containing
+Above command will create a new directory with a "settings.py" file containing
 local configs and a "project.py" file with a channel example that
 you can uncomment to test pypeman. Follow commented instructions then execute: ::
 
@@ -38,7 +39,7 @@ you can uncomment to test pypeman. Follow commented instructions then execute: :
 Quick commands overview
 -----------------------
 
-To get commands help and more details about commands: ::
+To get command help and more details about commands: ::
 
     pypeman --help
 

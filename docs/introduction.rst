@@ -4,7 +4,7 @@ Introduction
 .. image:: https://travis-ci.org/mhcomm/pypeman.svg?branch=master
 
 .. warning:: Pypeman is in Alpha state, do not use in production yet.
-API may change in future version.
+The API may change in future versions.
 
 `Pypeman` is a minimalist but pragmatic EAI / ESB / Middleware / PlumbingThing.
 You can use it to make the *glue* between your platform components.

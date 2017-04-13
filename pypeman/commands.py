@@ -56,6 +56,7 @@ def load_project():
 def main(debug_asyncio=False, profile=False, cli=False):
 
     if debug_asyncio:
+        # set before asyncio.get_event_loop() call
         os.environ['PYTHONASYNCIODEBUG'] = "1"
 
     load_project()
@@ -64,7 +65,6 @@ def main(debug_asyncio=False, profile=False, cli=False):
     loop = asyncio.get_event_loop()
 
     if debug_asyncio:
-        from pypeman.conf import settings
         loop.slow_callback_duration = settings.DEBUG_PARAMS['slow_callback_duration']
         loop.set_debug(True)
         warnings.simplefilter('default')

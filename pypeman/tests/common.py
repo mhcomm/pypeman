@@ -70,14 +70,15 @@ class TestException(Exception):
 class SimpleTestNode(nodes.BaseNode):
     """ simple node, that can be used for unit testing
     """
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, logger=None, loop=None, **kwargs):
         """
             :param delay: delay in milliseconds to simulate processing time
             :param logger: allows to pass a custom logger for tracing
         """
         self.delay = kwargs.pop('delay', 0)
         self.async_delay = kwargs.pop('async_delay', None)
-        self.logger = kwargs.pop('logger', False) or logging.getLogger(__name__)
+        self.logger = logger or logging.getLogger(__name__)
+        self.loop = loop
         super().__init__(*args, **kwargs)
 
         # Used to test if node is processed during test
@@ -88,7 +89,7 @@ class SimpleTestNode(nodes.BaseNode):
         if self.delay:
             time.sleep(self.delay)
         if self.async_delay is not None:
-            yield from asyncio.sleep(self.async_delay)
+            yield from asyncio.sleep(self.async_delay, loop=self.loop)
         self.logger.info("Process done: %s", msg)
         self.processed = True
         return msg

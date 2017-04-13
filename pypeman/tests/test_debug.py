@@ -128,10 +128,11 @@ class MainLoopTests(unittest.TestCase, EvtLoopMixin):
         tst_logger = logging.getLogger('tests.debug.main_loop.slow')
         print("HANDLERS", tst_logger.handlers)
 
-        chan = BaseChannel(name="test_loop_slow", loop=self.loop)
-        n1 = SimpleTestNode(delay=0.01, async_delay=0, logger=tst_logger)
-        n2 = SimpleTestNode(delay=0.12, async_delay=0, logger=tst_logger)
-        n3 = SimpleTestNode(delay=0.11, async_delay=0, logger=tst_logger)
+        loop = self.loop
+        chan = BaseChannel(name="test_loop_slow", loop=loop)
+        n1 = SimpleTestNode(delay=0.01, async_delay=0, logger=tst_logger, loop=loop)
+        n2 = SimpleTestNode(delay=0.12, async_delay=0, logger=tst_logger, loop=loop)
+        n3 = SimpleTestNode(delay=0.11, async_delay=0, logger=tst_logger, loop=loop)
         chan.add(n1)
         chan.add(n2)
         chan.add(n3)
@@ -149,6 +150,7 @@ class MainLoopTests(unittest.TestCase, EvtLoopMixin):
         #handler.show_entries()
 
         self.assertEqual(len(stats), 2, "should have 2 slow tasks, not %d" % len(stats))
+        self.loop.close()
 
     def test_loop_slow2(self):
         """ slow tasks delay can be configured """
@@ -163,9 +165,10 @@ class MainLoopTests(unittest.TestCase, EvtLoopMixin):
         tst_logger = logging.getLogger('tests.debug.main_loop.slow')
         print(tst_logger.handlers)
 
-        chan = BaseChannel(name="test_loop_slow2", loop=self.loop)
-        n1 = SimpleTestNode(delay=0.03, async_delay=0, logger=tst_logger)
-        n2 = SimpleTestNode(delay=0.06, logger=tst_logger)
+        loop = self.loop
+        chan = BaseChannel(name="test_loop_slow2", loop=loop)
+        n1 = SimpleTestNode(delay=0.03, async_delay=0, logger=tst_logger, loop=loop)
+        n2 = SimpleTestNode(delay=0.06, logger=tst_logger, loop=loop)
         chan.add(n1)
         chan.add(n2)
 
@@ -176,6 +179,7 @@ class MainLoopTests(unittest.TestCase, EvtLoopMixin):
         #handler.show_entries()
         self.assertEqual(len(stats), 1, "should have 1 slow tasks, not %d" % len(stats))
         pypeman.debug.show_slow_log_stats()
+        self.loop.close()
 
 
 #test_suite = MainLoopTests

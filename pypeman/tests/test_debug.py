@@ -44,7 +44,7 @@ class LoggingTests(unittest.TestCase, EvtLoopMixin):
         print("added handler")
 
     def tearDown(self):
-        setup_settings(SETTINGS_MODULE) 
+        setup_settings(SETTINGS_MODULE)
         teardown_settings()
 
     def test_log(self):

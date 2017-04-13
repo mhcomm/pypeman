@@ -529,7 +529,7 @@ class FileWatcherChannel(BaseChannel):
         super().__init__(*args, **kwargs)
         if path:
             self.basedir = path
-            warnings.warn("filename deprecated, use filepath instead", DeprecationWarning)
+            warnings.warn("path deprecated, use basedir instead", DeprecationWarning)
         if basedir:
             self.basedir = basedir
         self.regex = regex

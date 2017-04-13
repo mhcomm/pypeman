@@ -321,7 +321,6 @@ class Log(BaseNode):
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
-        self.channel.logger.log(self.lvl, '%s %s', str(self), repr(msg))
         self.channel.logger.log(self.lvl, '%s %s', str(self), str(msg))
 
         if self.channel.parent_uids:

@@ -53,13 +53,8 @@ def callable_or_value(val, msg):
 
 
 def get_context(msg, date=None):
-    if date:
-        cdate = date
-    else:
-        cdate = datetime.now()
-
+    cdate = date or datetime.now()
     timestamp = msg.timestamp
-
     context = {'year': cdate.year,
                'month': cdate.month,
                'day': cdate.day,
@@ -70,7 +65,7 @@ def get_context(msg, date=None):
                'msg_day': timestamp.day,
                'msg_hour': timestamp.hour,
                'msg_second': timestamp.second,
-               'muid': msg.uuid,
+               'msg_uid': msg.uuid,
                }
     return context
 
@@ -362,7 +357,7 @@ class PythonToJson(BaseNode):
         self.encoding = encoding
         super().__init__(*args, **kwargs)
         self.indent = indent
-    
+
     def process(self, msg):
         msg.payload = json.dumps(msg.payload, indent=self.indent)
         msg.content_type = 'application/json'
@@ -501,7 +496,7 @@ class FileReader(BaseNode):
         self.filepath = filepath
         self.binary_file = binary_file
         if self.filename:
-            warnings.warn("filename deprecated, use filepath instead", DeprecationWarning)
+            warnings.warn("Filename deprecated, use filepath instead", DeprecationWarning)
         super().__init__(*args, **kwargs)
 
     def process(self, msg):

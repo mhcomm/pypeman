@@ -547,7 +547,7 @@ class FileWatcherChannel(BaseChannel):
                     mtime = os.stat(filepath).st_mtime
                     self.data[filename] = mtime
         else:
-            self.logger.warning('path not exist: %r', self.basedir)
+            self.logger.warning("path doesn't: %r", self.basedir)
 
     @asyncio.coroutine
     def start(self):

@@ -52,7 +52,7 @@ def callable_or_value(val, msg):
     return name
 
 
-def get_context(msg, date=None):
+def get_context(msg, date=None, counter=None):
     cdate = date or datetime.now()
     timestamp = msg.timestamp
     context = {'year': cdate.year,
@@ -66,6 +66,7 @@ def get_context(msg, date=None):
                'msg_hour': timestamp.hour,
                'msg_second': timestamp.second,
                'msg_uid': msg.uuid,
+               'counter': counter
                }
     return context
 
@@ -495,11 +496,13 @@ class FileReader(BaseNode):
         self.filename = filename
         self.filepath = filepath
         self.binary_file = binary_file
+        self.counter = 0
         if self.filename:
             warnings.warn("Filename deprecated, use filepath instead", DeprecationWarning)
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
+        self.counter += 1
         if self.filepath:
             filepath = callable_or_value(self.filepath, msg)
 
@@ -511,7 +514,7 @@ class FileReader(BaseNode):
         else:
             filepath = msg.meta['filepath']
 
-        context = get_context(msg)
+        context = get_context(msg=msg, counter=self.counter)
         filepath =  filepath % context
         name = os.path.basename(filepath)
 
@@ -535,9 +538,11 @@ class FileWriter(BaseNode):
         self.binary_mode = binary_mode
         self.safe_file = safe_file
         self.first_filename = True
+        self.counter = 0
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
+        self.counter += 1
         meta_filepath = msg.meta.get('filepath')
 
         if self.filepath:
@@ -548,7 +553,7 @@ class FileWriter(BaseNode):
         if not filepath:
             raise ValueError("filepath must be defined in parameters or in msg.meta")
 
-        context = get_context(msg)
+        context = get_context(msg=msg, counter=self.counter)
         dest =  filepath % context
         old_file = dest
         if self.safe_file:

@@ -6,7 +6,7 @@
 Welcome to Pypeman's documentation!
 ===================================
 
-This is Pypeman documentation.
+This is the Pypeman documentation.
 
 Source on github: https://github.com/mhcomm/pypeman
 

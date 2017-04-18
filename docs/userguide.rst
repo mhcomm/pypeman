@@ -1,7 +1,7 @@
 Core concepts
 =============
 
-In one image better than in 100 words:
+One image is better than 100 words:
 
 .. image:: ./images/general_view.png
 
@@ -11,11 +11,11 @@ Channels
 
 Channels are chains of processing, the nodes, which use or
 transform message content. A channel is specialised for a type
-of input and can be linked to an endpoint for incoming message.
+of input and can be linked to an endpoint for incoming messages.
 
-A channel receive a message, process it and return the response.
+A channel receives a message, processes it and returns the response.
 
-Channels are main components of pypeman.
+Channels are the main components of pypeman.
 When you want to process a message, you first create a channel then add nodes to
 process the message.
 
@@ -136,7 +136,7 @@ Useful attributes:
 
 * payload: the message content.
 * meta: message metadata, should be used to add extra information about the payload.
-* context: previous message can be saved in context dict for further access.
+* context: previous messages can be saved in the context dict for further access.
 
 ..  autoclass:: pypeman.message.Message
     :members:
@@ -144,7 +144,7 @@ Useful attributes:
 Endpoints
 ---------
 
-Endpoints are server instances used by channel to get message from net protocols like HTTP, Soap or HL7, ....
+Endpoints are server instances used by channel to get messages from net protocols like HTTP, Soap or HL7, ....
 They listen to a specific port for a specific protocol.
 
 ..  autoclass:: pypeman.contrib.http.HTTPEndpoint
@@ -158,9 +158,9 @@ Message Stores
 
 A Message store is really useful to keep a copy of all messages sent to a channel.
 It's like a log but with complete message data and metadata. This way you can trace all
-processing or replay a specific message (Not implemented yet). Each channel can have his message store.
+processing or replay a specific message (Not implemented yet). Each channel can have its message store.
 
-You don't use message stores directly but MessageStoreFactory instance to allow reusing of a configuration.
+You don't use message stores directly but a MessageStoreFactory instance to allow reuse of a configuration.
 
 Generic classes
 ```````````````

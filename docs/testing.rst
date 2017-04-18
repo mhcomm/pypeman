@@ -4,11 +4,11 @@ Channel testing
 Getting started
 ---------------
 
-Testing framework use standard unittest python package. So you can write your tests as always in a `tests` package or
-module visible from your project. To use pypeman specifics helpers, your test case classes must inherit from
+Testing framework uses the standard unittest python package. So you can write your tests as always in a `tests` package or
+a module visible from your project. To use pypeman specifics helpers, your test case classes must inherit from
 `test.PypeTestCase`.
 
-To launch test, just execute : ::
+To launch tests, just execute : ::
 
     pypeman test
 
@@ -23,12 +23,12 @@ Specific helpers
 
 **Node_instance.mock(input=None, output=None)**
 
-    Allow to mock node input or output msg. If you mock output, original process is completely bypassed. You can also use
-    function that takes a `msg` argument as input or output mock to use or modify message.
+    Allows to mock node inputs or the output msg. If you mock output, the original process() is completely bypassed. You can also use
+    a function that takes a `msg` argument as input or output mock to use or modify a message.
 
 **Node_instance.last_input()**
-    Return last input message of a node.
+    Returns last input message of a node.
 
 **Node_instance.processed**
-    Keep a processed message count. Reseted between each test.
+    Keeps a processed message count. Reset between each test.
 

@@ -48,8 +48,7 @@ class LoggingTests(unittest.TestCase, EvtLoopMixin):
         teardown_settings()
 
     def test_log(self):
-        """ can modify log config
-
+        """ can modify log config 
             changing log config may be important for other tests.
             thus let's try to change it and see its impact.
         """

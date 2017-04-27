@@ -49,8 +49,26 @@ def callable_or_value(val, msg):
         name = val(msg)
     else:
         name = val
-
     return name
+
+
+def get_context(msg, date=None, counter=None):
+    cdate = date or datetime.now()
+    timestamp = msg.timestamp
+    context = {'year': cdate.year,
+               'month': cdate.month,
+               'day': cdate.day,
+               'hour': cdate.hour,
+               'second': cdate.second,
+               'msg_year': timestamp.year,
+               'msg_month': timestamp.month,
+               'msg_day': timestamp.day,
+               'msg_hour': timestamp.hour,
+               'msg_second': timestamp.second,
+               'msg_uid': msg.uuid,
+               'counter': counter
+               }
+    return context
 
 
 class BaseNode:
@@ -340,7 +358,7 @@ class PythonToJson(BaseNode):
         self.encoding = encoding
         super().__init__(*args, **kwargs)
         self.indent = indent
-    
+
     def process(self, msg):
         msg.payload = json.dumps(msg.payload, indent=self.indent)
         msg.content_type = 'application/json'
@@ -474,88 +492,76 @@ class MessageStore(Save):
 
 class FileReader(BaseNode):
     """ Reads a file and sets payload to the file's contents. """
-    def __init__(self, filename=None, path=None, binary_file=False, *args, **kwargs):
+    def __init__(self, filename=None, filepath=None, binary_file=False, *args, **kwargs):
         self.filename = filename
-        self.path = path
+        self.filepath = filepath
         self.binary_file = binary_file
         self.counter = 0
+        if self.filename:
+            warnings.warn("Filename deprecated, use filepath instead", DeprecationWarning)
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
-        if self.filename:
-            if callable(self.filename):
-                name = self.filename(msg)
-            else:
-                name = self.filename
-        else:
-            name = msg.meta['filename']
+        self.counter += 1
+        if self.filepath:
+            filepath = callable_or_value(self.filepath, msg)
 
-        if self.path:
-            path = self.path
-        else:
+        elif self.filename:
+            filename = callable_or_value(self.filename, msg)
+
             path = os.path.dirname(msg.meta['filepath'])
+            filepath = os.path.join(path, filename)
+        else:
+            filepath = msg.meta['filepath']
 
-        filepath = os.path.join(path, name)
+        context = get_context(msg=msg, counter=self.counter)
+        filepath =  filepath % context
+        name = os.path.basename(filepath)
 
         if self.binary_file:
             mode = "rb"
         else:
             mode = "r"
+
         with open(filepath, mode) as file:
             msg.payload = file.read()
             msg.meta['filename'] = name
             msg.meta['filepath'] = filepath
 
-        self.counter += 1
         return msg
 
 
 class FileWriter(BaseNode):
     """ Write a file with the message content. """
-    def __init__(self, filename=None, path=None, binary_mode=False, safe_file=False, *args, **kwargs):
-        self.filename = filename
-        self.path = path
+    def __init__(self, filepath=None, binary_mode=False, safe_file=True, *args, **kwargs):
+        self.filepath = filepath
         self.binary_mode = binary_mode
-        self.counter = 0
         self.safe_file = safe_file
+        self.first_filename = True
+        self.counter = 0
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
+        self.counter += 1
+        meta_filepath = msg.meta.get('filepath')
 
-        if self.filename:
-            name = self.filename
+        if self.filepath:
+            filepath = callable_or_value(self.filepath, msg)
         else:
-            name = msg.meta['filename']
+            filepath = meta_filepath
 
-        if self.path:
-            path = self.path
-        else:
-            path = os.path.dirname(msg.meta['filepath'])
+        if not filepath:
+            raise ValueError("filepath must be defined in parameters or in msg.meta")
 
-        today = datetime.now()
-
-        context = {'counter': self.counter,
-                   'year': today.year,
-                   'month': today.month,
-                   'day': today.day,
-                   'hour': today.hour,
-                   'second': today.second,
-                   }
-
-        dest = os.path.join(path, name % context)
-
+        context = get_context(msg=msg, counter=self.counter)
+        dest =  filepath % context
         old_file = dest
         if self.safe_file:
             dest = old_file + '.tmp'
-
         with open(dest, 'w' + ('b' if self.binary_mode else '')) as file_:
             file_.write(msg.payload)
-
         if self.safe_file:
             os.rename(dest, old_file)
-
-        self.counter += 1
-
         return msg
 
 
@@ -662,6 +668,7 @@ class ToOrderedDict(BaseNode):
 
         return msg
 
+
 class Email(ThreadNode):
     """ Node that send Email.
     """
@@ -733,5 +740,3 @@ wrap.add_lazy('pypeman.contrib.http', "RequestNode", ["aiohttp"])
 wrap.add_lazy('pypeman.contrib.ftp', "FTPFileWriter", [])
 wrap.add_lazy('pypeman.contrib.ftp', "FTPFileReader", [])
 wrap.add_lazy('pypeman.contrib.ftp', "FTPFileDeleter", [])
-
-

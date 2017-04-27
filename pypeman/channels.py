@@ -525,25 +525,29 @@ class FileWatcherChannel(BaseChannel):
 
     NEW, UNCHANGED, MODIFIED, DELETED  = range(4)
 
-    def __init__(self, *args, path='', regex='.*', interval=1, binary_file=False, **kwargs):
+    def __init__(self, *args, basedir='', regex='.*', interval=1, binary_file=False, path='', **kwargs):
         super().__init__(*args, **kwargs)
-        self.path = path
+        if path:
+            self.basedir = path
+            warnings.warn("path deprecated, use basedir instead", DeprecationWarning)
+        if basedir:
+            self.basedir = basedir
         self.regex = regex
         self.interval = interval
-        self.dirflag = os.path.isdir(self.path)
+        self.dirflag = os.path.isdir(self.basedir)
         self.data = {}
         self.re = re.compile(self.regex)
         self.binary_file = binary_file
 
         # Set mtime for all existing matching files
-        if os.path.exists(self.path):
-            for filename in os.listdir(self.path):
+        if os.path.exists(self.basedir):
+            for filename in os.listdir(self.basedir):
                 if self.re.match(filename):
-                    filepath = os.path.join(self.path, filename)
+                    filepath = os.path.join(self.basedir, filename)
                     mtime = os.stat(filepath).st_mtime
                     self.data[filename] = mtime
         else:
-            self.logger.warning('path not exist: %r', self.path)
+            self.logger.warning("Path doesn't exists: %r", self.basedir)
 
     @asyncio.coroutine
     def start(self):
@@ -553,7 +557,7 @@ class FileWatcherChannel(BaseChannel):
     def file_status(self, filename):
         if filename in self.data:
             old_mtime = self.data[filename]
-            filepath = os.path.join(self.path, filename)
+            filepath = os.path.join(self.basedir, filename)
             new_mtime = os.stat(filepath).st_mtime
             if new_mtime == old_mtime:
                 return FileWatcherChannel.UNCHANGED
@@ -571,8 +575,8 @@ class FileWatcherChannel(BaseChannel):
     def watch_for_file(self):
         yield from asyncio.sleep(self.interval, loop=self.loop)
         try:
-            if os.path.exists(self.path):
-                listfile = os.listdir(self.path)
+            if os.path.exists(self.basedir):
+                listfile = os.listdir(self.basedir)
                 listfile.sort()
 
                 for filename in listfile:
@@ -580,7 +584,7 @@ class FileWatcherChannel(BaseChannel):
                         status = self.file_status(filename)
 
                         if status in [FileWatcherChannel.MODIFIED, FileWatcherChannel.NEW]:
-                            filepath = os.path.join(self.path, filename)
+                            filepath = os.path.join(self.basedir, filename)
                             self.data[filename] =  os.stat(filepath).st_mtime
 
                             # Read file and make message
@@ -610,4 +614,3 @@ wrap.add_lazy('pypeman.contrib.hl7', 'MLLPChannel', ['hl7'])
 wrap.add_lazy('pypeman.contrib.http', 'HttpChannel', ['aiohttp'])
 wrap.add_lazy('pypeman.contrib.time', 'CronChannel', ['aiocron'])
 wrap.add_lazy('pypeman.contrib.ftp', 'FTPWatcherChannel', [])
-

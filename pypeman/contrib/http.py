@@ -129,8 +129,12 @@ class HttpRequest(nodes.BaseNode):
         method=self.method
         if not method:
             method = msg.meta.get('method','get')
+        if type(self.auth) == tuple:
+            basic_auth = aiohttp.BasicAuth(self.auth[0], self.auth[1])
+        else:
+            basic_auth = self.auth
         with aiohttp.ClientSession(connector=conn) as session:
-            resp = yield from session.request(method=method, url=url, auth=self.auth, headers=headers)
+            resp = yield from session.request(method=method, url=url, auth=basic_auth, headers=headers)
             resp_text = yield from resp.text()
             return str(resp_text)
 

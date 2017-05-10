@@ -6,10 +6,10 @@ import tempfile
 import traceback
 
 # For compatibility purpose
-from asyncio import async as ensure_future
+from asyncio import ensure_future
 
-@asyncio.coroutine
-def check_for_newerfile(future, lockfile, interval):
+
+async def check_for_newerfile(future, lockfile, interval):
     exists = os.path.exists
     mtime = lambda p: os.stat(p).st_mtime
     files = dict()
@@ -19,10 +19,9 @@ def check_for_newerfile(future, lockfile, interval):
         if path[-4:] in ('.pyo', '.pyc'): path = path[:-1]
         if path and exists(path): files[path] = mtime(path)
 
-    @asyncio.coroutine
-    def reccur():
+    async def reccur():
         status = None
-        yield from asyncio.sleep(interval)
+        await asyncio.sleep(interval)
 
         if not exists(lockfile) or mtime(lockfile) < time.time() - interval - 5:
             status = 'error'
@@ -34,9 +33,9 @@ def check_for_newerfile(future, lockfile, interval):
                 break
 
         if status:
-           future.set_result(status)
+            future.set_result(status)
         else:
-           ensure_future(reccur())
+            ensure_future(reccur())
 
     ensure_future(reccur())
 

@@ -1,11 +1,10 @@
 import os
 import sys
 import time
-import asyncio
 import tempfile
 import traceback
 
-# For compatibility purpose
+import asyncio
 from asyncio import ensure_future
 
 

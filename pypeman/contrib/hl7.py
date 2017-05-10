@@ -1,11 +1,10 @@
 import sys
 import asyncio
+from asyncio import ensure_future
 import warnings
 
 from pypeman import endpoints, channels, nodes, message
 
-# For compatibility purpose
-from asyncio import ensure_future
 
 import hl7
 

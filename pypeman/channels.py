@@ -3,11 +3,9 @@ import os
 import uuid
 import logging
 import re
-import sys
 import types
 import warnings
 
-# For compatibility purpose
 from asyncio import ensure_future
 
 from pypeman import message, msgstore, events

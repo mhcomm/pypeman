@@ -1,15 +1,13 @@
 import asyncio
-from ftplib import FTP
-import re
-from io import StringIO, BytesIO
-import pickle
-
-# For compatibility
 from asyncio import ensure_future
 
-from pypeman import channels, nodes, message
+from ftplib import FTP
+import re
+from io import BytesIO
 
 from concurrent.futures import ThreadPoolExecutor
+
+from pypeman import channels, nodes, message
 
 # Can be redefined
 default_thread_pool = ThreadPoolExecutor(max_workers=3)

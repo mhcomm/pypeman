@@ -5,7 +5,7 @@ import warnings
 from pypeman import endpoints, channels, nodes, message
 
 # For compatibility purpose
-from asyncio import async as ensure_future
+from asyncio import ensure_future
 
 import hl7
 

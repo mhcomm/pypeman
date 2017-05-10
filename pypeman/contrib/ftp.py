@@ -5,7 +5,7 @@ from io import StringIO, BytesIO
 import pickle
 
 # For compatibility
-from asyncio import async as ensure_future
+from asyncio import ensure_future
 
 from pypeman import channels, nodes, message
 

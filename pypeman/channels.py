@@ -8,7 +8,7 @@ import types
 import warnings
 
 # For compatibility purpose
-from asyncio import async as ensure_future
+from asyncio import ensure_future
 
 from pypeman import message, msgstore, events
 

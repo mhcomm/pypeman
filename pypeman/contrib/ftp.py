@@ -130,9 +130,8 @@ class FTPWatcherChannel(channels.BaseChannel):
 
         self.ftphelper = FTPHelper(host, port, credentials)
 
-    @asyncio.coroutine
-    def start(self):
-        yield from super().start()
+    async def start(self):
+        await super().start()
         ensure_future(self.watch_for_file(), loop=self.loop)
 
     def download_file(self, filename):
@@ -146,8 +145,7 @@ class FTPWatcherChannel(channels.BaseChannel):
         if not self.is_stopped():
             return self.ftphelper.download_file(self.basedir + '/' + filename)
 
-    @asyncio.coroutine
-    def get_file_and_process(self, filename):
+    async def get_file_and_process(self, filename):
         """
         Download a file from ftp and launch channel processing on msg with result as payload.
         Also add a `filepath` header with ftp relative path of downloaded file.
@@ -157,30 +155,29 @@ class FTPWatcherChannel(channels.BaseChannel):
         :return: processed result
         """
 
-        payload = yield from self.loop.run_in_executor(self.executor, self.download_file, filename)
+        payload = await self.loop.run_in_executor(self.executor, self.download_file, filename)
 
         msg = message.Message()
         msg.payload = payload
         msg.meta['filepath'] = self.basedir + '/' + filename
 
         if not self.is_stopped():
-            result = yield from super().handle(msg)
+            result = await super().handle(msg)
 
             if self.delete_after:
-                yield from self.loop.run_in_executor(
+                await self.loop.run_in_executor(
                                 self.executor,
                                 self.ftphelper.delete,
                                 self.basedir + '/' + filename)
 
             return result
 
-    @asyncio.coroutine
-    def tick(self):
+    async def tick(self):
         """
         One iteration of watching.
         """
 
-        ls = yield from self.loop.run_in_executor(self.executor, self.ftphelper.list_dir, self.basedir)
+        ls = await self.loop.run_in_executor(self.executor, self.ftphelper.list_dir, self.basedir)
 
         # Make diff from previous one.
         added = self.sort_function(ls-self.ls_prev)
@@ -190,15 +187,14 @@ class FTPWatcherChannel(channels.BaseChannel):
             if self.re.match(filename) and not self.is_stopped():
                 ensure_future(self.get_file_and_process(filename), loop=self.loop)
 
-    @asyncio.coroutine
-    def watch_for_file(self):
+    async def watch_for_file(self):
         """
         Watch recursively for ftp new files.
         If file match regex, it is downloaded then processed in a message.
         """
-        yield from asyncio.sleep(self.interval, loop=self.loop)
+        await asyncio.sleep(self.interval, loop=self.loop)
         try:
-            yield from self.tick()
+            await self.tick()
         finally:
             if not self.is_stopped():
                 ensure_future(self.watch_for_file(), loop=self.loop)

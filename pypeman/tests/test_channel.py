@@ -88,7 +88,9 @@ class ChannelsTests(unittest.TestCase):
         n = TestNode()
         msg = generate_msg()
 
-        chan.add(n)
+        same_chan = chan.add(n)
+
+        self.assertEqual(same_chan, chan, "Add don't return channel")
 
         # Launch channel processing
         self.start_channels()
@@ -117,9 +119,12 @@ class ChannelsTests(unittest.TestCase):
 
         msg = generate_msg()
 
-        chan.add(n1)
+        same_chan = chan.append(n1)
+
+        self.assertEqual(chan, same_chan, "Append don't return channel.")
+
         sub = chan.fork(name="subchannel")
-        sub.add(n2, n3, n4)
+        sub.append(n2, n3, n4)
 
         # Launch channel processing
         self.start_channels()

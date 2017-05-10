@@ -169,7 +169,7 @@ class BaseChannel:
 
         :param args: Nodes to add.
         """
-        self.append(*args)
+        return self.append(*args)
 
     def _register_node(self, node):
         """

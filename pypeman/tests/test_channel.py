@@ -235,14 +235,11 @@ class ChannelsTests(unittest.TestCase):
 
         chan.add(nodes.JsonToPython(), nodes.PythonToJson())
 
-        @asyncio.coroutine
-        def go():
-            result = yield from chan.handle(msg)
-            self.assertEqual(result.payload, msg.payload, "Channel handle not working")
-
         # Launch channel processing
         self.start_channels()
-        self.loop.run_until_complete(go())
+        result = self.loop.run_until_complete(chan.handle(msg))
+
+        self.assertEqual(result.payload, msg.payload, "Channel handle not working")
 
     def test_channel_events(self):
         """ Whether BaseChannel handling return a good result """
@@ -260,17 +257,12 @@ class ChannelsTests(unittest.TestCase):
             state_sequence.append(new_state)
 
         @events.channel_change_state.receiver
-        @asyncio.coroutine
-        def handle_change_state_async(channel=None, old_state=None, new_state=None):
+        async def handle_change_state_async(channel=None, old_state=None, new_state=None):
             print(channel.name, old_state, new_state)
-
-        @asyncio.coroutine
-        def go():
-            result = yield from chan.handle(msg)
 
         # Launch channel processing
         self.start_channels()
-        self.loop.run_until_complete(go())
+        self.loop.run_until_complete(chan.handle(msg))
         self.loop.run_until_complete(chan.stop())
 
         print(state_sequence)
@@ -357,7 +349,6 @@ class ChannelsTests(unittest.TestCase):
 
             del chan
 
-
     def test_channel_stopped_dont_process_message(self):
         """ Whether BaseChannel handling return a good result """
 
@@ -366,17 +357,13 @@ class ChannelsTests(unittest.TestCase):
 
         chan.add(nodes.JsonToPython(), nodes.PythonToJson())
 
-        @asyncio.coroutine
-        def go():
-            result = yield from chan.handle(msg)
-
         # Launch channel processing
         self.start_channels()
-        self.loop.run_until_complete(go())
+        self.loop.run_until_complete(chan.handle(msg))
         self.loop.run_until_complete(chan.stop())
 
         with self.assertRaises(channels.ChannelStopped) as cm:
-            self.loop.run_until_complete(go())
+            self.loop.run_until_complete(chan.handle(msg))
 
     def test_channel_exception(self):
         """ Whether BaseChannel handling return an exception in case of error in main branch """

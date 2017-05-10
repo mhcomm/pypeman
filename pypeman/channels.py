@@ -41,8 +41,8 @@ class ChannelStopped(Exception):
 class BaseChannel:
     """
     Base channel are generic channels.
-    If you want to create new channel, inherit from the base class and call ``self.handle(msg)`` method
-    with generated message.
+    If you want to create new channel, inherit from the base class and call
+    ``self.handle(msg)`` method with generated message.
 
     :param name: Channel name is mandatory and must be unique through the whole project.
         Name gives a way to get channel in test mode.
@@ -55,7 +55,7 @@ class BaseChannel:
         initialisation if you want to save all processed message. Use
         `message_store_factory` argument with  an instance of wanted message store factory.
     """
-    STARTING, WAITING, PROCESSING, STOPPING, STOPPED  = range(5)
+    STARTING, WAITING, PROCESSING, STOPPING, STOPPED = range(5)
 
     def __init__(self, name=None, parent_channel=None, loop=None, message_store_factory=None):
 
@@ -79,7 +79,7 @@ class BaseChannel:
 
             self.parent = parent_channel
 
-            #  TODO parent channels usefull ?
+            # TODO parent channels usefull ?
             self.parent_uids = [parent_channel.uuid]
             self.parent_names = [parent_channel.name]
             if parent_channel.parent_uids:
@@ -89,7 +89,10 @@ class BaseChannel:
             self.parent_uids = None
 
         if self.name in _channels_names:
-            raise NameError("Duplicate channel name %r . Channel names must be unique !" % self.name )
+            raise NameError(
+                "Duplicate channel name %r . "
+                "Channel names must be unique !" % self.name
+            )
 
         _channels_names.add(self.name)
 
@@ -111,6 +114,7 @@ class BaseChannel:
 
     @property
     def status(self):
+        """ Getter for status """
         return self._status
 
     @status.setter
@@ -127,8 +131,7 @@ class BaseChannel:
         """
         return self.status in (BaseChannel.STOPPING, BaseChannel.STOPPED,)
 
-    @asyncio.coroutine
-    def start(self):
+    async def start(self):
         """
         Start the channel. Called before starting processus. Can be overloaded to specify specific
         start procedure.
@@ -145,15 +148,14 @@ class BaseChannel:
                 previous_node.next_node = node
                 previous_node = node
 
-    @asyncio.coroutine
-    def stop(self):
+    async def stop(self):
         """
         Stop the channel. Called when pypeman shutdown.
 
         """
         self.status = BaseChannel.STOPPING
         # Verify that all messages are processed
-        with (yield from self.lock):
+        with (await self.lock):
             self.status = BaseChannel.STOPPED
 
     def _reset_test(self):
@@ -269,8 +271,7 @@ class BaseChannel:
         """
         return self.loop.run_until_complete(self.handle(msg))
 
-    @asyncio.coroutine
-    def handle(self, msg):
+    async def handle(self, msg):
         """ Overload this method only if you know what you are doing but call it from
         child class to add behaviour.
 
@@ -289,10 +290,10 @@ class BaseChannel:
         self.logger.info("%s handle %s", self, msg)
 
         # Only one message processing at time
-        with (yield from self.lock):
+        with (await self.lock):
             self.status = BaseChannel.PROCESSING
             try:
-                result = yield from self.subhandle(msg)
+                result = await self.subhandle(msg)
                 self.message_store.change_message_state(msg_store_id, message.Message.PROCESSED)
                 return result
             except Dropped:
@@ -308,8 +309,7 @@ class BaseChannel:
             finally:
                 self.status = BaseChannel.WAITING
 
-    @asyncio.coroutine
-    def subhandle(self, msg):
+    async def subhandle(self, msg):
         """ Overload this method only if you know what you are doing. Called by ``handle`` method.
 
         :param msg: To be processed msg.
@@ -317,20 +317,19 @@ class BaseChannel:
         :return: Processed message
         """
 
-        result = yield from self.process(msg)
+        result = await self.process(msg)
 
         if self.next_node:
             if isinstance(result, types.GeneratorType):
                 for res in result:
-                    result = yield from self.next_node.handle(res)
+                    result = await self.next_node.handle(res)
                     # TODO Here result is last value returned. Is it a good idea ?
             else:
-                result = yield from self.next_node.handle(result)
+                result = await self.next_node.handle(result)
 
         return result
 
-    @asyncio.coroutine
-    def process(self, msg):
+    async def process(self, msg):
         """ Overload this method only if you know what you are doing. Called by ``subhandle`` method.
 
         :param msg: To be processed msg.
@@ -339,13 +338,12 @@ class BaseChannel:
         """
 
         if self._nodes:
-            res = yield from self._nodes[0].handle(msg)
+            res = await self._nodes[0].handle(msg)
             return res
         else:
             return msg
 
-    @asyncio.coroutine
-    def replay(self, msg_id):
+    async def replay(self, msg_id):
         """
         This method allows you to replay a message from channel `message_store`.
 
@@ -355,7 +353,7 @@ class BaseChannel:
         """
         msg_dict = self.message_store.get(msg_id)
         new_message = msg_dict['message'].renew()
-        result = self.handle(new_message)
+        result = await self.handle(new_message)
         return result
 
     def graph(self, prefix='', dot=False):
@@ -436,8 +434,7 @@ class SubChannel(BaseChannel):
         except:
             self.logger.exception("Error while processing msg in subchannel %s", self)
 
-    @asyncio.coroutine
-    def process(self, msg):
+    async def process(self, msg):
         if self._nodes:
             fut = ensure_future(self._nodes[0].handle(msg.copy()), loop=self.loop)
             fut.add_done_callback(self.callback)
@@ -461,13 +458,12 @@ class ConditionSubChannel(BaseChannel):
         else:
             return self.condition
 
-    @asyncio.coroutine
-    def subhandle(self, msg):
+    async def subhandle(self, msg):
         if self.test_condition(msg):
-            result = yield from self.process(msg)
+            result = await self.process(msg)
         else:
             if self.next_node:
-                result = yield from self.next_node.handle(msg)
+                result = await self.next_node.handle(msg)
             else:
                 result = msg
 
@@ -502,16 +498,15 @@ class Case():
         else:
             return condition
 
-    @asyncio.coroutine
-    def handle(self, msg):
+    async def handle(self, msg):
         result = msg
         for cond, channel in self.cases:
             if self.test_condition(cond, msg):
-                result = yield from channel.handle(msg)
+                result = await channel.handle(msg)
                 break
 
         if self.next_node:
-            result = yield from self.next_node.handle(result)
+            result = await self.next_node.handle(result)
 
         return result
 
@@ -549,9 +544,8 @@ class FileWatcherChannel(BaseChannel):
         else:
             self.logger.warning("Path doesn't exists: %r", self.basedir)
 
-    @asyncio.coroutine
-    def start(self):
-        yield from super().start()
+    async def start(self):
+        await super().start()
         ensure_future(self.watch_for_file(), loop=self.loop)
 
     def file_status(self, filename):
@@ -572,8 +566,8 @@ class FileWatcherChannel(BaseChannel):
         except Dropped:
             pass
 
-    def watch_for_file(self):
-        yield from asyncio.sleep(self.interval, loop=self.loop)
+    async def watch_for_file(self):
+        await asyncio.sleep(self.interval, loop=self.loop)
         try:
             if os.path.exists(self.basedir):
                 listfile = os.listdir(self.basedir)
@@ -585,7 +579,7 @@ class FileWatcherChannel(BaseChannel):
 
                         if status in [FileWatcherChannel.MODIFIED, FileWatcherChannel.NEW]:
                             filepath = os.path.join(self.basedir, filename)
-                            self.data[filename] =  os.stat(filepath).st_mtime
+                            self.data[filename] = os.stat(filepath).st_mtime
 
                             # Read file and make message
                             if self.binary_file:

@@ -481,7 +481,7 @@ class ChannelsTests(unittest.TestCase):
         for msg in msg_stored:
             print(msg)
 
-        self.assertEqual(len(msg_stored), 2, "Should be 3 messages in store!")
+        self.assertEqual(len(msg_stored), 2, "Should be 2 messages in store!")
 
         self.loop.run_until_complete(chan.replay(msg_stored[0]['id']))
 

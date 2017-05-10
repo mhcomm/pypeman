@@ -43,13 +43,13 @@ from pypeman.conf import settings
 #
 #filewatcher = channels.FileWatcherChannel(name="jsontojson", path='./', regex="test.*\.txt")
 #
-#filewatcher.add(nodes.Log(), nodes.JsonToPython(), CustomNode(), nodes.PythonToJson(), nodes.Log())
+#filewatcher.append(nodes.Log(), nodes.JsonToPython(), CustomNode(), nodes.PythonToJson(), nodes.Log())
 #
 
 # Example for testing purpose
 #filewatcher2 = channels.FileWatcherChannel(name="great", path='./', regex="empty.txt")
 #
-#filewatcher2.add(nodes.Log(name="first"), nodes.Log(name="second"))
+#filewatcher2.append(nodes.Log(name="first"), nodes.Log(name="second"))
 
 """
 

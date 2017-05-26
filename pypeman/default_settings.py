@@ -3,6 +3,10 @@
 DEBUG = False   # bool. can be set by env var PYPEMAN_DEBUG (0|1|true|false) or pypeman cmd args
 TESTING = False # bool. can be set by env var PYPEMAN_TESTING (0|1|true|false) pypeman cmd args
 
+DEBUG_PARAMS = dict(
+    slow_callback_duration = 0.1
+)
+
 HTTP_ENDPOINT_CONFIG = ['0.0.0.0', '8080']
 
 handlers = [ 'console' ]

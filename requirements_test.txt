@@ -1,4 +1,5 @@
 # Mandatory
+tox
 hl7
 xmltodict
 aiohttp

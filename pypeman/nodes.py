@@ -100,8 +100,7 @@ class BaseNode:
             self._handle_without_log = self.handle
             self.handle = self._log_handle
 
-    @asyncio.coroutine
-    def handle(self, msg):
+    async def handle(self, msg):
         """ Handle message is called by channel to launch process method on it.
         Some other structural processing take place here.
         Please, don't modify unless you know what you are doing.
@@ -122,19 +121,19 @@ class BaseNode:
 
         # Allow process as coroutine function
         if asyncio.iscoroutinefunction(self.process):
-            result = yield from self.async_run(msg)
+            result = await self.async_run(msg)
         else:
             result = self.run(msg)
 
         self.processed += 1
 
         if isinstance(result, asyncio.Future):
-            result = yield from result
+            result = await result
 
         if self.next_node:
             if isinstance(result, types.GeneratorType):
                 for res in result:
-                    result = yield from self.next_node.handle(res)
+                    result = await self.next_node.handle(res)
                     # TODO Here result is last value returned. Is it a good idea ?
             else:
                 if self.store_output_as:
@@ -147,16 +146,15 @@ class BaseNode:
                     result.payload = old_msg.payload
                     result.meta = old_msg.meta
 
-                result = yield from self.next_node.handle(result)
+                result = await self.next_node.handle(result)
 
         return result
 
-    @asyncio.coroutine
-    def _log_handle(self, msg):
+    async def _log_handle(self, msg):
         """
         Used when node logging is enabled. Log after node processing.
         """
-        result = yield from self._handle_without_log(msg)
+        result = await self._handle_without_log(msg)
 
         self.channel.logger.info('%s node from handles %s', str(self), str(result))
 
@@ -165,8 +163,7 @@ class BaseNode:
 
         return result
 
-    @asyncio.coroutine
-    def _test_handle(self, msg):
+    async def _test_handle(self, msg):
         """ Specific handle for TEST mode to enable some testing and introspection operations like mock input and/or
         output, or count processed message.
 
@@ -182,14 +179,13 @@ class BaseNode:
             else:
                 msg = self._mock_input
 
-        result = yield from self._handle(msg)
+        result = await self._handle(msg)
 
         return result
 
-    @asyncio.coroutine
-    def async_run(self, msg):
+    async def async_run(self, msg):
         """ Used to overload behaviour like thread Node without rewriting handle process """
-        result = yield from self.process(msg)
+        result = await self.process(msg)
         return result
 
     def run(self, msg):
@@ -333,9 +329,8 @@ class Sleep(BaseNode):
         self.duration = duration
         super().__init__(*args, **kwargs)
 
-    @asyncio.coroutine
-    def process(self, msg):
-        yield from asyncio.sleep(self.duration, loop=self.channel.loop)
+    async def process(self, msg):
+        await asyncio.sleep(self.duration, loop=self.channel.loop)
         return msg
 
 

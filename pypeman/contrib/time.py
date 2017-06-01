@@ -15,13 +15,11 @@ class CronChannel(channels.BaseChannel):
         super().__init__(*args, **kwargs)
         self.cron = cron
 
-    @asyncio.coroutine
-    def start(self):
-        super().start()
+    async def start(self):
+        await super().start()
         crontab(self.cron, func=self.tic, start=True)
 
-    @asyncio.coroutine
-    def tic(self):
+    async def tic(self):
         msg = message.Message()
         msg.payload = datetime.datetime.now()
-        yield from self.handle(msg)
+        await self.handle(msg)

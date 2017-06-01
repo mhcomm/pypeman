@@ -25,10 +25,9 @@ class HTTPEndpoint(endpoints.BaseEndpoint):
         # TODO route should be added later
         self._app.router.add_route(*args, **kwargs)
 
-    @asyncio.coroutine
-    def start(self):
+    async def start(self):
         if self._app is not None:
-            srv = yield from self.loop.create_server(self._app.make_handler(), self.address, self.port)
+            srv = await self.loop.create_server(self._app.make_handler(), self.address, self.port)
             print("Server started at http://{}:{}".format(self.address, self.port))
             return srv
         else:
@@ -59,17 +58,15 @@ class HttpChannel(channels.BaseChannel):
             raise TypeError('Missing "endpoint" argument')
         self.http_endpoint = endpoint
 
-    @asyncio.coroutine
-    def start(self):
-        yield from super().start()
+    async def start(self):
+        await super().start()
         self.http_endpoint.add_route(self.method, self.url, self.handle_request)
 
-    @asyncio.coroutine
-    def handle_request(self, request):
-        content = yield from request.text()
+    async def handle_request(self, request):
+        content = await request.text()
         msg = message.Message(content_type='http_request', payload=content, meta={'method': request.method})
         try:
-            result = yield from self.handle(msg)
+            result = await self.handle(msg)
             encoding = self.encoding or 'utf-8'
             return web.Response(body=result.payload.encode(encoding), status=result.meta.get('status', 200))
 
@@ -106,8 +103,7 @@ class HttpRequest(nodes.BaseNode):
                 raise
         return self.url % url_dict
 
-    @asyncio.coroutine
-    def handle_request(self, msg):
+    async def handle_request(self, msg):
         """ generate url and handle request """
         url = self.generate_request_url(msg)
 
@@ -134,14 +130,13 @@ class HttpRequest(nodes.BaseNode):
         else:
             basic_auth = self.auth
         with aiohttp.ClientSession(connector=conn) as session:
-            resp = yield from session.request(method=method, url=url, auth=basic_auth, headers=headers)
-            resp_text = yield from resp.text()
+            resp = await session.request(method=method, url=url, auth=basic_auth, headers=headers)
+            resp_text = await resp.text()
             return str(resp_text)
 
-    @asyncio.coroutine
-    def process(self, msg):
+    async def process(self, msg):
         """ handles request """
-        msg.payload = yield from self.handle_request(msg)
+        msg.payload = await self.handle_request(msg)
         return msg
 
 

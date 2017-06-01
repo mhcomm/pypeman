@@ -19,13 +19,12 @@ class Event:
         self.add_handler(handler)
         return handler
 
-    @asyncio.coroutine
-    def fire(self, *args, **kargs):
+    async def fire(self, *args, **kargs):
         for handler in self.handlers:
             if not asyncio.iscoroutinefunction(handler):
                 handler = asyncio.coroutine(handler)
 
-            yield from handler(*args, **kargs)
+            await handler(*args, **kargs)
 
     def getHandlerCount(self):
         return len(self.handlers)

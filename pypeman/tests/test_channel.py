@@ -88,7 +88,9 @@ class ChannelsTests(unittest.TestCase):
         n = TestNode()
         msg = generate_msg()
 
-        chan.add(n)
+        same_chan = chan.add(n)
+
+        self.assertEqual(same_chan, chan, "Add doesn't return channel")
 
         # Launch channel processing
         self.start_channels()
@@ -117,9 +119,12 @@ class ChannelsTests(unittest.TestCase):
 
         msg = generate_msg()
 
-        chan.add(n1)
+        same_chan = chan.append(n1)
+
+        self.assertEqual(chan, same_chan, "Append don't return channel.")
+
         sub = chan.fork(name="subchannel")
-        sub.add(n2, n3, n4)
+        sub.append(n2, n3, n4)
 
         # Launch channel processing
         self.start_channels()
@@ -230,14 +235,11 @@ class ChannelsTests(unittest.TestCase):
 
         chan.add(nodes.JsonToPython(), nodes.PythonToJson())
 
-        @asyncio.coroutine
-        def go():
-            result = yield from chan.handle(msg)
-            self.assertEqual(result.payload, msg.payload, "Channel handle not working")
-
         # Launch channel processing
         self.start_channels()
-        self.loop.run_until_complete(go())
+        result = self.loop.run_until_complete(chan.handle(msg))
+
+        self.assertEqual(result.payload, msg.payload, "Channel handle not working")
 
     def test_channel_events(self):
         """ Whether BaseChannel handling return a good result """
@@ -255,17 +257,12 @@ class ChannelsTests(unittest.TestCase):
             state_sequence.append(new_state)
 
         @events.channel_change_state.receiver
-        @asyncio.coroutine
-        def handle_change_state_async(channel=None, old_state=None, new_state=None):
+        async def handle_change_state_async(channel=None, old_state=None, new_state=None):
             print(channel.name, old_state, new_state)
-
-        @asyncio.coroutine
-        def go():
-            result = yield from chan.handle(msg)
 
         # Launch channel processing
         self.start_channels()
-        self.loop.run_until_complete(go())
+        self.loop.run_until_complete(chan.handle(msg))
         self.loop.run_until_complete(chan.stop())
 
         print(state_sequence)
@@ -352,7 +349,6 @@ class ChannelsTests(unittest.TestCase):
 
             del chan
 
-
     def test_channel_stopped_dont_process_message(self):
         """ Whether BaseChannel handling return a good result """
 
@@ -361,17 +357,13 @@ class ChannelsTests(unittest.TestCase):
 
         chan.add(nodes.JsonToPython(), nodes.PythonToJson())
 
-        @asyncio.coroutine
-        def go():
-            result = yield from chan.handle(msg)
-
         # Launch channel processing
         self.start_channels()
-        self.loop.run_until_complete(go())
+        self.loop.run_until_complete(chan.handle(msg))
         self.loop.run_until_complete(chan.stop())
 
         with self.assertRaises(channels.ChannelStopped) as cm:
-            self.loop.run_until_complete(go())
+            self.loop.run_until_complete(chan.handle(msg))
 
     def test_channel_exception(self):
         """ Whether BaseChannel handling return an exception in case of error in main branch """
@@ -476,7 +468,7 @@ class ChannelsTests(unittest.TestCase):
         for msg in msg_stored:
             print(msg)
 
-        self.assertEqual(len(msg_stored), 2, "Should be 3 messages in store!")
+        self.assertEqual(len(msg_stored), 2, "Should be 2 messages in store!")
 
         self.loop.run_until_complete(chan.replay(msg_stored[0]['id']))
 

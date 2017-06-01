@@ -8,7 +8,6 @@ import datetime
 import logging
 from importlib import reload
 import asyncio
-from asyncio import coroutine
 
 
 from pypeman import nodes
@@ -84,12 +83,11 @@ class SimpleTestNode(nodes.BaseNode):
         # Used to test if node is processed during test
         self.processed = False
 
-    @coroutine
-    def process(self, msg):
+    async def process(self, msg):
         if self.delay:
             time.sleep(self.delay)
         if self.async_delay is not None:
-            yield from asyncio.sleep(self.async_delay, loop=self.loop)
+            await asyncio.sleep(self.async_delay, loop=self.loop)
         self.logger.info("Process done: %s", msg)
         self.processed = True
         return msg

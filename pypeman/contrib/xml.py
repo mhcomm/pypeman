@@ -11,7 +11,6 @@ class XMLToPython(nodes.BaseNode):
         self.process_namespaces = kwargs.pop('process_namespaces', False)
         super().__init__(*args, **kwargs)
 
-
     def process(self, msg):
         msg.payload = xmltodict.parse(msg.payload, process_namespaces=self.process_namespaces)
         msg.content_type = 'application/python'

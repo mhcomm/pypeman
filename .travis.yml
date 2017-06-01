@@ -1,10 +1,11 @@
 language: python
-env:
-  - TOXENV=py34
+python:
+  - "3.5"
+  - "3.6"
 install:
   - pip install tox
 script:
-  - tox
+  - tox -e $(echo py$TRAVIS_PYTHON_VERSION | tr -d .)
 notifications:
   email:
     - pypeman@mhcomm.fr

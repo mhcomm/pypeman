@@ -7,8 +7,7 @@ class BaseEndpoint:
     def __init__(self):
         all.append(self)
 
-    @asyncio.coroutine
-    def start(self):
+    async def start(self):
         pass
 
 from pypeman.helpers import lazyload

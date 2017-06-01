@@ -2,8 +2,7 @@ language: python
 python:
   - "3.5"
   - "3.5-dev"
-env:
-  - TOXENV=py35
+  - "3.6"
 install:
   - pip install tox
 script:

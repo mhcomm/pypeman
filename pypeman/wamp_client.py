@@ -106,7 +106,7 @@ def start_client(loop=None, wamp_srv_url=WAMP_SRV_URL, realm=WAMP_REALM):
             logger.exception("WAMP session could not be created", str(exc))
             loop.stop()
         else:
-            print("WAMP session successfully created.")
+            print("WAMP session successfully created on %s:%d" % (host, port))
             return session
     
     transport_factory = WampWebSocketClientFactory(create, url=wamp_srv_url)

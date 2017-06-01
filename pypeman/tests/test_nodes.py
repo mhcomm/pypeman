@@ -118,7 +118,7 @@ class NodesTests(unittest.TestCase):
         base = bytes(m.payload)
 
         ret = self.loop.run_until_complete(n1.handle(m))
-        ext_new =self.loop.run_until_complete(n2.handle(ret))
+        ext_new = self.loop.run_until_complete(n2.handle(ret))
 
         # Check return
         self.assertTrue(isinstance(ret, message.Message))
@@ -271,7 +271,7 @@ class NodesTests(unittest.TestCase):
             fake_ftp.upload_file.assert_called_once_with('test_write.part', 'message_content')
             fake_ftp.rename.assert_called_once_with('test_write.part', 'test_write')
 
-    
+
     def test_file_reader_node(self):
         """if FileReader are functionnal"""
 

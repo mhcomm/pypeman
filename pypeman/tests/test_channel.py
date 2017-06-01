@@ -90,7 +90,7 @@ class ChannelsTests(unittest.TestCase):
 
         same_chan = chan.add(n)
 
-        self.assertEqual(same_chan, chan, "Add don't return channel")
+        self.assertEqual(same_chan, chan, "Add doesn't return channel")
 
         # Launch channel processing
         self.start_channels()

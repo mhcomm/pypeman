@@ -27,7 +27,10 @@ setup(name='pypeman',
       author_email='jeremie.pardou@mhcomm.fr',
 
       license='Apache Software License',
-      packages=['pypeman', 'pypeman.helpers', 'pypeman.contrib'],
+      packages=['pypeman', 'pypeman.helpers', 'pypeman.contrib',
+            'pypeman.tests', # required for testing pypeman AND pypeman projects
+            #'pypeman.tst_helpers, # at the moment unused.
+            ],
 
       entry_points={
           'console_scripts': [

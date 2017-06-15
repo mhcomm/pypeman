@@ -6,6 +6,8 @@ import os
 
 import datetime
 
+from urllib.parse import urlparse
+
 from autobahn.asyncio.wamp import ApplicationSession
 from autobahn.asyncio.websocket import WampWebSocketClientFactory
 from autobahn.wamp.types import ComponentConfig
@@ -16,15 +18,13 @@ from pypeman.events import channel_change_state
 from pypeman.channels import all as all_channels
 from pypeman.message import Message
 
+
 import logging
 
-logger = logging.getLogger("pypeman.store")
+logger = logging.getLogger(__file__)
 
 # TODO : Find a way to import this from pypeman directly (channels or whatever)
 state_mapper = ['STARTING', 'WAITING', 'PROCESSING', 'STOPPING', 'STOPPED']
-
-WAMP_SRV_URL, WAMP_REALM = u"ws://localhost:8080/ws", "realm1"
-host, port = 'localhost', 8080
 
 class PypemanSession(ApplicationSession):
     @asyncio.coroutine
@@ -103,29 +103,30 @@ class PypemanSession(ApplicationSession):
             msg = "channel %s has changed state from %r to %r" % (channel, old_state, new_state) 
             # info = dict(channel=channel, state=new_state)
             data = dict(channel=channel.name, state=state_mapper[new_state], old_state=state_mapper[old_state])
-            self.publish(u"pypeman.state_change", data)
+            self.publish("pypeman.state_change", data)
           
-        yield from self.register(stop_channel, u'pypeman.stop_channel')
-        yield from self.register(change_channel_state, u'pypeman.change_channel_state')
-        yield from self.register(list_channels, u'pypeman.list_channels')
-        yield from self.register(message_store, u'pypeman.message_store')
-        yield from self.register(get_channel_info, u'pypeman.get_channel_info')
+        yield from self.register(stop_channel, 'pypeman.stop_channel')
+        yield from self.register(change_channel_state, 'pypeman.change_channel_state')
+        yield from self.register(list_channels, 'pypeman.list_channels')
+        yield from self.register(message_store, 'pypeman.message_store')
+        yield from self.register(get_channel_info, 'pypeman.get_channel_info')
 
-def start_client(loop=None, wamp_srv_url=WAMP_SRV_URL, realm=WAMP_REALM):
+def start_client(loop=None, url="localhost", realm="8080"):
     if loop is None:
         loop = asyncio.get_event_loop()
 
     def create(): 
-        try:
-            cfg = ComponentConfig(realm) 
-            session = PypemanSession(cfg)
-        except Exception as exc:
-            logger.exception("WAMP session could not be created", str(exc))
-            loop.stop()
-        else:
-            print("WAMP session successfully created on %s:%d" % (host, port))
-            return session
-    
-    transport_factory = WampWebSocketClientFactory(create, url=wamp_srv_url)
-    coro = loop.create_connection(transport_factory, host, port, ssl=None)
+        cfg = ComponentConfig(realm) 
+        return PypemanSession(cfg)
+
+    parsed_url = urlparse(url)
+    transport_factory = WampWebSocketClientFactory(create, url=url)
+
+    ssl = False
+
+    if parsed_url.scheme == "wss":
+        ssl = True
+
+    coro = loop.create_connection(transport_factory, parsed_url.hostname, parsed_url.port, ssl=ssl)
     loop.run_until_complete(coro)
+

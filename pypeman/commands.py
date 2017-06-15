@@ -53,7 +53,7 @@ def load_project():
         raise
 
 
-def main(debug_asyncio=False, profile=False, cli=False, webui=True):
+def main(debug_asyncio=False, profile=False, cli=False):
 
 
     load_project()
@@ -87,10 +87,15 @@ def main(debug_asyncio=False, profile=False, cli=False, webui=True):
         cli = CLI(namespace=namespace)
         cli.run_as_thread()
 
-    if webui:
+    if settings.ENABLE_WEBUI:
         from pypeman import wampclient 
         print("Starting web user interface...")
-        wampclient.start_client(loop=loop)
+
+        try:
+            wampclient.start_client(loop=loop, **settings.WAMP_CONFIG)
+            print("WAMP session successfully created")
+        except:
+            print("WAMP session could not be created")
     
     print('Waiting for messages...')
     try:
@@ -114,8 +119,6 @@ def start(reload: 'Make server autoreload (Dev only)'=False,
         debug_asyncio: 'Enable asyncio debug'=False,
         cli : "enables an IPython CLI for debugging (not perational)"=False,
         profile : "enables profiling / run stats (not operational)"=False,
-        # TODO : Allow to configure IP and port from CLI
-        webgui : "start web graphical interface (default at localhost:8081)"=False,
         ):
     """ Start pypeman """
     reloader_opt(partial(main, debug_asyncio=debug_asyncio, cli=cli, profile=profile), reload, 2)

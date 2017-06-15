@@ -10,7 +10,7 @@ The API may change in future versions.
 You can use it to make the *glue* between your platform components.
 It's main purpose is to exchange and process data to connect platform in an heterogeneous environment.
 
-Pypeman is developed in python>3.4 using intensively Python
+Pypeman is developed in py3.5+ using intensively Python
 `asyncio <https://docs.python.org/3.4/library/asyncio.html>`_ feature.
 
 Main objectives of this project are to make it:

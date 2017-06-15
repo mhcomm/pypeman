@@ -45,6 +45,22 @@ class PypemanSession(ApplicationSession):
                 resp = str(exc)
             return resp
         
+        def get_channel_info(channel_name):
+            try:
+                logger.debug("get_channel_info called for %s", channel_name)
+                chan = [chan for chan in all_channels if channel_name == chan.name]
+                if not chan:
+                    return "unknown channel %s" % channel_name
+                
+                msgs = [msg["message"].payload for msg in msg_store.search()] 
+
+                return msgs
+            
+            except Exception as exc:
+                resp = str(exc)
+
+            return resp
+
         def message_store(channel_name):
             try:
                 logger.debug("Message store requested for channel %s", channel_name)
@@ -59,7 +75,7 @@ class PypemanSession(ApplicationSession):
                 logger.info("message store channel requested: returning %r", msgs)
                 return msgs
             except Exception as exc:
-                return str(exc)
+                return str("Pypeman: exception occured:", exc)
                 
         def stop_channel(channel_name):
             try:
@@ -93,6 +109,7 @@ class PypemanSession(ApplicationSession):
         yield from self.register(change_channel_state, u'pypeman.change_channel_state')
         yield from self.register(list_channels, u'pypeman.list_channels')
         yield from self.register(message_store, u'pypeman.message_store')
+        yield from self.register(get_channel_info, u'pypeman.get_channel_info')
 
 def start_client(loop=None, wamp_srv_url=WAMP_SRV_URL, realm=WAMP_REALM):
     if loop is None:

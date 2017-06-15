@@ -38,11 +38,12 @@ setup(name='pypeman',
       test_suite='nose.collector',
       install_requires=['begins'],
       extras_require={
+          'webui': ["autobahn[asyncio]"],
           'hl7': ["hl7"],
           'http': ["aiohttp"],
           'xml': ["xmltodict"],
           'time': ["aiocron"],
-          'all': ["hl7", "aiohttp", "xmltodict", "aiocron"]
+          'all': ["hl7", "aiohttp", "xmltodict", "aiocron", "autobahn[asyncio]"]
       },
       tests_require=['nose', 'nose-cover3'],
 )

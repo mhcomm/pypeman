@@ -34,9 +34,6 @@ from pypeman import nodes
 from pypeman import endpoints
 from pypeman.conf import settings
 
-from pypeman import wamp_client 
-
-
 def load_project():
     settings.init_settings()
     try:
@@ -95,8 +92,9 @@ def main(debug_asyncio=False, profile=False, cli=False, webui=True):
         cli.run_as_thread()
 
     if webui:
+        from pypeman import wampclient 
         print("Starting web user interface...")
-        wamp_client.start_client(loop=loop)
+        wampclient.start_client(loop=loop)
     
     print('Waiting for messages...')
     try:

@@ -9,6 +9,12 @@ DEBUG_PARAMS = dict(
 
 HTTP_ENDPOINT_CONFIG = ['0.0.0.0', '8080']
 
+ENABLE_WEBUI = True
+WAMP_CONFIG = {
+    "url": "ws://localhost:8080/ws",
+    "realm": "realm1",
+}
+
 handlers = [ 'console' ]
 
 LOGGING = {
@@ -36,3 +42,5 @@ LOGGING = {
         },
     }
 }
+
+

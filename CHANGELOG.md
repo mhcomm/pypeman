@@ -1,5 +1,13 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
 
+## [0.2.0](https://github.com/mhcomm/pypeman/compare/0.2.0...0.1.0)
+
+* Migrate to python 3.5 syntax and stop py34 compatibility
+* Test over py35 and py36
+* Rewrite FileReader for better naming
+* Improved slow loop testing
+* Json node has indent parameter
+
 ## [0.1.0](https://github.com/mhcomm/pypeman/compare/0.1.0...0.0.1a1)
 
 * Add new "test" command to test your channels

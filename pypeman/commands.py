@@ -109,7 +109,7 @@ def main(debug_asyncio=False, profile=False, cli=False):
 
 
 @begin.subcommand
-def start(reload: 'Make server autoreload (Dev only)'=False, 
+def start(reload: 'Make server autoreload (Dev only)'=False,
         debug_asyncio: 'Enable asyncio debug'=False,
         cli : "enables an IPython CLI for debugging (not perational)"=False,
         profile : "enables profiling / run stats (not operational)"=False,

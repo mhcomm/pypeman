@@ -2,7 +2,7 @@ from unittest import TestCase
 import asyncio
 from pypeman import channels
 
-# TODO implement settings overload
+# TODO implement settings override
 # TODO implement MessageStoreMock
 
 class PypeTestCase(TestCase):
@@ -38,6 +38,8 @@ class PypeTestCase(TestCase):
 
     @classmethod
     def finish_all_tasks(cls):
+        """ You can use this function if you have some subchannel in you channel
+        and want to see the final result """
 
         # Useful to execute future callbacks
         pending = asyncio.Task.all_tasks(loop=cls.loop)

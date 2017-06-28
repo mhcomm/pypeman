@@ -1,0 +1,10 @@
+# For doc
+sphinx
+sphinx-autobuild
+recommonmark
+sphinx_rtd_theme
+hl7
+xmltodict
+aiohttp
+aiocron
+

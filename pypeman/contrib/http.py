@@ -10,10 +10,13 @@ from aiohttp import web
 class HTTPEndpoint(endpoints.BaseEndpoint):
     """
     Endpoint to receive HTTP connection from outside.
+    :param http_args:  dict to pass as **kwargs to aiohttp.Application for example for
+                `client_max_size`
     """
 
-    def __init__(self, adress='127.0.0.1', port='8080', loop=None):
+    def __init__(self, adress='127.0.0.1', port='8080', loop=None, http_args=None):
         super().__init__()
+        self.http_args = http_args or {}
         self._app = None
         self.address = adress
         self.port = port
@@ -21,7 +24,7 @@ class HTTPEndpoint(endpoints.BaseEndpoint):
 
     def add_route(self,*args, **kwargs):
         if not self._app:
-            self._app = web.Application(loop=self.loop)
+            self._app = web.Application(loop=self.loop, **self.http_args)
         # TODO route should be added later
         self._app.router.add_route(*args, **kwargs)
 

@@ -5,22 +5,10 @@ import logging
 from unittest import mock
 
 
-def create_complex_message():
-    m = generate_msg(message_content={'answer': 42})
-
-    mctx = generate_msg(message_content={'question': 'known'}, message_meta={'answer': 43})
-
-    m.ctx['test'] = mctx
-
-    return m
-
-
 class MessageTests(unittest.TestCase):
 
     def test_message_dict_conversion(self):
-
-
-        m = create_complex_message()
+        m = generate_msg(message_content={'answer': 42}, with_context=True)
 
         mdict = m.to_dict()
 
@@ -32,10 +20,11 @@ class MessageTests(unittest.TestCase):
         self.assertEqual(m.uuid.hex, compare_to.uuid.hex, "Bad uuid")
         self.assertEqual(m.meta['question'], compare_to.meta['question'], "Bad meta")
 
-        self.assertEqual(m.ctx['test'].payload['question'], compare_to.ctx['test'].payload['question'], "Bad ctx")
+        self.assertEqual(m.ctx['test']['payload']['question'], compare_to.ctx['test']['payload']['question'], "Bad ctx")
+        self.assertEqual(m.ctx['test']['meta']['answer'], compare_to.ctx['test']['meta']['answer'], "Bad ctx")
 
     def test_message_json_conversion(self):
-        m = create_complex_message()
+        m = generate_msg(message_content={'answer': 42}, with_context=True)
 
         msg_json = m.to_json()
 
@@ -45,11 +34,11 @@ class MessageTests(unittest.TestCase):
         self.assertEqual(m.uuid.hex, compare_to.uuid.hex, "Bad uuid")
         self.assertEqual(m.meta['question'], compare_to.meta['question'], "Bad meta")
 
-        self.assertEqual(m.ctx['test'].payload['question'], compare_to.ctx['test'].payload['question'], "Bad ctx")
-
+        self.assertEqual(m.ctx['test']['payload']['question'], compare_to.ctx['test']['payload']['question'], "Bad ctx")
+        self.assertEqual(m.ctx['test']['meta']['answer'], compare_to.ctx['test']['meta']['answer'], "Bad ctx")
 
     def test_message_copy(self):
-        m = create_complex_message()
+        m = generate_msg(message_content={'answer': 42}, with_context=True)
 
         compare_to = m.copy()
 
@@ -57,10 +46,11 @@ class MessageTests(unittest.TestCase):
         self.assertEqual(m.uuid.hex, compare_to.uuid.hex, "Bad uuid copy")
         self.assertEqual(m.meta['question'], compare_to.meta['question'], "Bad meta copy")
 
-        self.assertEqual(m.ctx['test'].payload['question'], compare_to.ctx['test'].payload['question'], "Bad ctx copy")
+        self.assertEqual(m.ctx['test']['payload']['question'], compare_to.ctx['test']['payload']['question'], "Bad ctx copy")
+        self.assertEqual(m.ctx['test']['meta']['answer'], compare_to.ctx['test']['meta']['answer'], "Bad ctx")
 
     def test_message_renew(self):
-        m = create_complex_message()
+        m = generate_msg(message_content={'answer': 42}, with_context=True)
 
         compare_to = m.renew()
 
@@ -69,13 +59,14 @@ class MessageTests(unittest.TestCase):
         self.assertNotEqual(m.timestamp, compare_to.timestamp, "Timestamp should not be copied")
         self.assertEqual(m.meta['question'], compare_to.meta['question'], "Bad meta copy")
 
-        self.assertEqual(m.ctx['test'].payload['question'], compare_to.ctx['test'].payload['question'], "Bad ctx copy")
+        self.assertEqual(m.ctx['test']['payload']['question'], compare_to.ctx['test']['payload']['question'], "Bad ctx copy")
+        self.assertEqual(m.ctx['test']['meta']['answer'], compare_to.ctx['test']['meta']['answer'], "Bad ctx")
 
     def test_message_logging(self):
         """
         Whether message logging is working well.
         """
-        m = create_complex_message()
+        m = generate_msg(message_content={'answer': 42}, with_context=True)
 
         mock_logger = mock.MagicMock()
         m.log(logger=mock_logger)

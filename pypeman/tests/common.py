@@ -43,7 +43,7 @@ def teardown_settings():
 
 default_message_content = """{"test":1}"""
 default_message_meta = {'question': 'unknown'}
-def generate_msg(timestamp=None, message_content=default_message_content, message_meta=None):
+def generate_msg(timestamp=None, message_content=default_message_content, message_meta=None, with_context=False):
     """ generates a default message """
     m = message.Message()
     if timestamp:
@@ -60,6 +60,11 @@ def generate_msg(timestamp=None, message_content=default_message_content, messag
         m.meta = default_message_meta
     else:
         m.meta = message_meta
+
+    if with_context:
+        # Add context message
+        mctx = generate_msg(message_content={'question': 'known'}, message_meta={'answer': 43})
+        m.add_context('test', mctx)
 
     return m
 

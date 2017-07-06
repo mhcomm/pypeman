@@ -111,10 +111,7 @@ class BaseNode:
 
         # TODO : Make sure exceptions are well raised (does not happen if i.e 1/0 here atm)
         if self.store_input_as:
-            msg.ctx[self.store_input_as] = dict(
-                meta=dict(msg.meta),
-                payload=deepcopy(msg.payload),
-            )
+            msg.add_context(self.store_input_as, msg)
 
         if self.passthrough:
             old_msg = msg.copy()
@@ -137,10 +134,7 @@ class BaseNode:
                     # TODO Here result is last value returned. Is it a good idea ?
             else:
                 if self.store_output_as:
-                    result.ctx[self.store_output_as] = dict(
-                        meta=dict(result.meta),
-                        payload=deepcopy(result.payload),
-                    )
+                    msg.add_context(self.store_output_as, msg)
 
                 if self.passthrough:
                     result.payload = old_msg.payload

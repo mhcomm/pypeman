@@ -12,10 +12,7 @@ from pypeman import message
 from pypeman import nodes
 from pypeman import msgstore
 from pypeman import events
-from pypeman.tests.common import TestException
-
-message_content = """{"test":1}"""
-
+from pypeman.tests.common import TestException, generate_msg
 
 class TestNode(nodes.BaseNode):
     def __init__(self, *args, **kwargs):
@@ -43,14 +40,6 @@ class ExceptNode(TestNode):
     def process(self, msg):
         result = super().process(msg)
         raise TestException()
-
-def generate_msg(timestamp=(1981, 12, 28, 13, 37)):
-    # Default message
-    m = message.Message()
-    m.timestamp = datetime.datetime(*timestamp)
-    m.payload = message_content
-
-    return m
 
 
 class ChannelsTests(unittest.TestCase):
@@ -383,7 +372,7 @@ class ChannelsTests(unittest.TestCase):
 
         chan = BaseChannel(name="test_channel9", loop=self.loop, message_store_factory=msgstore.FakeMessageStoreFactory())
         n = TestNode()
-        msg = generate_msg()
+        msg = generate_msg(with_context=True)
 
         chan.add(n)
 
@@ -403,7 +392,7 @@ class ChannelsTests(unittest.TestCase):
         n = TestNode()
         n_error = TestConditionalErrorNode()
 
-        msg = generate_msg()
+        msg = generate_msg(with_context=True)
         msg2 = generate_msg(timestamp=(1982, 11, 27, 12, 35))
         msg3 = generate_msg(timestamp=(1982, 11, 28, 12, 35))
         msg4 = generate_msg(timestamp=(1982, 11, 28, 14, 35))
@@ -451,7 +440,7 @@ class ChannelsTests(unittest.TestCase):
 
         n = TestNode()
 
-        msg = generate_msg()
+        msg = generate_msg(with_context=True)
         msg2 = generate_msg(timestamp=(1982, 11, 27, 12, 35))
 
 
@@ -487,7 +476,7 @@ class ChannelsTests(unittest.TestCase):
         n = TestNode()
         n_error = TestConditionalErrorNode()
 
-        msg = generate_msg()
+        msg = generate_msg(with_context=True)
         msg2 = generate_msg(timestamp=(1982, 11, 27, 12, 35))
         msg3 = generate_msg(timestamp=(1982, 11, 28, 12, 35))
         msg4 = generate_msg(timestamp=(1982, 11, 28, 14, 35))

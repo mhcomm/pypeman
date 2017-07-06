@@ -71,12 +71,19 @@ class Message():
         result['meta'] = self.meta
         result['ctx'] = {}
 
-        for k, m in self.ctx.items():
-            result['ctx'][k] = m.to_dict()
+        for k, ctx_msg in self.ctx.items():
+            result['ctx'][k] = {}
+            result['ctx'][k]['payload'] = base64.b64encode(pickle.dumps(ctx_msg['payload'])).decode('ascii')
+            result['ctx'][k]['meta'] = dict(ctx_msg['meta'])
 
         return result
 
     def to_json(self):
+        """
+        Create json data from current message.
+
+        :return: a json string equivalent for message.
+        """
         return json.dumps(self.to_dict())
 
     @staticmethod
@@ -92,8 +99,10 @@ class Message():
         result.payload = pickle.loads(base64.b64decode(data['payload'].encode('ascii')))
         result.meta = data['meta']
 
-        for k, m in data['ctx'].items():
-            result.ctx[k] = Message.from_dict(m)
+        for k, ctx_msg in data['ctx'].items():
+            result.ctx[k] = {}
+            result.ctx[k]['payload'] = pickle.loads(base64.b64decode(ctx_msg['payload'].encode('ascii')))
+            result.ctx[k]['meta'] = dict(ctx_msg['meta'])
 
         return result
 
@@ -131,7 +140,11 @@ class Message():
             logger.log(log_level, 'Context for message ->')
             for key, msg in self.ctx.items():
                 logger.log(log_level, '-- Key "%s" --', key)
-                msg.log(logger, log_level, payload, meta, context)
+                if payload:
+                    logger.log(log_level, 'Payload: %r', msg['payload'])
+
+                if meta:
+                    logger.log(log_level, 'Meta: %r', msg['meta'])
 
     def __str__(self):
         return "<msg: %s>" % self.uuid

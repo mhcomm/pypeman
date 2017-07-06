@@ -404,7 +404,6 @@ class ChannelsTests(unittest.TestCase):
         chan.add(n_error)
 
         # Launch channel processing
-
         self.start_channels()
         self.loop.run_until_complete(chan.handle(msg))
         self.loop.run_until_complete(chan.handle(msg2))
@@ -431,6 +430,29 @@ class ChannelsTests(unittest.TestCase):
         dict_msg = chan.message_store.get('%s' % msg5.uuid.hex)
         self.assertEqual(dict_msg['state'], 'error', "Message %s should be in error state!" % msg5)
 
+    def test_memory_message_store(self):
+        """ We can store a message in FileMessageStore """
+
+        store_factory = msgstore.MemoryMessageStoreFactory()
+
+        chan = BaseChannel(name="test_channel10", loop=self.loop, message_store_factory=store_factory)
+
+        n1 = TestNode()
+        n2 = TestNode()
+        n3 = TestNode()
+        n4 = TestNode()
+
+        chan.add(n1, n2)
+        fork = chan.fork()
+        fork.add(n3)
+
+        self.assertTrue(isinstance(fork.message_store, msgstore.NullMessageStore))
+
+        whe = chan.when(True, message_store_factory=store_factory)
+        whe.add(n4)
+
+        self.assertTrue(isinstance(whe.message_store, msgstore.MemoryMessageStore))
+
     def test_replay_from_memory_message_store(self):
         """ We can store a message in FileMessageStore """
 
@@ -447,7 +469,6 @@ class ChannelsTests(unittest.TestCase):
         chan.add(n)
 
         # Launch channel processing
-
         self.start_channels()
         self.loop.run_until_complete(chan.handle(msg))
         self.loop.run_until_complete(chan.handle(msg2))

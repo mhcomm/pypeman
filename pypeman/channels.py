@@ -212,8 +212,6 @@ class BaseChannel:
 
         :return: The forked channel
         """
-        if message_store_factory is None:
-            message_store_factory = self.message_store_factory
 
         s = SubChannel(name=name, parent_channel=self, message_store_factory=message_store_factory, loop=self.loop)
         self._nodes.append(s)
@@ -228,8 +226,6 @@ class BaseChannel:
 
         :return: The conditional path channel.
         """
-        if message_store_factory is None:
-            message_store_factory = self.message_store_factory
 
         s = ConditionSubChannel(condition=condition, name=name, parent_channel=self, message_store_factory=message_store_factory, loop=self.loop)
         self._nodes.append(s)
@@ -253,9 +249,6 @@ class BaseChannel:
         """
         if names is None:
             names = [None] * len(conditions)
-
-        if message_store_factory is None:
-            message_store_factory = self.message_store_factory
 
         c = Case(*conditions, names=names, parent_channel=self, message_store_factory=message_store_factory, loop=self.loop)
         self._nodes.append(c)

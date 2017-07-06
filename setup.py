@@ -38,6 +38,9 @@ setup(name='pypeman',
       },
 
       test_suite='nose.collector',
+      install_requires=['begins', 'daemonlite'],
+      # or alternatively w/o daemonlite: -> no daemonization by default
+      # or an extras require . . .
       install_requires=['begins'],
       extras_require={
           'hl7': ["hl7"],

@@ -1,2 +1,5 @@
 # Mandatory
 begins
+# rmv next line if we decie do have no daemonisation by default or
+# if we decide to copy paste daemonization code into pypeman
+daemonlite 

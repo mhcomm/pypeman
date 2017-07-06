@@ -29,7 +29,7 @@ def load_class(module, class_, deps):
             raise
 
         print("%s module not activated" % module)
-        return None
+        raise
 
 
 def load(selfmodname, module, class_, dep=None):

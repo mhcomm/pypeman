@@ -52,6 +52,13 @@ class Message():
         msg.timestamp = datetime.datetime.now()
         return msg
 
+    def add_context(self, key, msg):
+        """ Add a msg to the current message context with key `key` """
+        self.ctx[key] = dict(
+            meta=dict(msg.meta),
+            payload=copy.deepcopy(msg.payload),
+        )
+
     def to_dict(self):
         """
         Convert a message object to a dict.

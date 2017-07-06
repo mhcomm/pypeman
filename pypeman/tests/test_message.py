@@ -10,7 +10,7 @@ def create_complex_message():
 
     mctx = generate_msg(message_content={'question': 'known'}, message_meta={'answer': 43})
 
-    m.ctx['test'] = mctx
+    m.add_context('test', mctx)
 
     return m
 

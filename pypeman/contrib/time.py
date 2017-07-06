@@ -5,6 +5,7 @@ from pypeman import channels, message
 
 from aiocron import crontab
 
+
 class CronChannel(channels.BaseChannel):
     """
     Periodic execution of tasks.

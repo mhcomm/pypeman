@@ -4,9 +4,21 @@ from importlib import import_module
 VERSION = import_module("pypeman").__version__
 URL = import_module("pypeman").__url__
 
+long_description = """
+# Welcome to Pypeman
+
+Pypeman is a minimalist but pragmatic ESB / ETL / EAI in python.
+
+[![Build Status](https://travis-ci.org/mhcomm/pypeman.svg?branch=master)](https://travis-ci.org/mhcomm/pypeman)
+
+
+See [documentation](http://pypeman.readthedocs.org/en/latest/) for more informations.
+"""
+
 setup(name='pypeman',
       version=VERSION,
       description='Minimalistic but pragmatic ESB / ETL / EAI in Python',
+      long_description=long_description,
       classifiers=[
           'Development Status :: 4 - Beta',
           'License :: OSI Approved :: Apache Software License',

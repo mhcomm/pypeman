@@ -247,8 +247,15 @@ class RaiseError(BaseNode):
 
 class Drop(BaseNode):
     """ This node used to tell the channel the message is Dropped. """
+    def __init__(self, message=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.message = message
+
     def process(self, msg):
-        raise Dropped()
+        if self.message:
+            raise Dropped(self.message)
+        else:
+            raise Dropped()
 
 class DropNode(Drop):
     def __init__(self, *args, **kwargs):
@@ -466,7 +473,6 @@ class Save(ThreadNode):
             self.backend = SaveFileBackend(path=parsed.path, filename=filename, channel=self.channel)
         else:
             self.backend = SaveNullBackend()
-
 
     def process(self, msg):
         self.backend.store(msg)

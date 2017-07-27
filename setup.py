@@ -4,16 +4,8 @@ from importlib import import_module
 VERSION = import_module("pypeman").__version__
 URL = import_module("pypeman").__url__
 
-long_description = """
-# Welcome to Pypeman
-
-Pypeman is a minimalist but pragmatic ESB / ETL / EAI in python.
-
-[![Build Status](https://travis-ci.org/mhcomm/pypeman.svg?branch=master)](https://travis-ci.org/mhcomm/pypeman)
-
-
-See [documentation](http://pypeman.readthedocs.org/en/latest/) for more informations.
-"""
+with open("./README.rst") as desc_file:
+    long_description = desc_file.read()
 
 setup(name='pypeman',
       version=VERSION,

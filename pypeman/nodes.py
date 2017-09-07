@@ -246,7 +246,7 @@ class RaiseError(BaseNode):
 
 
 class Drop(BaseNode):
-    """ This node used to tell the channel the message is Dropped. """
+    """ Use this node to tell the channel the message is Dropped. """
     def __init__(self, message=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.message = message

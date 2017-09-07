@@ -100,6 +100,21 @@ class NodesTests(unittest.TestCase):
         self.assertTrue(isinstance(ret, message.Message))
         self.assertEqual(ret.payload, 'test', "Sleep node not working !")
 
+    def test_drop_node(self):
+        """ Whether Drop() node is working """
+
+        msg_to_show = "It's only dropped"
+        n = nodes.Drop(message=msg_to_show)
+        n.channel = FakeChannel(self.loop)
+
+        m = generate_msg(message_content='test')
+
+        with self.assertRaises(nodes.Dropped) as cm:
+            ret = self.loop.run_until_complete(n.handle(m))
+
+        self.assertEqual(str(cm.exception), msg_to_show, "Drop node message not working !")
+
+
     def test_b64_nodes(self):
         """ if B64 nodes are functional """
 

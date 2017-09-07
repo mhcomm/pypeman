@@ -27,11 +27,7 @@ import begin
 import warnings
 from functools import partial
 
-# TODO: can remove try except if we have DaemonLite as a hard requirement
-try:
-    from DaemonLite import DaemonLite
-except ImportError:
-    DaemonLite = None
+from DaemonLite import DaemonLite
 
 import pypeman
 from pypeman.helpers.reloader import reloader_opt
@@ -114,7 +110,7 @@ def main(debug_asyncio=False, profile=False, cli=False):
     loop.close()
 
 
-def mk_daemon(mainfunc, pidfile="pypeman.pid"):
+def mk_daemon(mainfunc=lambda: None, pidfile="pypeman.pid"):
     # TODO: might move to a separate module like e.g.  pypeman.helpers.daemon
     # might also look at following alternative modules:
     # - python-daemon
@@ -122,18 +118,6 @@ def mk_daemon(mainfunc, pidfile="pypeman.pid"):
     # - py daemoniker
     # Alternatively if we don't want other module dependencies we might just copy
     # the DaemonLite files into your source repository 
-    if DaemonLite is None:
-        class FakeDaemonizedApp:
-            def __init__(self, *args, **kwargs):
-                pass
-            def start(self):
-                print("running without daemon mode")
-                mainfunc()
-            def stop(self):
-                print("can't stop daemon without module DaemonLite")
-        app = FakeDaemonizedApp()
-        return app
-    
     class DaemonizedApp(DaemonLite):
         def run(self):
             mainfunc()
@@ -163,16 +147,13 @@ def start(reload: 'Make server autoreload (Dev only)'=False,
             daemon = mk_daemon(main_func)
             daemon.start()
         else:
-            print("nodae")
             main_func()
 
 
 @begin.subcommand
 def stop():
     """ stops an already running pypeman instance """
-    def dummy():
-        pass
-    daemon = mk_daemon(dummy)
+    daemon = mk_daemon()
     daemon.stop()
 
 @begin.subcommand

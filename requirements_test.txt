@@ -4,3 +4,5 @@ hl7
 xmltodict
 aiohttp
 aiocron
+coverage
+codecov

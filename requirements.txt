@@ -1,3 +1,4 @@
 # Mandatory
 begins
-daemonlite 
+daemonlite
+websockets

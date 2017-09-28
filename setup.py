@@ -42,7 +42,7 @@ setup(name='pypeman',
       },
 
       test_suite='nose.collector',
-      install_requires=['begins', 'daemonlite'],
+      install_requires=['begins', 'daemonlite', 'websockets'],
       extras_require={
           'hl7': ["hl7"],
           'http': ["aiohttp"],

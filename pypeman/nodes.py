@@ -79,6 +79,9 @@ class BaseNode:
 
     :param name: Name of node. Used in log or test.
     :param log_output: To enable output logging for this node.
+    :store_output_as: Store output message in msg.ctx as specified key
+    :store_input_as: Store input message in msg.ctx as specified key
+    :passthrough: If True, node is executed but output message is same as input
 
     """
 

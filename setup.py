@@ -26,7 +26,7 @@ setup(name='pypeman',
           'Topic :: Internet :: File Transfer Protocol (FTP)',
           'Programming Language :: Python',
       ],
-      keywords='esb etl eai pipeline data processing asyncio http',
+      keywords='esb etl eai pipeline data processing asyncio http ftp hl7',
       url=URL,
 
       author='Jeremie Pardou',

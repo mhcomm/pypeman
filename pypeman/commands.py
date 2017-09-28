@@ -138,8 +138,7 @@ def start(reload: 'Make server autoreload (Dev only)'=False,
           cli : "enables an IPython CLI for debugging (not operational)"=False,
           remote_admin: 'Enable remote admin server'=False,
           profile : "enables profiling / run stats (not operational)"=False,
-          daemon : "if true pypeman will be started as daemon "=True,
-        ):
+          daemon : "if true pypeman will be started as daemon "=True):
     """ Start pypeman as daemon (or foreground process) """
 
     main_func = partial(
@@ -150,6 +149,8 @@ def start(reload: 'Make server autoreload (Dev only)'=False,
         remote_admin=remote_admin
     )
     start_func = partial(reloader_opt, main_func, reload, 2)
+
+    daemon = (os.environ.get('PYPEMAN_NO_DAEMON') != "True") and daemon
 
     if reload:
         start_func()

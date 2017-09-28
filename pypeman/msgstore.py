@@ -45,6 +45,7 @@ class MessageStore():
         :return: A dict `{'id':<message_id>, 'state': <message_state>, 'message': <message_object>}`.
         """
 
+    # TODO make it awaitable
     def search(self, order_by='timestamp'):
         """
         Return a list of message with store specific `id` and processed status.

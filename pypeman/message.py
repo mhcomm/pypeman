@@ -13,6 +13,21 @@ default_logger = logging.getLogger(__name__)
 DATE_FORMAT = '%Y%m%d_%H%M'
 
 class Message():
+    """
+        A message is the unity of informations exchanged between nodes of a
+        channel.
+
+        A message have following properties:
+
+        :attribute timestamp: The creation date of message
+        :attribute uuid: uuid to identify message
+        :attribute content_type: Used ?
+        :attribute ctx: Current context when you want to save a message for later use
+    
+        :params payload: You can initialise the payload by setting this param.
+        :params meta: Same as payload, you can initialise the meta by setting this param.
+       
+    """
     # TODO : add_ctx and delete_ctx
 
     PENDING = "pending"
@@ -43,7 +58,7 @@ class Message():
 
     def renew(self):
         """
-        Copy the message. Useful for channel fork purpose.
+        Copy the message but update the `timestamp` and `uuid`
         :return:
         """
         msg = self.copy()
@@ -53,7 +68,7 @@ class Message():
         return msg
 
     def add_context(self, key, msg):
-        """ Add a msg to the current message context with key `key` """
+        """ Add a msg to the `.ctx` property with specified key """
         self.ctx[key] = dict(
             meta=dict(msg.meta),
             payload=copy.deepcopy(msg.payload),

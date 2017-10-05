@@ -1,4 +1,3 @@
-import asyncio
 import datetime
 
 from pypeman import channels, message
@@ -8,8 +7,13 @@ from aiocron import crontab
 
 class CronChannel(channels.BaseChannel):
     """
-    Periodic execution of tasks.
-    Launch processing at specified time interval.
+    This channel Launch processing at specified time interval.
+    The first node of the channel receive a payload with the
+    datetime of execution.
+
+    :params cron: This set the interval. Accept any
+        `aiocron <https://github.com/gawel/aiocron/>`_ compatible string.
+
     """
 
     def __init__(self, *args, cron='', **kwargs):

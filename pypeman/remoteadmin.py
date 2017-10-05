@@ -9,6 +9,10 @@ import functools
 #import readline
 
 import websockets
+from jsonrpcserver.aio import methods
+from jsonrpcserver.response import NotificationResponse
+from jsonrpcclient.websockets_client import WebSocketsClient
+from jsonrpcclient.exceptions import ReceivedErrorResponse
 
 from pypeman.conf import settings
 from pypeman import channels
@@ -16,16 +20,24 @@ from pypeman import message
 
 logger = logging.getLogger(__name__)
 
-class RemoteServer():
+from io import StringIO
+import contextlib
 
-    async def start(self):
-        """ Start remote admin server """
-        start_server = websockets.serve(
-            self.command,
-            settings.REMOTE_ADMIN_HOST,
-            settings.REMOTE_ADMIN_PORT
-        )
-        await start_server
+@contextlib.contextmanager
+def stdoutIO(stdout=None):
+    old = sys.stdout
+    if stdout is None:
+        stdout = StringIO()
+    sys.stdout = stdout
+    yield stdout
+    sys.stdout = old
+
+class RemoteAdminServer():
+
+    def __init__(self, host, port):
+        self.host = host
+        self.port = port
+        self.ctx = {}
 
     def get_channel(self, name):
         for chan in channels.all:
@@ -33,56 +45,105 @@ class RemoteServer():
                 return chan
         return None
 
+    async def start(self):
+        """ Start remote admin server """
+        methods.add(self.exec)
+        methods.add(self.channels)
+        methods.add(self.stop_channel)
+        methods.add(self.start_channel)
+        methods.add(self.list_msg)
+        methods.add(self.push_msg)
+
+        start_server = websockets.serve(
+            self.command,
+            self.host,
+            self.port
+        )
+        await start_server
+
     async def command(self, websocket, path):
-        try:
-            while True:
-                json_cmd = await websocket.recv()
-                cmd = json.loads(json_cmd)
-                logger.debug("Receive command $ %s", cmd)
-                command = cmd['command']
-                args = cmd['args']
+        request = await websocket.recv()
+        response = await methods.dispatch(request)
+        if not response.is_notification:
+            await websocket.send(str(response))
 
-                if command == "channels":
-                    chans = []
-                    for chan in channels.all:
-                        if not chan.parent:
-                            chans.append({
-                                'name': chan.name,
-                                'status': channels.BaseChannel.status_id_to_str(chan.status)
-                            })
-                    response = {'status':'ok', 'content':chans}
+    async def exec(self, command):
+        # TODO may cause problem on multi thread access to stdout
+        # as we highjack sys.stdout
+        with stdoutIO() as out:
+            exec(command, globals())
 
-                elif command == "stop":
-                    for c in args:
-                        chan = self.get_channel(c)
-                        await chan.stop()
-                    response = {'status':'ok', 'content': "Channel(s) stopped"}
+        return out.getvalue()
 
-                elif command == "start":
-                    for c in args:
-                        chan = self.get_channel(c)
-                        await chan.start()
-                    response = {'status':'ok', 'content': "Channel(s) started"}
+    async def channels(self):
+        chans = []
+        for chan in channels.all:
+            if not chan.parent:
+                chans.append({
+                    'name': chan.name,
+                    'status': channels.BaseChannel.status_id_to_str(chan.status)
+                })
+        return chans
 
-                elif command == "listmsg":
-                    chan = self.get_channel(args[0])
-                    result = list(itertools.islice(chan.message_store.search(), 10))
-                    response = {'status':'ok', 'content': result}
+    async def start_channel(self, channel):
+        chan = self.get_channel(channel)
+        await chan.start()
 
-                elif command == "pushtextmsg":
-                    chan = self.get_channel(args[0])
-                    msg = message.Message(payload=args[1])
-                    result = await chan.handle(msg)
-                    response = {'status':'ok', 'content': result.to_dict()}
+    async def stop_channel(self, channel):
+        chan = self.get_channel(channel)
+        await chan.start()
 
-                else:
-                    response = {'status':"error", 'content':"Command not recognized!"}
+    async def list_msg(self, channel):
+        chan = self.get_channel(channel)
+        result = list(itertools.islice(chan.message_store.search(), 10))
+        return result
 
-                json_response = json.dumps(response)
-                await websocket.send(json_response)
+    async def push_msg(self, channel, text):
+        chan = self.get_channel(channel)
+        msg = message.Message(payload=text)
+        result = await chan.handle(msg)
+        return result.to_dict()
 
-        except websockets.exceptions.ConnectionClosed:
-            logger.debug('Client disconnected')
+
+class RemoteAdminClient():
+    def __init__(self, url):
+        self.url = url
+        self.loop = asyncio.get_event_loop()
+
+    def init(self):
+        pass
+
+    def send_command(self, command, args=None):
+        if args is None:
+            args = []
+        return self.loop.run_until_complete(self._send_command(command, args))
+
+    async def _send_command(self, command, args):
+        async with websockets.connect(self.url) as ws:
+            response = await WebSocketsClient(ws).request(command, *args)
+            return response
+
+    def exec(self, command):
+        """ Execute any python valid code """
+        result = self.send_command('exec', [command])
+        print(result)
+        return
+
+    def channels(self):
+        return self.send_command('channels')
+
+    def start(self, channel):
+        return self.send_command('start_channel', [channel])
+
+    def stop(self, channel):
+        return self.send_command('stop_channel', [channel])
+
+    def list_msg(self, channel):
+        return self.send_command('list_msg', [channel])
+
+    def push_msg(self, channel, text):
+        return self.send_command('push_msg', [channel, text])
+
 
 def _with_current_channel(func):
     @functools.wraps(func)
@@ -96,61 +157,34 @@ def _with_current_channel(func):
     return wrapper
 
 class PypemanShell(cmd.Cmd):
-    intro = 'Welcome to the pypeman shell.   Type help or ? to list commands.\n'
+    intro = 'Welcome to the pypeman shell. Type help or ? to list commands.\n'
     prompt = 'pypeman > '
     use_rawinput = False
 
-    def __init__(self):
+    def __init__(self, url):
         super().__init__()
         self.current_channel = None
-        self.loop = asyncio.get_event_loop()
-
-    def send_command(self, cmd):
-        try:
-            return self.loop.run_until_complete(self._send_command(cmd))
-        except Exception as e: # noqa
-            logger.exception("Error while sending message")
-            print("Are you sure pypeman is working?")
-            return {'status': 'error', 'content': e}
-
-    async def _send_command(self, cmd):
-        async with websockets.connect('ws://%s:%s' % (settings.REMOTE_ADMIN_HOST,
-                                                    settings.REMOTE_ADMIN_PORT)) as websocket:
-            json_cmd = json.dumps(cmd)
-            await websocket.send(json_cmd)
-            json_response = await websocket.recv()
-            return json.loads(json_response)
+        self.client = RemoteAdminClient(url)
+        self.client.init()
 
     def do_channels(self, arg):
         "List avaible channels"
-        cmd = {
-            'command': 'channels',
-            'args': [arg]
-        }
-        response = self.send_command(cmd)
-        for c in response['content']:
-            print("{c[name]} - {c[status]}".format(c=c))
+        result = self.client.channels()
+        for channel in result:
+            print("{name} ({status})".format(**channel))
 
         self.current_channel = None
-        self.prompt = "pypeman > " % arg
+        self.prompt = "pypeman > "
 
     def do_stop(self, arg):
         "Stop a channel by his name"
-        cmd = {
-            'command': 'stop',
-            'args': arg.split()
-        }
-        response = self.send_command(cmd)
-        print(response)
+        result = self.client.stop_channel(arg)
+        print(result)
 
     def do_start(self, arg):
-        "Stop a channel by his name"
-        cmd = {
-            'command': 'start',
-            'args': arg.split()
-        }
-        response = self.send_command(cmd)
-        print(response)
+        "Start a channel by his name"
+        result = self.client.start_channel(arg)
+        print(result)
 
     def do_select(self, arg):
         """
@@ -170,23 +204,14 @@ class PypemanShell(cmd.Cmd):
     @_with_current_channel
     def do_listmsg(self, channel, arg):
         "List 10 messages of selected channel"
-        cmd = {
-            'command': 'listmsg',
-            'args': [channel]
-        }
-        response = self.send_command(cmd)
-        print(response)
+        result = self.client.list_msg(channel)
+        print(result)
 
     @_with_current_channel
     def do_push(self, channel, arg):
         "Inject message from text for selected channel"
-        cmd = {
-            'command': 'pushtextmsg',
-            'args': [channel, arg]
-        }
-        print(cmd)
-        response = self.send_command(cmd)
-        print(response)
+        result = self.client.push_msg(channel, arg)
+        print(result)
 
     def do_exit(self, arg):
         "Exit program"

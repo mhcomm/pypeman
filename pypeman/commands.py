@@ -35,7 +35,7 @@ from pypeman import channels
 from pypeman import nodes
 from pypeman import endpoints
 from pypeman.conf import settings
-from pypeman.remoteadmin import RemoteServer, PypemanShell
+from pypeman.remoteadmin import RemoteAdminServer, RemoteAdminClient, PypemanShell
 
 def load_project():
     settings.init_settings()
@@ -95,7 +95,7 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
         cli.run_as_thread()
 
     if remote_admin:
-        remote = RemoteServer()
+        remote = RemoteAdminServer(settings.REMOTE_ADMIN_HOST, settings.REMOTE_ADMIN_PORT)
         loop.run_until_complete(remote.start())
 
     print('Waiting for messages...')
@@ -198,11 +198,22 @@ def graph(dot: "Make dot compatible output (Can be viewed with http://ushiroad.c
 
 
 @begin.subcommand
+def pyshell():
+    """ Used for development purpose """
+    client = RemoteAdminClient('ws://%s:%s' % (settings.REMOTE_ADMIN_HOST,
+                                               settings.REMOTE_ADMIN_PORT))
+    client.init()
+
+    from IPython import embed
+    embed()
+
+@begin.subcommand
 def shell():
     """ Used for development purpose """
-
     try:
-        PypemanShell().cmdloop()
+        PypemanShell(
+            'ws://%s:%s' % (settings.REMOTE_ADMIN_HOST,
+                            settings.REMOTE_ADMIN_PORT)).cmdloop()
     except KeyboardInterrupt:
         print('\nQuitting...')
 

@@ -2,3 +2,6 @@
 begins
 daemonlite
 websockets
+jsonrpcserver
+jsonrpcclient[websockets]
+ipython

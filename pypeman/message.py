@@ -23,10 +23,10 @@ class Message():
         :attribute uuid: uuid to identify message
         :attribute content_type: Used ?
         :attribute ctx: Current context when you want to save a message for later use
-    
+
         :params payload: You can initialise the payload by setting this param.
         :params meta: Same as payload, you can initialise the meta by setting this param.
-       
+
     """
     # TODO : add_ctx and delete_ctx
 
@@ -39,7 +39,7 @@ class Message():
     def __init__(self, content_type='application/text', payload=None, meta=None):
         self.content_type = content_type
         self.timestamp = datetime.datetime.now()
-        self.uuid = uuid.uuid4()
+        self.uuid = uuid.uuid4().hex
 
         self.payload = payload
 
@@ -63,7 +63,7 @@ class Message():
         """
         msg = self.copy()
 
-        msg.uuid = uuid.uuid4()
+        msg.uuid = uuid.uuid4().hex
         msg.timestamp = datetime.datetime.now()
         return msg
 
@@ -81,7 +81,7 @@ class Message():
         """
         result = {}
         result['timestamp'] = self.timestamp.strftime(DATE_FORMAT)
-        result['uuid'] = self.uuid.hex
+        result['uuid'] = self.uuid
         result['payload'] = base64.b64encode(pickle.dumps(self.payload)).decode('ascii')
         result['meta'] = self.meta
         result['ctx'] = {}
@@ -110,7 +110,7 @@ class Message():
         """
         result = Message()
         result.timestamp = datetime.datetime.strptime(data['timestamp'], DATE_FORMAT)
-        result.uuid = UUID(data['uuid'])
+        result.uuid = UUID(data['uuid']).hex
         result.payload = pickle.loads(base64.b64decode(data['payload'].encode('ascii')))
         result.meta = data['meta']
 
@@ -160,6 +160,36 @@ class Message():
 
                 if meta:
                     logger.log(log_level, 'Meta: %r', msg['meta'])
+
+    def to_print(self, payload=True, meta=True, context=False):
+        """
+        Return a printable version of message.
+
+        :param payload: whether print payload.
+        :param meta: whether print meta.
+        :param context: whether print context.
+        :return:
+        """
+
+        result = "Message {msg.uuid}\nDate: {msg.timestamp}\n".format(msg=self)
+
+        if payload:
+            result += 'Payload: %r\n' % self.payload
+
+        if meta:
+            result += 'Meta: %r\n' % self.meta
+
+        if context and self.ctx:
+            result += 'Context for message ->\n'
+            for key, msg in self.ctx.items():
+                result += '-- Key "%s" --\n' % key
+                if payload:
+                    result += 'Payload: %r\n' % msg['payload']
+
+                if meta:
+                    result += 'Meta: %r\n' % msg['meta']
+
+        return result
 
     def __str__(self):
         return "<msg: %s>" % self.uuid

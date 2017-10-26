@@ -36,12 +36,10 @@ LOGGING = {
         },
         'jsonrpcclient':{
             'level': 'WARNING',
-            'handlers': handlers,
             'propagate': False,
         },
         'jsonrpcserver':{
             'level': 'WARNING',
-            'handlers': handlers,
             'propagate': False,
         }
     }

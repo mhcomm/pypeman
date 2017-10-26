@@ -210,6 +210,7 @@ def pyshell():
 @begin.subcommand
 def shell():
     """ Used for development purpose """
+    settings.init_settings()
     try:
         PypemanShell(
             'ws://%s:%s' % (settings.REMOTE_ADMIN_HOST,

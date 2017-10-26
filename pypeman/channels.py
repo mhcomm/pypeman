@@ -572,6 +572,7 @@ class FileWatcherChannel(BaseChannel):
             pass
 
     async def watch_for_file(self):
+        # TODO cancel sleep on channel stopping
         await asyncio.sleep(self.interval, loop=self.loop)
         try:
             if os.path.exists(self.basedir):

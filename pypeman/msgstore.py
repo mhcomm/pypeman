@@ -113,7 +113,7 @@ class MemoryMessageStore(MessageStore):
         self.messages = base_dict.setdefault(store_id, OrderedDict())
 
     def store(self, msg):
-        msg_id = msg.uuid.hex
+        msg_id = msg.uuid
         self.messages[msg_id] = {'id': msg_id, 'state': Message.PENDING, 'message': msg.to_dict()}
         return msg_id
 
@@ -165,7 +165,7 @@ class FileMessageStore(MessageStore):
         """ Store a file in `<base_path>/<store_id>/<month>/<day>/` hierachy."""
 
         # The filename is the file id
-        filename = "{}_{}".format(msg.timestamp.strftime(DATE_FORMAT), msg.uuid.hex)
+        filename = "{}_{}".format(msg.timestamp.strftime(DATE_FORMAT), msg.uuid)
         dirs = os.path.join(str(msg.timestamp.year), "%02d" % msg.timestamp.month, "%02d" % msg.timestamp.day)
 
         try:
@@ -200,7 +200,7 @@ class FileMessageStore(MessageStore):
 
         with open(os.path.join(self.base_path, id), "rb") as f:
             msg = Message.from_json(f.read().decode('utf-8'))
-            return {'id':id, 'state': self.get_message_state(id), 'message': msg}
+            return {'id': id, 'state': self.get_message_state(id), 'message': msg}
 
     def sorted_list_directories(self, path, reverse=True):
         """

@@ -52,6 +52,7 @@ class RemoteAdminServer():
         methods.add(self.stop_channel)
         methods.add(self.start_channel)
         methods.add(self.list_msg)
+        methods.add(self.replay_msg)
         methods.add(self.push_msg)
 
         start_server = websockets.serve(
@@ -96,6 +97,16 @@ class RemoteAdminServer():
     async def list_msg(self, channel):
         chan = self.get_channel(channel)
         result = list(itertools.islice(chan.message_store.search(), 10))
+        for res in result:
+            res['message'] = res['message'].to_json()
+        return result
+
+    async def replay_msg(self, channel, msg_ids):
+        chan = self.get_channel(channel)
+        result = []
+        for msg_id in msg_ids:
+            result.append((await chan.replay(msg_id)).to_dict())
+
         return result
 
     async def push_msg(self, channel, text):
@@ -124,7 +135,7 @@ class RemoteAdminClient():
             return response
 
     def exec(self, command):
-        """ Execute any python valid code """
+        """ Execute any valid python code """
         result = self.send_command('exec', [command])
         print(result)
         return
@@ -139,10 +150,18 @@ class RemoteAdminClient():
         return self.send_command('stop_channel', [channel])
 
     def list_msg(self, channel):
-        return self.send_command('list_msg', [channel])
+        result = self.send_command('list_msg', [channel])
+        for res in result:
+            res['message'] = message.Message.from_json(res['message'])
+        return result
+
+    def replay_msg(self, channel, msg_ids):
+        result = self.send_command('replay_msg', [channel, msg_ids])
+        return [message.Message.from_dict(msg) for msg in result]
 
     def push_msg(self, channel, text):
-        return self.send_command('push_msg', [channel, text])
+        msg_dict = self.send_command('push_msg', [channel, text])
+        return message.Message.from_dict(msg_dict)
 
 
 def _with_current_channel(func):
@@ -155,6 +174,7 @@ def _with_current_channel(func):
             return None
 
     return wrapper
+
 
 class PypemanShell(cmd.Cmd):
     intro = 'Welcome to the pypeman shell. Type help or ? to list commands.\n'
@@ -170,9 +190,11 @@ class PypemanShell(cmd.Cmd):
     def do_channels(self, arg):
         "List avaible channels"
         result = self.client.channels()
-        for channel in result:
-            print("{name} ({status})".format(**channel))
+        print("\nChannel list:")
+        for idx, channel in enumerate(result):
+            print("{idx}) {name} ({status})".format(idx=idx, **channel))
 
+        print("")
         self.current_channel = None
         self.prompt = "pypeman > "
 
@@ -202,18 +224,28 @@ class PypemanShell(cmd.Cmd):
             return None
 
     @_with_current_channel
-    def do_listmsg(self, channel, arg):
-        "List 10 messages of selected channel"
+    def do_list(self, channel, arg):
+        "List last 10 messages of selected channel"
         result = self.client.list_msg(channel)
-        print(result)
+        for res in result:
+            print(res['message'].timestamp, res['id'], res['state'])
+
+    @_with_current_channel
+    def do_replay(self, channel, arg):
+        "List last 10 messages of selected channel"
+        msg_ids = arg.split()
+        results = self.client.replay_msg(channel, msg_ids)
+        for msg_id, msg in zip(msg_ids, results):
+            print("Result message for replaying message %s:" % msg_id)
+            print(msg.to_print())
 
     @_with_current_channel
     def do_push(self, channel, arg):
         "Inject message from text for selected channel"
         result = self.client.push_msg(channel, arg)
-        print(result)
+        print("Result message:")
+        print(result.to_print())
 
     def do_exit(self, arg):
         "Exit program"
-        sys.exit(0)
-
+        sys.exit()

@@ -17,6 +17,8 @@ class HTTPEndpoint(endpoints.BaseEndpoint):
     def __init__(self, adress='127.0.0.1', port='8080', loop=None, http_args=None):
         super().__init__()
         self.http_args = http_args or {}
+        self.ssl_context = http_args.pop('ssl_context', None)
+
         self._app = None
         self.address = adress
         self.port = port
@@ -31,11 +33,16 @@ class HTTPEndpoint(endpoints.BaseEndpoint):
     async def start(self):
         if self._app is not None:
             srv = await self.loop.create_server(
-                self._app.make_handler(),
+                protocol_factory=self._app.make_handler(),
+                host=self.address,
+                port=self.port,
+                ssl=self.ssl_context
+            )
+            print("Server started at http{}://{}:{}".format(
+                's' if self.ssl_context else '',
                 self.address,
                 self.port
-            )
-            print("Server started at http://{}:{}".format(self.address, self.port))
+            ))
             return srv
         else:
             print("No HTTP route.")

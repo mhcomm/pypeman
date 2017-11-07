@@ -33,6 +33,9 @@ def stdoutIO(stdout=None):
     sys.stdout = old
 
 class RemoteAdminServer():
+    """
+    Expose json/rpc function to a client by a websocket.
+    """
 
     def __init__(self, host, port):
         self.host = host
@@ -40,6 +43,9 @@ class RemoteAdminServer():
         self.ctx = {}
 
     def get_channel(self, name):
+        """
+        return channel by is name.all
+        """
         for chan in channels.all:
             if chan.name == name:
                 return chan
@@ -63,12 +69,22 @@ class RemoteAdminServer():
         await start_server
 
     async def command(self, websocket, path):
+        """
+        Generic function to handle a command from client.
+        """
         request = await websocket.recv()
         response = await methods.dispatch(request)
         if not response.is_notification:
             await websocket.send(str(response))
 
     async def exec(self, command):
+        """
+        Execute a python command on this instance and
+        return the stdout result.
+
+        :param command: The python command to execute. Can be multiline.
+        :returns: Command stdout result.
+        """
         # TODO may cause problem on multi thread access to stdout
         # as we highjack sys.stdout
         with stdoutIO() as out:
@@ -77,6 +93,9 @@ class RemoteAdminServer():
         return out.getvalue()
 
     async def channels(self):
+        """
+        Return a list of available channels.
+        """
         chans = []
         for chan in channels.all:
             if not chan.parent:
@@ -87,14 +106,30 @@ class RemoteAdminServer():
         return chans
 
     async def start_channel(self, channel):
+        """
+        Start the specified channel
+
+        :params channel: The channel name to start.
+        """
         chan = self.get_channel(channel)
         await chan.start()
 
     async def stop_channel(self, channel):
+        """
+        Stop the specified channel
+
+        :params channel: The channel name to stop.
+        """
         chan = self.get_channel(channel)
         await chan.start()
 
     async def list_msg(self, channel):
+        """
+        List first 10 messages from message store of specified channel.
+
+        :params channel: The channel name.
+        """
+        # TODO allow indexing
         chan = self.get_channel(channel)
         result = list(itertools.islice(chan.message_store.search(), 10))
         for res in result:
@@ -102,6 +137,12 @@ class RemoteAdminServer():
         return result
 
     async def replay_msg(self, channel, msg_ids):
+        """
+        Replay messages from message store.
+
+        :params channel: The channel name.
+        :params msg_ids: The message ids list to replay.
+        """
         chan = self.get_channel(channel)
         result = []
         for msg_id in msg_ids:
@@ -110,6 +151,12 @@ class RemoteAdminServer():
         return result
 
     async def push_msg(self, channel, text):
+        """
+        Push a message in the channel.
+
+        :params channel: The channel name.
+        :params msg_ids: The text added to the payload.
+        """
         chan = self.get_channel(channel)
         msg = message.Message(payload=text)
         result = await chan.handle(msg)
@@ -125,46 +172,90 @@ class RemoteAdminClient():
         pass
 
     def send_command(self, command, args=None):
+        """
+        Send a command to remote instance
+        """
         if args is None:
             args = []
         return self.loop.run_until_complete(self._send_command(command, args))
 
     async def _send_command(self, command, args):
+        """
+        Asynchronous version of command sending
+        """
         async with websockets.connect(self.url) as ws:
             response = await WebSocketsClient(ws).request(command, *args)
             return response
 
     def exec(self, command):
-        """ Execute any valid python code """
+        """
+        Execute any valid python code on remote instance
+        and return stout result.
+        """
         result = self.send_command('exec', [command])
         print(result)
         return
 
     def channels(self):
+        """
+        Return a list of available channels on remote instance.
+        """
         return self.send_command('channels')
 
     def start(self, channel):
+        """
+        Start the specified channel on remote instance.
+
+        :params channel: The channel name.
+        """
         return self.send_command('start_channel', [channel])
 
     def stop(self, channel):
+        """
+        Stop the specified channel on remote instance.
+
+        :params channel: The channel name.
+        """
         return self.send_command('stop_channel', [channel])
 
     def list_msg(self, channel):
+        """
+        List first 10 messages on specified channel from remote instance.
+
+        :params channel: The channel name.
+        :returns: list of message with status.
+        """
         result = self.send_command('list_msg', [channel])
         for res in result:
             res['message'] = message.Message.from_json(res['message'])
         return result
 
     def replay_msg(self, channel, msg_ids):
+        """
+        Replay specified message from id list of specified channel on remote instance.
+
+        :params channel: The channel name.
+        :params msg_ids: Message id list to replay
+        :returns: List of result message.
+        """
         result = self.send_command('replay_msg', [channel, msg_ids])
         return [message.Message.from_dict(msg) for msg in result]
 
     def push_msg(self, channel, text):
+        """
+        Push a new message from text param to the channel.
+
+        :params channel: The channel name.
+        :params text: This text will be the payload of the message.
+        """
         msg_dict = self.send_command('push_msg', [channel, text])
         return message.Message.from_dict(msg_dict)
 
 
 def _with_current_channel(func):
+    """
+    Decorator to select channel for command.
+    """
     @functools.wraps(func)
     def wrapper(self, *arg, **kwargs):
         if self.current_channel:
@@ -232,7 +323,7 @@ class PypemanShell(cmd.Cmd):
 
     @_with_current_channel
     def do_replay(self, channel, arg):
-        "List last 10 messages of selected channel"
+        "Replay a message list by their ids"
         msg_ids = arg.split()
         results = self.client.replay_msg(channel, msg_ids)
         for msg_id, msg in zip(msg_ids, results):
@@ -241,7 +332,7 @@ class PypemanShell(cmd.Cmd):
 
     @_with_current_channel
     def do_push(self, channel, arg):
-        "Inject message from text for selected channel"
+        "Inject message with text as payload for selected channel"
         result = self.client.push_msg(channel, arg)
         print("Result message:")
         print(result.to_print())

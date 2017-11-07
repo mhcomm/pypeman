@@ -38,16 +38,33 @@ class PypeTestCase(TestCase):
 
     @classmethod
     def finish_all_tasks(cls):
-        """ You can use this function if you have some subchannel in you channel
-        and want to see the final result """
+        """
+        You can use this function if you have some subchannel in you channel
+        and want to see the final result
 
-        # Useful to execute future callbacks
+        :return: A list of raised exceptions during task execution.
+        """
+        raised_exceptions = []
+
         pending = asyncio.Task.all_tasks(loop=cls.loop)
 
-        if pending:
-            cls.loop.run_until_complete(asyncio.gather(*pending))
+        for task in pending:
+            if not task.done(): # Exclude already resolved exception
+                try:
+                    cls.loop.run_until_complete(task)
+                except Exception as exc: # noqa
+                    raised_exceptions.append(exc)
+
+        return raised_exceptions
 
     def get_channel(self, name):
+        """
+        Return a channel by is name. Remember to prepend with parent channel
+        name for subchannel.
+
+        :return: Channel instance corresponding to `name`
+            or None if channel not found.
+        """
         for chan in channels.all:
             if chan.name == name:
                 chan._reset_test()

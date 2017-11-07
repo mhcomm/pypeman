@@ -199,7 +199,7 @@ def graph(dot: "Make dot compatible output (Can be viewed with http://ushiroad.c
 
 @begin.subcommand
 def pyshell():
-    """ Used for development purpose """
+    """ Start ipython shell to send command to remote instance """
     client = RemoteAdminClient('ws://%s:%s' % (settings.REMOTE_ADMIN_HOST,
                                                settings.REMOTE_ADMIN_PORT))
     client.init()
@@ -209,7 +209,7 @@ def pyshell():
 
 @begin.subcommand
 def shell():
-    """ Used for development purpose """
+    """ Start a custom shell to administrate remote pypeman instance """
     settings.init_settings()
     try:
         PypemanShell(

@@ -21,6 +21,7 @@ process the message.
 
 .. autoclass:: pypeman.channels.BaseChannel
     :members:
+    :noindex:
 
 
 .. ttt
@@ -31,18 +32,23 @@ process the message.
 
 ..  autoclass:: pypeman.contrib.time.CronChannel
     :members:
+    :noindex:
 
 ..  autoclass:: pypeman.contrib.http.HttpChannel
     :members:
+    :noindex:
 
 ..  autoclass:: pypeman.channels.FileWatcherChannel
     :members:
+    :noindex:
 
 ..  autoclass:: pypeman.contrib.ftp.FTPWatcherChannel
     :members:
+    :noindex:
 
 ..  autoclass:: pypeman.contrib.hl7.MLLPChannel
     :members:
+    :noindex:
 
 
 Nodes
@@ -56,75 +62,16 @@ Specific nodes
 ``````````````
 ..  autoclass:: pypeman.nodes.BaseNode
     :members:
+    :noindex:
 
 ..  autoclass:: pypeman.nodes.ThreadNode
     :members:
+    :noindex:
 
 Other nodes
 ```````````
 
-..  autoclass:: pypeman.nodes.B64Decode
-    :members:
-
-..  autoclass:: pypeman.nodes.B64Encode
-    :members:
-
-..  autoclass:: pypeman.nodes.Decode
-    :members:
-
-..  autoclass:: pypeman.nodes.Encode
-    :members:
-
-..  autoclass:: pypeman.nodes.Email
-    :members:
-
-..  autoclass:: pypeman.nodes.FileReader
-    :members:
-
-..  autoclass:: pypeman.nodes.FileWriter
-    :members:
-
-..  autoclass:: pypeman.contrib.ftp.FTPFileReader
-    :members:
-
-..  autoclass:: pypeman.contrib.ftp.FTPFileWriter
-    :members:
-
-..  autoclass:: pypeman.contrib.hl7.HL7ToPython
-    :members:
-
-..  autoclass:: pypeman.contrib.http.HttpRequest
-    :members:
-
-..  autoclass:: pypeman.nodes.JsonToPython
-    :members:
-
-..  autoclass:: pypeman.nodes.Log
-    :members:
-
-..  autoclass:: pypeman.nodes.Map
-    :members:
-
-..  autoclass:: pypeman.contrib.hl7.PythonToHL7
-    :members:
-
-..  autoclass:: pypeman.nodes.PythonToJson
-    :members:
-
-..  autoclass:: pypeman.contrib.xml.PythonToXML
-    :members:
-
-..  autoclass:: pypeman.nodes.Sleep
-    :members:
-
-..  autoclass:: pypeman.nodes.Save
-    :members:
-
-..  autoclass:: pypeman.nodes.ToOrderedDict
-    :members:
-
-..  autoclass:: pypeman.contrib.xml.XMLToPython
-    :members:
+See :mod:`pypeman.nodes` and :mod:`pypeman.contrib`.
 
 Messages
 --------
@@ -140,6 +87,7 @@ Useful attributes:
 
 ..  autoclass:: pypeman.message.Message
     :members:
+    :noindex:
 
 Endpoints
 ---------
@@ -149,9 +97,11 @@ They listen to a specific port for a specific protocol.
 
 ..  autoclass:: pypeman.contrib.http.HTTPEndpoint
     :members:
+    :noindex:
 
 ..  autoclass:: pypeman.contrib.hl7.MLLPEndpoint
     :members:
+    :noindex:
 
 Message Stores
 --------------
@@ -167,21 +117,27 @@ Generic classes
 
 ..  autoclass:: pypeman.msgstore.MessageStoreFactory
     :members:
+    :noindex:
 
 ..  autoclass:: pypeman.msgstore.MessageStore
     :members:
+    :noindex:
 
 Message store factories
 ```````````````````````
 
 ..  autoclass:: pypeman.msgstore.NullMessageStoreFactory
     :members:
+    :noindex:
 
 ..  autoclass:: pypeman.msgstore.FakeMessageStoreFactory
     :members:
+    :noindex:
 
 ..  autoclass:: pypeman.msgstore.MemoryMessageStoreFactory
     :members:
+    :noindex:
 
 ..  autoclass:: pypeman.msgstore.FileMessageStoreFactory
     :members:
+    :noindex:

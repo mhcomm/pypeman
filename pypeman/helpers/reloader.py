@@ -45,7 +45,7 @@ def reloader_opt(to_call, reloader, interval):
         lockfile = None
         try:
             fd, lockfile = tempfile.mkstemp(prefix='process.', suffix='.lock')
-            os.close(fd)  # We only need this file to exist. We never write to it
+            os.close(fd)  # We only need this file to exist. We never write to it.
             while os.path.exists(lockfile):
                 args = [sys.executable] + sys.argv
                 environ = os.environ.copy()

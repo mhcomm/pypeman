@@ -312,8 +312,13 @@ class BaseChannel:
 
         if self.next_node:
             if isinstance(result, types.GeneratorType):
-                for res in result:
-                    result = await self.next_node.handle(res)
+                gene = result
+                result = msg # Necessary if all nodes result are dropped
+                for res in gene:
+                    try:
+                        result = await self.next_node.handle(res)
+                    except Dropped:
+                        pass
                     # TODO Here result is last value returned. Is it a good idea ?
             else:
                 result = await self.next_node.handle(result)

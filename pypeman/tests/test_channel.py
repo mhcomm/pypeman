@@ -230,6 +230,39 @@ class ChannelsTests(unittest.TestCase):
 
         self.assertEqual(result.payload, msg.payload, "Channel handle not working")
 
+    def test_channel_with_generator(self):
+        """ Whether BaseChannel with generator is working """
+
+        chan = BaseChannel(name="test_channel7.3", loop=self.loop)
+        chan2 = BaseChannel(name="test_channel7.31", loop=self.loop)
+        msg = generate_msg()
+        msg2 = msg.copy()
+
+        class TestIter(nodes.BaseNode):
+            def process(self, msg):
+                def iter():
+                    for i in range(3):
+                        yield msg
+                return iter()
+
+        final_node = nodes.Log()
+        mid_node = nodes.Log()
+
+        chan.add(TestIter(name="testiterr"), nodes.Log(), TestIter(name="testiterr"), final_node)
+        chan2.add(TestIter(name="testiterr"), mid_node, nodes.Drop())
+
+        # Launch channel processing
+        self.start_channels()
+        result = self.loop.run_until_complete(chan.handle(msg))
+
+        self.assertEqual(result.payload, msg.payload, "Generator node not working")
+        self.assertEqual(final_node.processed, 9, "Generator node not working")
+
+        result = self.loop.run_until_complete(chan2.handle(msg2))
+
+        self.assertEqual(mid_node.processed, 3, "Generator node not working with drop_node")
+
+
     def test_channel_events(self):
         """ Whether BaseChannel handling return a good result """
 

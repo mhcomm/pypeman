@@ -98,7 +98,7 @@ class BaseNode:
         if log_output:
             # Enable logging
             self._handle_without_log = self.handle
-            self.handle = self._log_handle
+            setattr(self, 'handle', self._log_handle)
 
     async def handle(self, msg):
         """ Handle message is called by channel to launch process method on it.
@@ -129,8 +129,13 @@ class BaseNode:
 
         if self.next_node:
             if isinstance(result, types.GeneratorType):
-                for res in result:
-                    result = await self.next_node.handle(res)
+                gene = result
+                result = msg # Necessary if all nodes result are dropped
+                for res in gene:
+                    try:
+                        result = await self.next_node.handle(res)
+                    except Dropped:
+                        pass
                     # TODO Here result is last value returned. Is it a good idea ?
             else:
                 if self.store_output_as:
@@ -225,7 +230,7 @@ class BaseNode:
 
         if not hasattr(self, '_handle'):
             self._handle = self.handle
-            self.handle = self._test_handle
+            setattr(self, 'handle', self._test_handle)
 
         if hasattr(self, '_orig_process'):
             self.process = self._orig_process

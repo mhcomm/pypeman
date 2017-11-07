@@ -22,15 +22,19 @@ class HTTPEndpoint(endpoints.BaseEndpoint):
         self.port = port
         self.loop = loop or asyncio.get_event_loop()
 
-    def add_route(self,*args, **kwargs):
-        if not self._app:
-            self._app = web.Application(loop=self.loop, **self.http_args)
-        # TODO route should be added later
+    def add_route(self, *args, **kwargs):
+        if self._app is None:
+            self._app = web.Application(**self.http_args)
+
         self._app.router.add_route(*args, **kwargs)
 
     async def start(self):
         if self._app is not None:
-            srv = await self.loop.create_server(self._app.make_handler(), self.address, self.port)
+            srv = await self.loop.create_server(
+                self._app.make_handler(),
+                self.address,
+                self.port
+            )
             print("Server started at http://{}:{}".format(self.address, self.port))
             return srv
         else:

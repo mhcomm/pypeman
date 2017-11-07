@@ -117,7 +117,7 @@ def mk_daemon(mainfunc=lambda: None, pidfile="pypeman.pid"):
     # - daemonocle
     # - py daemoniker
     # Alternatively if we don't want other module dependencies we might just copy
-    # the DaemonLite files into your source repository 
+    # the DaemonLite files into your source repository
     class DaemonizedApp(DaemonLite):
         def run(self):
             mainfunc()
@@ -127,20 +127,18 @@ def mk_daemon(mainfunc=lambda: None, pidfile="pypeman.pid"):
 
 @begin.subcommand
 def start(reload: 'Make server autoreload (Dev only)'=False,
-        debug_asyncio: 'Enable asyncio debug'=False,
-        cli : "enables an IPython CLI for debugging (not operational)"=False,
-        profile : "enables profiling / run stats (not operational)"=False,
-        # TODO: can be True if DaemonLite is a hard requirement
-        daemon : "if true pypeman will be started as daemon "=bool(DaemonLite),
-
+          debug_asyncio: 'Enable asyncio debug'=False,
+          cli : "enables an IPython CLI for debugging (not operational)"=False,
+          profile : "enables profiling / run stats (not operational)"=False,
+          # TODO: can be True if DaemonLite is a hard requirement
+          daemon : "if true pypeman will be started as daemon "=True,
         ):
     """ Start pypeman as daemon (or foreground process) """
-    main_func = partial(main, debug_asyncio=debug_asyncio, cli=cli, 
+    main_func = partial(main, debug_asyncio=debug_asyncio, cli=cli,
             profile=profile)
     start_func = partial(reloader_opt, main_func, reload, 2)
 
     if reload:
-        print("RELOAD")
         start_func()
     else:
         if daemon:

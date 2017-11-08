@@ -8,6 +8,10 @@ from pypeman import channels
 class PypeTestCase(TestCase):
     loop = None
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.addCleanup(self.cleanLoop)
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -19,6 +23,24 @@ class PypeTestCase(TestCase):
         # Remove thread event loop to be sure we are not using
         # another event loop somewhere
         asyncio.set_event_loop(None)
+
+        # Start channels
+        for chan in channels.all:
+            chan.loop = cls.loop
+            cls.loop.run_until_complete(chan.start())
+            chan._reset_test()
+
+    @classmethod
+    def cleanLoop(cls):
+        """ Replace current loop by a new one to avoid side effect on next test."""
+        for chan in channels.all:
+            cls.loop.run_until_complete(chan.stop())
+
+        pending = asyncio.Task.all_tasks(loop=cls.loop)
+        asyncio.gather(*pending, loop=cls.loop).cancel()
+
+        cls.loop.close()
+        cls.loop = asyncio.new_event_loop()
 
         # Start channels
         for chan in channels.all:
@@ -40,7 +62,7 @@ class PypeTestCase(TestCase):
     def finish_all_tasks(cls):
         """
         You can use this function if you have some subchannel in you channel
-        and want to see the final result
+        and want to see the final result by processing all remaining tasks.
 
         :return: A list of raised exceptions during task execution.
         """
@@ -69,7 +91,7 @@ class PypeTestCase(TestCase):
             if chan.name == name:
                 chan._reset_test()
                 return chan
-        return None
+        raise NameError("Channel '%s' doesn't exist" % name)
 
     def set_loop_to_debug(self):
         """

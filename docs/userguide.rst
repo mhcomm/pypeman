@@ -1,5 +1,5 @@
-Core concepts
-=============
+User guide
+==========
 
 One image is better than 100 words:
 
@@ -58,11 +58,22 @@ A node is a processing unit in a channel.
 To create a node, inherit form `pypeman.nodes.BaseNode` and
 override `process(msg)` method.
 
+You can use persistence storage to save data between two pypeman
+executions sush last time a specific channel ran by using the two
+following methods: :func:`save_data <pypeman.nodes.BaseNode.save_data>` and
+:func:`restore_data<pypeman.nodes.BaseNode.restore_data>`
+
 Specific nodes
 ``````````````
+Base for all node. You must inherit from this class if you want to create
+a new node for your project.
+
 ..  autoclass:: pypeman.nodes.BaseNode
     :members:
     :noindex:
+
+Thread node allow you to create node that execute is process method in another
+thread to avoid blocking nodes.
 
 ..  autoclass:: pypeman.nodes.ThreadNode
     :members:

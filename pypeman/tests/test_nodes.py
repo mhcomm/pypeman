@@ -5,7 +5,7 @@ import logging
 import time
 from unittest import mock
 
-from pypeman import nodes, message, conf
+from pypeman import nodes, message, conf, persistence
 
 from pypeman.tests.common import generate_msg, setup_settings, teardown_settings
 
@@ -74,7 +74,8 @@ class NodesTests(unittest.TestCase):
         n.channel.logger.log.assert_called_with(10, 'Meta: %r', {'question': 'unknown'})
 
     def test_node_persistence(self):
-        """ Whether BaseNode() data persistence node works"""
+        """ Whether BaseNode() data memory persistence works"""
+        persistence._backend = None # noqa
 
         # Mock settings
         with mock.patch('pypeman.persistence.settings',
@@ -106,6 +107,47 @@ class NodesTests(unittest.TestCase):
             self.assertEqual(result[0], 'value', "Can't persist data for node")
             self.assertEqual(result[1], 'Yo', "Default value not working")
             self.assertEqual(result[2], 'yay', "Exception on missing key not working")
+
+
+    def test_node_sqlite_persistence(self):
+        """ Whether BaseNode() data sqlite persistence works"""
+        persistence._backend = None # noqa
+
+        db_path = '/tmp/to_be_removed_849827198746.sqlite'
+
+        # Mock settings
+        with mock.patch('pypeman.persistence.settings',
+                        conf.Settings(module_name='pypeman.tests.settings.test_settings_sqlite_persist')):
+            result = []
+
+            class TestPers(nodes.BaseNode):
+                """ Test node for persistence """
+
+                async def process(self, msg):
+                    await self.save_data('test', 'value')
+                    result.append(await self.restore_data('test'))
+                    result.append(await self.restore_data('titi', default='Yo'))
+                    try:
+                        result.append(await self.restore_data('titi'))
+                    except KeyError:
+                        result.append('yay')
+
+                    return msg
+
+            n = TestPers()
+
+            n.channel = FakeChannel(self.loop)
+
+            m = generate_msg(message_content='test')
+            print('self', id(self.loop))
+
+            ret = self.loop.run_until_complete(n.handle(m))
+
+            self.assertEqual(result[0], 'value', "Can't persist data for node")
+            self.assertEqual(result[1], 'Yo', "Default value not working")
+            self.assertEqual(result[2], 'yay', "Exception on missing key not working")
+
+            os.remove(db_path)
 
 
     def test_log_node(self):

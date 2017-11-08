@@ -130,7 +130,6 @@ def start(reload: 'Make server autoreload (Dev only)'=False,
           debug_asyncio: 'Enable asyncio debug'=False,
           cli : "enables an IPython CLI for debugging (not operational)"=False,
           profile : "enables profiling / run stats (not operational)"=False,
-          # TODO: can be True if DaemonLite is a hard requirement
           daemon : "if true pypeman will be started as daemon "=True,
         ):
     """ Start pypeman as daemon (or foreground process) """

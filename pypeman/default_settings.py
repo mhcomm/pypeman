@@ -1,22 +1,25 @@
-#!/usr/bin/env python
+"""
+Default configuration file.
+This settings should be redifined.
+"""
 
 DEBUG = False   # bool. can be set by env var PYPEMAN_DEBUG (0|1|true|false) or pypeman cmd args
 TESTING = False # bool. can be set by env var PYPEMAN_TESTING (0|1|true|false) pypeman cmd args
 
 DEBUG_PARAMS = dict(
-    slow_callback_duration = 0.1
+    slow_callback_duration=0.1
 )
 
 HTTP_ENDPOINT_CONFIG = ['0.0.0.0', '8080']
 
-handlers = [ 'console' ]
+PERSISTENCE_BACKEND = None
+PERSISTENCE_CONFIG = {}
 
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            #'format': '%(levelname)s %(asctime)s %(name)s %(module)s %(process)d %(thread)d %(message)s'
             'format': '%(levelname)s %(asctime)s %(name)s %(module)s %(message)s'
         },
     },
@@ -29,10 +32,9 @@ LOGGING = {
     },
 
     'loggers': {
-        # root loggers
         '': {
             'level': 'INFO',
-            'handlers': handlers,
+            'handlers': ['console'],
         },
         'jsonrpcclient':{
             'level': 'WARNING',

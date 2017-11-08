@@ -18,6 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from pypeman.message import Message
 from pypeman.channels import Dropped
+from pypeman.persistence import get_backend
 
 logger = logging.getLogger(__name__)
 loop = asyncio.get_event_loop()
@@ -29,6 +30,8 @@ all = []
 
 # Can be redefined
 default_thread_pool = ThreadPoolExecutor(max_workers=3)
+
+SENTINEL = object()
 
 def choose_first_not_none(*args):
     """ Choose first non None alternative in args.
@@ -102,6 +105,9 @@ class BaseNode:
             # Enable logging
             self._handle_without_log = self.handle
             setattr(self, 'handle', self._log_handle)
+
+    def fullpath(self):
+        return "%s.%s" % (self.channel.name, self.name)
 
     async def handle(self, msg):
         """ Handle message is called by channel to launch process method on it.
@@ -203,6 +209,28 @@ class BaseNode:
         :return: The processed message
         """
         return msg
+
+    async def save_data(self, key, value):
+        """
+        Save data in configured persistence backend for next usage.
+
+        :param key: Key of saved data.
+        :param value: Value saved.
+        """
+        await (await get_backend(self.channel.loop)).store(self.fullpath(), key, value)
+
+    async def restore_data(self, key, default=SENTINEL):
+        """
+        Restore previously saved data from configured persistence backend.
+
+        :param key: Key of restored data.
+        :param default: if key is missing, don't raise exception and return this value instead.
+        :return: Saved data if exist or default value if specified.
+        """
+        if default is not SENTINEL:
+            return await (await get_backend(self.channel.loop)).get(self.fullpath(), key, default)
+        else:
+            return await (await get_backend(self.channel.loop)).get(self.fullpath(), key)
 
     # Allow to mock input or
     def mock(self, input=None, output=None):

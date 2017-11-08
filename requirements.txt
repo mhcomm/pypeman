@@ -5,3 +5,4 @@ websockets
 jsonrpcserver
 jsonrpcclient[websockets]
 ipython
+sqlitedict

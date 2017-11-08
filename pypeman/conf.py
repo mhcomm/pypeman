@@ -28,9 +28,12 @@ class ConfigError(ImportError):
 class Settings():
     """ pypeman projects settings. Rather similar implementations to django.conf.settings """
 
-    def __init__(self):
+    def __init__(self, module_name=None):
         self.__dict__['_settings_mod'] = None
-        self.__dict__['SETTINGS_MODULE'] = os.environ.get('PYPEMAN_SETTINGS_MODULE', 'settings')
+        if module_name:
+            self.__dict__['SETTINGS_MODULE'] = module_name
+        else:
+            self.__dict__['SETTINGS_MODULE'] = os.environ.get('PYPEMAN_SETTINGS_MODULE', 'settings')
 
     def init_settings(self):
         try:

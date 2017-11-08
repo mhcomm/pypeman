@@ -5,9 +5,9 @@ import logging
 import time
 from unittest import mock
 
-from pypeman import nodes, message
+from pypeman import nodes, message, conf
 
-from pypeman.tests.common import generate_msg
+from pypeman.tests.common import generate_msg, setup_settings, teardown_settings
 
 
 class FakeChannel():
@@ -72,6 +72,40 @@ class NodesTests(unittest.TestCase):
 
         n.channel.logger.log.assert_any_call(10, 'Payload: %r', 'test')
         n.channel.logger.log.assert_called_with(10, 'Meta: %r', {'question': 'unknown'})
+
+    def test_node_persistence(self):
+        """ Whether BaseNode() data persistence node works"""
+
+        # Mock settings
+        with mock.patch('pypeman.persistence.settings',
+                        conf.Settings(module_name='pypeman.tests.settings.test_settings_persistence')):
+            result = []
+
+            class TestPers(nodes.BaseNode):
+                """ Test node for persistence """
+
+                async def process(self, msg):
+                    await self.save_data('test', 'value')
+                    result.append(await self.restore_data('test'))
+                    result.append(await self.restore_data('titi', default='Yo'))
+                    try:
+                        result.append(await self.restore_data('titi'))
+                    except KeyError:
+                        result.append('yay')
+
+                    return msg
+
+            n = TestPers()
+
+            n.channel = FakeChannel(self.loop)
+
+            m = generate_msg(message_content='test')
+
+            ret = self.loop.run_until_complete(n.handle(m))
+
+            self.assertEqual(result[0], 'value', "Can't persist data for node")
+            self.assertEqual(result[1], 'Yo', "Default value not working")
+            self.assertEqual(result[2], 'yay', "Exception on missing key not working")
 
 
     def test_log_node(self):

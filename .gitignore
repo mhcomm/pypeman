@@ -60,3 +60,5 @@ target/
 .idea
 .env
 .*.swp
+.envrc
+.vscode

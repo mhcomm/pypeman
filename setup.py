@@ -31,7 +31,7 @@ setup(
     url=URL,
 
     author='Jeremie Pardou',
-    author_email='jeremie.pardou@mhcomm.fr',
+    author_email='jeremie@jeremiez.net',
 
     license='Apache Software License',
     packages=['pypeman', 'pypeman.helpers', 'pypeman.contrib'],

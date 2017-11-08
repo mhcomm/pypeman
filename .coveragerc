@@ -1,0 +1,7 @@
+[run]
+source=pypeman
+omit=
+  **/tests/**
+  pypeman/pjt_templates.py
+  pypeman/default_settings.py
+

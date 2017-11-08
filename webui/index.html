@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Pypeman GUI</title>
+    <!--Import Google Icon Font-->
+    <link href="http://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.98.2/css/materialize.min.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  </head>
+  <body>
+
+  <div id="vue-instance" class="container">
+    <div class="row">
+        <h2>Pypeman GUI</h2>
+        <table class="striped">
+            <thead>
+              <tr>
+                <th>
+                  <i class="material-icons">view_list</i>Channels
+                </th>
+                <th>
+                  <i class="material-icons">pause</i>
+                  <i class="material-icons">play_arrow</i> Start/Pause
+                </th>
+                <th>
+                  <i class="material-icons">email</i> Message store
+                </th>
+                <th>
+                  <i class="material-icons">zoom_in</i> Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="ch of channels">
+                  <td>{{ch.name}}</td>
+                  <td>
+                    <div class="switch">
+                      <label>
+                        <input type="checkbox" :checked="ch.state === 'WAITING'" @click="toggleState(ch)">
+                        <span class="lever large" :class="{'green':ch.state === 'WAITING', 'red':ch.state === 'STOPPED'}" ></span>
+                      </label>
+                    </div>
+                  </td>
+                  <td> 
+                    {{ch.msg_store_length}} Messages
+                  </td>  
+                  <td> 
+                     <a class="waves-effect waves-light btn" @click="update_message_store(ch)"><i class="large material-icons">email</i></a>
+                  </td> 
+              </tr>
+            </tbody>
+        </table>
+      </div>
+  </div>
+
+  <script src="autobahn.min.js"> </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.3.3/vue.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/es6-promise/4.1.0/es6-promise.auto.min.js"> </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.98.2/js/materialize.js"></script>
+
+  <!--<script src="./pypeman_services.js"></script>-->
+  <!--<script src="./channels.js"></script>-->
+  <script src="./main.js"></script>
+  </body>
+</html>

@@ -93,6 +93,16 @@ def main(debug_asyncio=False, profile=False, cli=False):
         cli = CLI(namespace=namespace)
         cli.run_as_thread()
 
+    if settings.ENABLE_WEBUI:
+        from pypeman import wampclient 
+        print("Starting web user interface...")
+
+        try:
+            wampclient.start_client(loop=loop, **settings.WAMP_CONFIG)
+            print("WAMP session successfully created")
+        except:
+            print("WAMP session could not be created")
+    
     print('Waiting for messages...')
     try:
         loop.run_forever()

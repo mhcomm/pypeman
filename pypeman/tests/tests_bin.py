@@ -22,7 +22,7 @@ class BinPypemanTestCase(unittest.TestCase):
     def setUp(self):
         """ prep a test """
         pypeman = os.path.join(os.path.dirname(__file__), '..', '..', 'pypeman', 'commands.py')
-        self.cmd = [ sys.executable, pypeman ] 
+        self.cmd = [ sys.executable, pypeman ]
         os.environ['PYTHONPATH'] = os.path.join(os.path.dirname(__file__), '..', '..')
         self.tempfiles = []
 
@@ -33,15 +33,16 @@ class BinPypemanTestCase(unittest.TestCase):
                 os.unlink(fname)
 
     def run_pypeman(self, cmd, cwd=None):
-        """ runs a command, gathers output and captures exit code 
-            :returns :  return_code and data (bytestring of stdout / stderr )
+        """
+        Runs a command, gathers output and captures exit code
+        :return: return_code and data (bytestring of stdout / stderr )
         """
         out_fname = mktempfname()
         self.tempfiles.append(out_fname)
 
         if cwd is None:
             cwd = os.getcwd()
-        
+
         # TODO: why not reading stdout / stderr directoy into a var ??
         # TODO: if not reason can be found change code to use no temp file
         # TODO: perhaps some issue with unicode / python 3 ???
@@ -54,19 +55,16 @@ class BinPypemanTestCase(unittest.TestCase):
         if ret_code:
             with open(out_fname, 'rb') as fin:
                 data = fin.read()
-        
+
         self.assertEqual(ret_code, 0, "exit code %d when calling %r in %s: %s" %
             (ret_code, cmd, cwd, data))
 
         return ret_code, data
-        
-    
+
     def test_01_can_call_pypeman(self):
         """ pypeman can be called without params """
         logger.info("FILE = %r / NAME = %r", __file__, __name__)
-
-        #os.environ['PYPEMAN_SETTINGS_MODULE'] = 'pypeman.tst_helpers.test_setting_1'
-        cmd = self.cmd 
+        cmd = self.cmd
         self.run_pypeman(cmd)
         self.run_pypeman(cmd, cwd=CWD)
 
@@ -74,16 +72,21 @@ class BinPypemanTestCase(unittest.TestCase):
         """ option -h is working """
         logger.info("FILE = %r / NAME = %r", __file__, __name__)
 
-        #os.environ['PYPEMAN_SETTINGS_MODULE'] = 'pypeman.tst_helpers.test_setting_1'
         cmd = self.cmd + [ '-h' ]
         self.run_pypeman(cmd)
         self.run_pypeman(cmd, cwd=CWD)
-    
+
     def test_03_can_call_graph(self):
         """ subcommand graph is working """
 
         cmd = self.cmd + ['graph']
-        #self.run_pypeman(cmd) # TODO: shall I test that I get the message (Missing 'project.py') ?
         self.run_pypeman(cmd, cwd=CWD)
+
+
+    def test_04_can_call_test(self):
+        """ subcommand test is working """
+
+        cmd = self.cmd + ['test']
+        self.run_pypeman(cmd, cwd=os.path.join('pypeman', 'tests', 'test_app_testing'))
 
 #test_suite =  BinPypemanTestCase

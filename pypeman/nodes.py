@@ -80,6 +80,8 @@ class BaseNode:
     If you create a new node, you must inherit from this class and
     implement `process` method.
 
+    :func:`save_data <pypeman.nodes.BaseNode.save_data>`
+
     :param name: Name of node. Used in log or test.
     :param log_output: To enable output logging for this node.
     :store_output_as: Store output message in msg.ctx as specified key
@@ -107,6 +109,9 @@ class BaseNode:
             setattr(self, 'handle', self._log_handle)
 
     def fullpath(self):
+        """
+        Return the channel name and node name dot concatened.
+        """
         return "%s.%s" % (self.channel.name, self.name)
 
     async def handle(self, msg):

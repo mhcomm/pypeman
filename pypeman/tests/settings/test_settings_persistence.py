@@ -1,5 +1,5 @@
 """
-Persistence configuration
+Persistence configuration for sqlite
 """
 
 PERSISTENCE_BACKEND = 'pypeman.persistence.MemoryBackend'

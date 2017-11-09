@@ -29,15 +29,24 @@ To get command help and more details about commands: ::
 
     pypeman --help
 
-To create a fresh project (partially implemented): ::
+To create a fresh project: ::
 
     pypeman startproject <project_name>
 
-To start pypeman: ::
+To start pypeman as daemon: ::
 
-    pypeman start
+    pypeman start [--reload] [--remote-admin]
+
+To stop pypeman: ::
+
+    pypeman stop
 
 To show a channel graph: ::
 
     pypeman graph
+
+To launch a remote shell (only if remote-admin is activated): ::
+
+    pypeman shell
+
 

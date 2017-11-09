@@ -11,7 +11,7 @@ import os
 import sys
 
 # TODO: remove below if statement asap. This is a workaround for a bug in begins
-# TODO: which provokes an eception when calling pypeman without parameters.
+# TODO: which provokes an exception when calling pypeman without parameters.
 # TODO: more info at https://github.com/aliles/begins/issues/48
 if len(sys.argv) == 1:
     sys.argv.append('-h')
@@ -35,6 +35,7 @@ from pypeman import channels
 from pypeman import nodes
 from pypeman import endpoints
 from pypeman.conf import settings
+from pypeman.remoteadmin import RemoteAdminServer, RemoteAdminClient, PypemanShell
 
 def load_project():
     settings.init_settings()
@@ -55,7 +56,7 @@ def load_project():
         raise
 
 
-def main(debug_asyncio=False, profile=False, cli=False):
+def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
 
     if debug_asyncio:
         # set before asyncio.get_event_loop() call
@@ -93,6 +94,10 @@ def main(debug_asyncio=False, profile=False, cli=False):
         cli = CLI(namespace=namespace)
         cli.run_as_thread()
 
+    if remote_admin:
+        remote = RemoteAdminServer(settings.REMOTE_ADMIN_HOST, settings.REMOTE_ADMIN_PORT)
+        loop.run_until_complete(remote.start())
+
     print('Waiting for messages...')
     try:
         loop.run_forever()
@@ -121,7 +126,9 @@ def mk_daemon(mainfunc=lambda: None, pidfile="pypeman.pid"):
     class DaemonizedApp(DaemonLite):
         def run(self):
             mainfunc()
+
     app = DaemonizedApp(pidfile)
+
     return app
 
 
@@ -129,13 +136,21 @@ def mk_daemon(mainfunc=lambda: None, pidfile="pypeman.pid"):
 def start(reload: 'Make server autoreload (Dev only)'=False,
           debug_asyncio: 'Enable asyncio debug'=False,
           cli : "enables an IPython CLI for debugging (not operational)"=False,
+          remote_admin: 'Enable remote admin server'=False,
           profile : "enables profiling / run stats (not operational)"=False,
-          daemon : "if true pypeman will be started as daemon "=True,
-        ):
+          daemon : "if true pypeman will be started as daemon "=True):
     """ Start pypeman as daemon (or foreground process) """
-    main_func = partial(main, debug_asyncio=debug_asyncio, cli=cli,
-            profile=profile)
+
+    main_func = partial(
+        main,
+        debug_asyncio=debug_asyncio,
+        cli=cli,
+        profile=profile,
+        remote_admin=remote_admin
+    )
     start_func = partial(reloader_opt, main_func, reload, 2)
+
+    daemon = (os.environ.get('PYPEMAN_NO_DAEMON') != "True") and daemon
 
     if reload:
         start_func()
@@ -152,6 +167,7 @@ def stop():
     """ stops an already running pypeman instance """
     daemon = mk_daemon()
     daemon.stop()
+
 
 @begin.subcommand
 def graph(dot: "Make dot compatible output (Can be viewed with http://ushiroad.com/jsviz/)"=False):
@@ -179,6 +195,28 @@ def graph(dot: "Make dot compatible output (Can be viewed with http://ushiroad.c
                 channel.graph()
                 print('|-> out')
                 print()
+
+
+@begin.subcommand
+def pyshell():
+    """ Start ipython shell to send command to remote instance """
+    client = RemoteAdminClient('ws://%s:%s' % (settings.REMOTE_ADMIN_HOST,
+                                               settings.REMOTE_ADMIN_PORT))
+    client.init()
+
+    from IPython import embed
+    embed()
+
+@begin.subcommand
+def shell():
+    """ Start a custom shell to administrate remote pypeman instance """
+    settings.init_settings()
+    try:
+        PypemanShell(
+            'ws://%s:%s' % (settings.REMOTE_ADMIN_HOST,
+                            settings.REMOTE_ADMIN_PORT)).cmdloop()
+    except KeyboardInterrupt:
+        print('\nQuitting...')
 
 
 @begin.subcommand

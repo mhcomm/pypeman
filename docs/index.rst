@@ -21,6 +21,7 @@ See :doc:`introduction` for more info or :doc:`gettingstarted` for basic functio
    gettingstarted
    example
    userguide
+   remoteadmin
    testing
    api
    about

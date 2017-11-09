@@ -54,6 +54,7 @@ class BaseChannel:
         `message_store_factory` argument with  an instance of wanted message store factory.
     """
     STARTING, WAITING, PROCESSING, STOPPING, STOPPED = range(5)
+    STATE_NAMES = ['STARTING', 'WAITING', 'PROCESSING', 'STOPPING', 'STOPPED']
 
     def __init__(self, name=None, parent_channel=None, loop=None, message_store_factory=None):
 
@@ -109,6 +110,14 @@ class BaseChannel:
 
         # Used to avoid multiple messages processing at same time
         self.lock = asyncio.Lock(loop=self.loop)
+
+    @classmethod
+    def status_id_to_str(cls, state_id):
+        return cls.STATE_NAMES[state_id]
+
+    @classmethod
+    def status_str_to_id(cls, state):
+        return cls.STATE_NAMES.index(state)
 
     @property
     def status(self):
@@ -563,6 +572,7 @@ class FileWatcherChannel(BaseChannel):
             pass
 
     async def watch_for_file(self):
+        # TODO cancel sleep on channel stopping
         await asyncio.sleep(self.interval, loop=self.loop)
         try:
             if os.path.exists(self.basedir):

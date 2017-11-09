@@ -34,5 +34,13 @@ LOGGING = {
             'level': 'INFO',
             'handlers': handlers,
         },
+        'jsonrpcclient':{
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'jsonrpcserver':{
+            'level': 'WARNING',
+            'propagate': False,
+        }
     }
 }

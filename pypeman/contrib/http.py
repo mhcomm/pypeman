@@ -10,8 +10,9 @@ from aiohttp import web
 class HTTPEndpoint(endpoints.BaseEndpoint):
     """
     Endpoint to receive HTTP connection from outside.
-    :param http_args:  dict to pass as **kwargs to aiohttp.Application for example for
-                `client_max_size`
+
+    :param http_args: dict to pass as **kwargs** to aiohttp.Application for example for
+        `client_max_size`
     """
 
     def __init__(self, adress='127.0.0.1', port='8080', loop=None, http_args=None):
@@ -53,12 +54,10 @@ class HttpChannel(channels.BaseChannel):
     become metadata of message. Needs ``aiohttp`` python dependency to work.
 
     :param endpoint: HTTP endpoint used to get connections.
-
     :param method: Method filter.
-
     :param url: Only matching urls messages will be sent to this channel.
-
     :param encoding: Encoding of message. Default to 'utf-8'.
+
     """
     dependencies = ['aiohttp']
     app = None

@@ -1,3 +1,7 @@
 # Mandatory
 begins
-daemonlite 
+daemonlite
+websockets
+jsonrpcserver
+jsonrpcclient[websockets]
+ipython

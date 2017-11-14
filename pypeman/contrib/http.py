@@ -89,6 +89,7 @@ class HttpRequest(nodes.BaseNode):
         self.headers = kwargs.pop('headers', None)
         self.auth = kwargs.pop('auth', None)
         self.verify = kwargs.pop('verify', True)
+        self.params = kwargs.pop('params', None)
         self.client_cert = kwargs.pop('client_cert', None)
         self.url = self.url.replace('%(meta.', '%(')
         self.payload_in_url_dict = 'payload.' in self.url
@@ -129,12 +130,20 @@ class HttpRequest(nodes.BaseNode):
         method=self.method
         if not method:
             method = msg.meta.get('method','get')
+        params=self.params
+        if not params:
+            method = msg.meta.get('params', None)
+
         if type(self.auth) == tuple:
             basic_auth = aiohttp.BasicAuth(self.auth[0], self.auth[1])
         else:
             basic_auth = self.auth
+
+        data=None
+        if method in ['put', 'post']:
+            data=msg.payload
         with aiohttp.ClientSession(connector=conn) as session:
-            resp = yield from session.request(method=method, url=url, auth=basic_auth, headers=headers)
+            resp = yield from session.request(method=method, url=url, auth=basic_auth, headers=headers, params=self.params, data=data)
             resp_text = yield from resp.text()
             return str(resp_text)
 

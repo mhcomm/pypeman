@@ -82,15 +82,15 @@ class HttpChannel(channels.BaseChannel):
 class HttpRequest(nodes.BaseNode):
     """ Http request node """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, url, method=None, headers=None, auth=None, verify=True, params=None, client_cert=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.url = kwargs.pop('url')
-        self.method = kwargs.pop('method', None)
-        self.headers = kwargs.pop('headers', None)
-        self.auth = kwargs.pop('auth', None)
-        self.verify = kwargs.pop('verify', True)
-        self.params = kwargs.pop('params', None)
-        self.client_cert = kwargs.pop('client_cert', None)
+        self.url = url
+        self.method = method
+        self.headers = headers
+        self.auth = auth
+        self.verify = verify
+        self.params = params
+        self.client_cert = client_cert
         self.url = self.url.replace('%(meta.', '%(')
         self.payload_in_url_dict = 'payload.' in self.url
         # TODO: create used payload keys for better perf of generate_request_url()

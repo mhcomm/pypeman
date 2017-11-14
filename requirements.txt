@@ -4,5 +4,6 @@ daemonlite
 websockets
 jsonrpcserver
 jsonrpcclient[websockets]
+requests # For jsonrpcclient
 ipython
 sqlitedict

@@ -5,10 +5,10 @@
 
       <v-data-table
         :headers="headers"
-        :items="channels"
+        :items="messages"
         hide-actions
         class="elevation-1"
-        item-key="name"
+        item-key="id"
       >
         <template sloc="headers" slot-scope="props">
           <tr>
@@ -23,25 +23,17 @@
         </template>
         <template slot="items" slot-scope="props">
           <tr @click="props.expanded = !props.expanded">
-            <td>{{ props.item.name }}</td>
-            <td class="text-xs-right">{{ props.item.processed }}</td>
-            <td class="text-xs-right">{{ props.item.status }}</td>
-            <td  class="text-xs-right" >
-              <v-btn v-if="props.item.have_message_store"
-                router-link :to="{ name: 'messagestore', params: {channelName: props.item.name} }"
-                color="blue"
-              >
-                Message store
-              </v-btn>
-              <v-btn v-if="props.item.status === 'WAITING'" color="red" @click.stop="changeState(props.item, 'stop')">Stop</v-btn>
-              <v-btn v-if="props.item.status === 'STOPPED'" color="green" @click.stop="changeState(props.item, 'start')">Start</v-btn>
-
+            <td>{{ props.item.timestamp }}</td>
+            <td>{{ props.item.id }}</td>
+            <td class="text-xs-right">{{ props.item.state }}</td>
+            <td class="text-xs-right">
+              <v-btn color="blue" @click.stop="replayMessage(props.item)">Replay</v-btn>
             </td>
           </tr>
         </template>
         <template slot="expand" slot-scope="props">
           <v-card flat>
-            <v-card-text>Peek-a-boo!</v-card-text>
+            <v-card-text>{{ props.item.message }}</v-card-text>
           </v-card>
         </template>
       </v-data-table>
@@ -57,26 +49,32 @@
 import Client from 'jsonrpc-websocket-client'
 
 export default {
-  name: 'Channel',
+  name: 'MessageStore',
   created () {
+    this.channelName = this.$route.params.channelName
     this.client = new Client('ws://localhost:8765')
-    this.client.open().then(() => {
-      this.loadChannels()
-    }, this.showError)
+    this.loadMessages()
+  },
+  watch: {
+    '$route' (to, from) {
+      // react to route change
+    }
   },
   methods: {
-    loadChannels () {
-      this.client.call('channels', []).then((result) => {
-        this.channels = result
+    loadMessages () {
+      this.client.open().then(() => {
+        this.client.call('list_msg', [this.channelName]).then((result) => {
+          this.messages = result
+        }, this.showError)
       }, this.showError)
     },
     selectChannel (chan) {
       console.log('Cliked', chan.name)
     },
-    changeState (chan, state) {
+    replayMessage (msg) {
       this.client.open().then(() => {
-        this.client.call(state + '_channel', [chan.name]).then((result) => {
-          chan.status = result.status
+        this.client.call('replay_msg', [this.channelName, [msg.id]]).then((result) => {
+          console.log('Success')
         }, this.showError)
       }, this.showError)
     },
@@ -87,13 +85,15 @@ export default {
   },
   data () {
     return {
-      channels: [],
+      channelName: null,
+      messages: [],
       client: null,
       snackbar: false,
       headers: [
-        {text: 'Channel name', align: 'left', value: 'name'},
-        {text: 'Processed since last start', value: 'processed'},
-        {text: 'Status', value: 'status'}
+        {text: 'Timestamp', align: 'left', value: 'timestamp'},
+        {text: 'Message ID', align: 'left', value: 'id'},
+        {text: 'Status', value: 'status'},
+        {text: 'Action', value: 'action'}
       ],
       pagination: {
         sortBy: 'name'

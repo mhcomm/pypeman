@@ -1,7 +1,7 @@
 import Vue from 'vue'
 import Router from 'vue-router'
-import HelloWorld from '@/components/HelloWorld'
 import Channel from '@/components/Channel'
+import MessageStore from '@/components/MessageStore'
 
 Vue.use(Router)
 
@@ -9,13 +9,17 @@ export default new Router({
   routes: [
     {
       path: '/',
-      name: 'Hello',
-      component: HelloWorld
+      redirect: '/channels'
     },
     {
       path: '/channels',
-      name: 'Channel',
+      name: 'channels',
       component: Channel
+    },
+    {
+      path: '/channel/:channelName/message-store',
+      name: 'messagestore',
+      component: MessageStore
     }
   ]
 })

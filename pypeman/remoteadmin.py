@@ -17,6 +17,7 @@ from jsonrpcclient.exceptions import ReceivedErrorResponse
 from pypeman.conf import settings
 from pypeman import channels
 from pypeman import message
+from pypeman import msgstore
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,8 @@ class RemoteAdminServer():
         )
         await start_server
 
+        print("Remote admin started on ws://%s:%s" % (self.host, self.port))
+
     async def command(self, websocket, path):
         """
         Generic function to handle a command from client.
@@ -101,7 +104,10 @@ class RemoteAdminServer():
             if not chan.parent:
                 chans.append({
                     'name': chan.name,
-                    'status': channels.BaseChannel.status_id_to_str(chan.status)
+                    'status': channels.BaseChannel.status_id_to_str(chan.status),
+                    'have_message_store': not isinstance(chan.message_store, msgstore.NullMessageStore),
+                    'processed': chan.processed,
+                    'subchannels': [],
                 })
         return chans
 
@@ -113,6 +119,10 @@ class RemoteAdminServer():
         """
         chan = self.get_channel(channel)
         await chan.start()
+        return {
+            'name': chan.name,
+            'status': channels.BaseChannel.status_id_to_str(chan.status)
+        }
 
     async def stop_channel(self, channel):
         """
@@ -121,7 +131,11 @@ class RemoteAdminServer():
         :params channel: The channel name to stop.
         """
         chan = self.get_channel(channel)
-        await chan.start()
+        await chan.stop()
+        return {
+            'name': chan.name,
+            'status': channels.BaseChannel.status_id_to_str(chan.status)
+        }
 
     async def list_msg(self, channel):
         """
@@ -133,6 +147,7 @@ class RemoteAdminServer():
         chan = self.get_channel(channel)
         result = list(itertools.islice(chan.message_store.search(), 10))
         for res in result:
+            res['timestamp'] = res['message'].timestamp.isoformat()
             res['message'] = res['message'].to_json()
         return result
 
@@ -146,7 +161,8 @@ class RemoteAdminServer():
         chan = self.get_channel(channel)
         result = []
         for msg_id in msg_ids:
-            result.append((await chan.replay(msg_id)).to_dict())
+            msg_res = await chan.replay(msg_id)
+            result.append(msg_res.to_dict())
 
         return result
 

@@ -15,13 +15,17 @@ class HTTPEndpoint(endpoints.BaseEndpoint):
         `client_max_size`
     """
 
-    def __init__(self, adress='127.0.0.1', port='8080', loop=None, http_args=None):
+    def __init__(self, adress=None, address='127.0.0.1', port='8080', loop=None, http_args=None):
         super().__init__()
         self.http_args = http_args or {}
         self.ssl_context = http_args.pop('ssl_context', None)
 
+        if adress is not None:
+            warnings.warn("HTTPEndpoint 'adress' param is deprecated. Replace it by 'address'", DeprecationWarning)
+            address = adress
+
         self._app = None
-        self.address = adress
+        self.address = address
         self.port = port
         self.loop = loop or asyncio.get_event_loop()
 
@@ -59,7 +63,6 @@ class HttpChannel(channels.BaseChannel):
     :param encoding: Encoding of message. Default to 'utf-8'.
 
     """
-    dependencies = ['aiohttp']
     app = None
 
     def __init__(self, *args, endpoint=None, method='*', url='/', encoding=None, **kwargs):
@@ -73,7 +76,8 @@ class HttpChannel(channels.BaseChannel):
 
     async def start(self):
         await super().start()
-        self.http_endpoint.add_route(self.method, self.url, self.handle_request)
+        if self._first_start:
+            self.http_endpoint.add_route(self.method, self.url, self.handle_request)
 
     async def handle_request(self, request):
         content = await request.text()

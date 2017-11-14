@@ -64,6 +64,7 @@ class BaseChannel:
         self._nodes = []
         self._node_map = {}
         self._status = BaseChannel.STOPPED
+        self.processed = 0
 
         if name:
             self.name = name
@@ -108,6 +109,8 @@ class BaseChannel:
 
         self.message_store = self.message_store_factory.get_store(self.name)
 
+        self._first_start = True
+
         # Used to avoid multiple messages processing at same time
         self.lock = asyncio.Lock(loop=self.loop)
 
@@ -144,7 +147,9 @@ class BaseChannel:
         start procedure.
         """
         self.status = BaseChannel.STARTING
-        self.init_node_graph()
+        if self._first_start:
+            self.init_node_graph()
+            self._first_start = False
         self.status = BaseChannel.WAITING
 
     def init_node_graph(self):
@@ -308,6 +313,7 @@ class BaseChannel:
                 raise
             finally:
                 self.status = BaseChannel.WAITING
+                self.processed += 1
 
     async def subhandle(self, msg):
         """ Overload this method only if you know what you are doing. Called by ``handle`` method.

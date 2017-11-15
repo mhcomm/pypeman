@@ -102,13 +102,11 @@ class RemoteAdminServer():
         chans = []
         for chan in channels.all:
             if not chan.parent:
-                chans.append({
-                    'name': chan.name,
-                    'status': channels.BaseChannel.status_id_to_str(chan.status),
-                    'have_message_store': not isinstance(chan.message_store, msgstore.NullMessageStore),
-                    'processed': chan.processed,
-                    'subchannels': [],
-                })
+                chan_dict = chan.to_dict()
+                chan_dict['subchannels'] = chan.subchannels()
+
+                chans.append(chan_dict)
+
         return chans
 
     async def start_channel(self, channel):

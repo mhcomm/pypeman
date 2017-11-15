@@ -313,6 +313,7 @@ class BaseChannel:
                 raise
             finally:
                 self.status = BaseChannel.WAITING
+                print("processed ", self, msg)
                 self.processed += 1
 
     async def subhandle(self, msg):
@@ -366,6 +367,49 @@ class BaseChannel:
         new_message = msg_dict['message'].renew()
         result = await self.handle(new_message)
         return result
+
+    def to_dict(self):
+        return {
+            'name': self.name,
+            'status': BaseChannel.status_id_to_str(self.status),
+            'have_message_store': not isinstance(self.message_store, msgstore.NullMessageStore),
+            'processed': self.processed,
+        }
+
+    def subchannels(self):
+        res = []
+
+        for node in self._nodes:
+            if isinstance(node, SubChannel):
+                chan_dict = node.to_dict()
+                chan_dict['subchannels'] = node.subchannels()
+                res.append(chan_dict)
+            elif isinstance(node, ConditionSubChannel):
+                chan_dict = node.to_dict()
+                chan_dict['subchannels'] = node.subchannels()
+                res.append(chan_dict)
+            elif isinstance(node, Case):
+                for cond, channel in node.cases:
+                    chan_dict = channel.to_dict()
+                    chan_dict['subchannels'] = channel.subchannels()
+                    res.append(chan_dict)
+        return res
+
+    def flat_subchannels(self):
+        res = []
+
+        for node in self._nodes:
+            if isinstance(node, SubChannel):
+                res.append(node.to_dict())
+                res += node.flat_subchannels()
+            elif isinstance(node, ConditionSubChannel):
+                res.append(node.to_dict())
+                res += node.flat_subchannels()
+            elif isinstance(node, Case):
+                for _, channel in node.cases:
+                    res.append(channel.to_dict())
+                    res += channel.flat_subchannels()
+        return res
 
     def graph(self, prefix='', dot=False):
         """

@@ -1,6 +1,6 @@
 import Vue from 'vue'
 import Router from 'vue-router'
-import Channel from '@/components/Channel'
+import Channels from '@/components/Channels'
 import MessageStore from '@/components/MessageStore'
 
 Vue.use(Router)
@@ -14,7 +14,7 @@ export default new Router({
     {
       path: '/channels',
       name: 'channels',
-      component: Channel
+      component: Channels
     },
     {
       path: '/channel/:channelName/message-store',

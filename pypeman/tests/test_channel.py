@@ -216,6 +216,22 @@ class ChannelsTests(unittest.TestCase):
         self.assertEqual(cond2.name, "test_channel6.second", "Casechannel name is incorrect")
         self.assertEqual(cond3.name, "test_channel6.third", "Casechannel name is incorrect")
 
+
+    def test_channel_subchannel(self):
+        """ Whether BaseChannel subchannel works """
+        chan = BaseChannel(name="test_channel6.5", loop=self.loop)
+
+        chan_fork = chan.fork()
+
+        chan_when = chan_fork.when(lambda: True)
+
+        chan_case1, chan_case2 = chan_when.case(lambda: True, lambda: False)
+
+        print(chan.subchannels())
+
+        self.assertEqual(len(chan.subchannels()[0]['subchannels'][0]['subchannels']), 2, "Subchannel graph not working")
+
+
     def test_channel_result(self):
         """ Whether BaseChannel handling return a good result """
 

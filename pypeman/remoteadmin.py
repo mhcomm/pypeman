@@ -135,7 +135,7 @@ class RemoteAdminServer():
             'status': channels.BaseChannel.status_id_to_str(chan.status)
         }
 
-    async def list_msg(self, channel):
+    async def list_msg(self, channel, start=0, count=10, order_by='timestamp'):
         """
         List first 10 messages from message store of specified channel.
 
@@ -143,11 +143,13 @@ class RemoteAdminServer():
         """
         # TODO allow indexing
         chan = self.get_channel(channel)
-        result = list(itertools.islice(chan.message_store.search(), 10))
-        for res in result:
+        print(channel, start, count)
+        messages = await chan.message_store.search(start=start, count=count, order_by=order_by)
+        for res in messages:
             res['timestamp'] = res['message'].timestamp.isoformat()
             res['message'] = res['message'].to_json()
-        return result
+
+        return {'messages': messages, 'total': await chan.message_store.total()}
 
     async def replay_msg(self, channel, msg_ids):
         """

@@ -2,10 +2,14 @@
   <v-layout row wrap>
     <v-flex sm12 class="channels">
       <h2>Channel list</h2>
+      {{pagination}}
 
       <v-data-table
         :headers="headers"
         :items="messages"
+        :pagination.sync="pagination"
+        :loading="loading"
+        :total-items="totalItems"
         hide-actions
         class="elevation-1"
         item-key="id"
@@ -37,66 +41,83 @@
           </v-card>
         </template>
       </v-data-table>
+      <div class="text-xs-center pt-2">
+        <v-pagination v-model="pagination.page" :length="pages"></v-pagination>
+      </div>
     </v-flex>
-    <v-snackbar :timeout="2000" :top="true" :multi-line="'multi-line'" v-model="snackbar" :color="'error'">
-      An error while doing server query.
-      <v-btn flat color="pink" @click.native="snackbar = false">Close</v-btn>
+    <v-snackbar :timeout="2000" :top="true" :multi-line="'multi-line'" v-model="success" :color="'success'">
+      Message replayed with success.
     </v-snackbar>
   </v-layout>
 </template>
 
 <script>
-import Client from 'jsonrpc-websocket-client'
 
 export default {
   name: 'MessageStore',
   created () {
     this.channelName = this.$route.params.channelName
-    this.client = new Client('ws://localhost:8765')
     this.loadMessages()
   },
   watch: {
     '$route' (to, from) {
       // react to route change
+    },
+    pagination: {
+      handler () {
+        this.loadMessages()
+      },
+      deep: true
     }
   },
   methods: {
     loadMessages () {
-      this.client.open().then(() => {
-        this.client.call('list_msg', [this.channelName]).then((result) => {
-          this.messages = result
-        }, this.showError)
-      }, this.showError)
-    },
-    selectChannel (chan) {
-      console.log('Cliked', chan.name)
+      this.loading = true
+      let start = (this.pagination.page - 1) * this.pagination.rowsPerPage
+      let args = [this.channelName, start, this.pagination.rowsPerPage]
+      if (this.pagination.sortBy !== null) {
+        args.push((this.pagination.descending ? '' : '-') + this.pagination.sortBy)
+      }
+      this.$clientcall('list_msg', args).then((result) => {
+        this.messages = result.messages
+        this.totalItems = result.total
+        this.loading = false
+      })
     },
     replayMessage (msg) {
-      this.client.open().then(() => {
-        this.client.call('replay_msg', [this.channelName, [msg.id]]).then((result) => {
-          console.log('Success')
-        }, this.showError)
-      }, this.showError)
+      this.$clientcall('replay_msg', [this.channelName, [msg.id]]).then((result) => {
+        this.success = true
+        window.setTimeout(this.loadMessages, 1000) // TODO Quirck Hack to avoid jsonrpcclient bug
+      })
     },
-    showError (err) {
-      this.snackbar = true
-      console.log('Error while calling server', err)
+    toggleOrder () {
+      this.pagination.descending = !this.pagination.descending
+    }
+  },
+  computed: {
+    pages () {
+      return Math.ceil(this.totalItems / this.pagination.rowsPerPage)
     }
   },
   data () {
     return {
       channelName: null,
       messages: [],
-      client: null,
-      snackbar: false,
+      error: false,
+      success: false,
+      loading: true,
+      totalItems: 0,
       headers: [
         {text: 'Timestamp', align: 'left', value: 'timestamp'},
         {text: 'Message ID', align: 'left', value: 'id'},
-        {text: 'Status', value: 'status'},
+        {text: 'State', value: 'state'},
         {text: 'Action', value: 'action'}
       ],
       pagination: {
-        sortBy: 'name'
+        sortBy: 'timestamp',
+        descending: true,
+        page: 1,
+        rowsPerPage: 3
       }
     }
   }

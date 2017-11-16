@@ -40,15 +40,27 @@
       </v-content>
     </main>
     <v-footer app></v-footer>
+    <v-snackbar :timeout="2000" :top="true" :multi-line="'multi-line'" v-model="clientError" :color="'error'">
+      An error while doing server query.
+    </v-snackbar>
   </v-app>
 </template>
 
 <script>
+import eventHub from './eventHub'
+
 export default {
   name: 'app',
+  created () {
+    eventHub.$on('clienterror', (err) => {
+      console.log('Pypeman client error', err)
+      this.clientError = true
+    })
+  },
   data () {
     return {
       drawer: false,
+      clientError: false,
       items: [
         {title: 'Channels', icon: null, route: {name: 'channels'}},
         {title: 'Other', icon: null, route: {name: 'home'}}

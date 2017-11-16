@@ -5,7 +5,7 @@
         <div class="name">{{channel.name}}</div>
 
         <div class="store">
-          <router-link v-if="channel.have_message_store"
+          <router-link v-if="channel.has_message_store"
             router-link :to="{ name: 'messagestore', params: {channelName: channel.name} }"
           >
             Show messages
@@ -37,32 +37,24 @@
 
 <script>
 import Vue from 'vue'
-import Client from 'jsonrpc-websocket-client'
 import Channel from '@/components/ChannelList'
 
 export default {
   name: 'channel-list',
   props: ['channels', 'folded'],
   created () {
-    this.client = new Client('ws://localhost:8765')
-    this.client.open().then(() => {
-    }, this.showError)
-    console.log('created', this.channels)
   },
   components: {
     'channel-list': Channel
   },
   methods: {
     changeState (chan, state) {
-      this.client.open().then(() => {
-        this.client.call(state + '_channel', [chan.name]).then((result) => {
-          chan.status = result.status
-        }, this.showError)
+      this.$clientcall(state + '_channel', [chan.name]).then((result) => {
+        chan.status = result.status
       }, this.showError)
     },
     handleRowClick (channel) {
       Vue.set(channel, 'showSub', !channel.showSub)
-      console.log(channel)
     },
     showError (err) {
       console.log('Error while calling server', err)
@@ -70,8 +62,6 @@ export default {
   },
   data () {
     return {
-      // channels: [],
-      client: null,
       headers: [
         {text: 'Channel name', align: 'left', value: 'name'},
         {text: 'Msg Processed', value: 'processed'},

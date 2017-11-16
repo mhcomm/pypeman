@@ -1,9 +1,7 @@
 <template>
   <v-layout row wrap>
     <v-flex sm12 class="channels">
-      <h2>Channel list</h2>
-      {{pagination}}
-
+      <h2>Messages for channel &lt;{{channelName}}&gt;</h2>
       <v-data-table
         :headers="headers"
         :items="messages"
@@ -45,8 +43,8 @@
         <v-pagination v-model="pagination.page" :length="pages"></v-pagination>
       </div>
     </v-flex>
-    <v-snackbar :timeout="2000" :top="true" :multi-line="'multi-line'" v-model="success" :color="'success'">
-      Message replayed with success.
+    <v-snackbar :timeout="2000" :top="true" :multi-line="'multi-line'" v-model="replayed" :color="color">
+      {{statusMessage}}
     </v-snackbar>
   </v-layout>
 </template>
@@ -86,7 +84,25 @@ export default {
     },
     replayMessage (msg) {
       this.$clientcall('replay_msg', [this.channelName, [msg.id]]).then((result) => {
-        this.success = true
+        let status = {
+          success: 0,
+          error: 0
+        }
+        result.forEach(function (msg) {
+          if (msg.hasOwnProperty('error')) {
+            status.error++
+          } else {
+            status.success++
+          }
+        })
+        if (status.error) {
+          this.color = 'error'
+          this.statusMessage = 'Replay failed for ' + status.error + ' message(s)'
+        } else {
+          this.color = 'success'
+          this.statusMessage = 'Replay successfully for ' + status.success + ' message(s)'
+        }
+        this.replayed = true
         window.setTimeout(this.loadMessages, 1000) // TODO Quirck Hack to avoid jsonrpcclient bug
       })
     },
@@ -103,9 +119,10 @@ export default {
     return {
       channelName: null,
       messages: [],
-      error: false,
-      success: false,
+      replayed: false,
       loading: true,
+      color: 'success',
+      statusMessage: '',
       totalItems: 0,
       headers: [
         {text: 'Timestamp', align: 'left', value: 'timestamp'},
@@ -117,7 +134,7 @@ export default {
         sortBy: 'timestamp',
         descending: true,
         page: 1,
-        rowsPerPage: 3
+        rowsPerPage: 10
       }
     }
   }

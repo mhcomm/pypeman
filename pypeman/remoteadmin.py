@@ -161,8 +161,11 @@ class RemoteAdminServer():
         chan = self.get_channel(channel)
         result = []
         for msg_id in msg_ids:
-            msg_res = await chan.replay(msg_id)
-            result.append(msg_res.to_dict())
+            try:
+                msg_res = await chan.replay(msg_id)
+                result.append(msg_res.to_dict())
+            except Exception as exc:
+                result.append({'error': str(exc)})
 
         return result
 

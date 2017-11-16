@@ -7,18 +7,36 @@ export default {
     let client = new Client(url)
 
     Vue.prototype.$clientcall = function (path, args) {
-      // console.log(path, args, client.status)
-      if (client.status === 'closed') { // TODO handle 'connecting' status
-        return client.open().then(() => {
-          return client.call(path, args).catch((err) => {
-            eventHub.$emit('clienterror', err)
+      let prm = new Promise((resolve, reject) => {
+        if (client.status === 'closed') { // TODO handle 'connecting' status
+          client.open().then(() => {
+            client.call(path, args).then((result) => {
+              resolve(result)
+            }, (err) => {
+              console.log('Error while doing request but keep retrying', err)
+              client.call(path, args).then((result) => {
+                resolve(result)
+              }, (err) => {
+                eventHub.$emit('clienterror', err)
+              })
+            })
           })
-        })
-      } else {
-        return client.call(path, args).catch((err) => {
-          eventHub.$emit('clienterror', err)
-        })
-      }
+        } else {
+          client.call(path, args).then((result) => {
+            resolve(result)
+          }, (err) => {
+            console.log('Error while doing request but keep retrying', err)
+            client.open().then(() => {
+              client.call(path, args).then((result) => {
+                resolve(result)
+              }, (err) => {
+                eventHub.$emit('clienterror', err)
+              })
+            })
+          })
+        }
+      })
+      return prm
     }
   }
 

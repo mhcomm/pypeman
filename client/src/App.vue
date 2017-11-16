@@ -53,7 +53,7 @@ export default {
   name: 'app',
   created () {
     eventHub.$on('clienterror', (err) => {
-      console.log('Pypeman client error', err)
+      console.log('Pypeman client error: ', err)
       this.clientError = true
     })
   },

@@ -150,6 +150,7 @@ class BaseChannel:
         if self._first_start:
             self.init_node_graph()
             self._first_start = False
+        await self.message_store.start()
         self.status = BaseChannel.WAITING
 
     def init_node_graph(self):
@@ -287,7 +288,7 @@ class BaseChannel:
         # Store message before any processing
         # TODO If store fails, do we stop processing ?
         # TODO Do we store message even if channel is stopped ?
-        msg_store_id = self.message_store.store(msg)
+        msg_store_id = await self.message_store.store(msg)
 
         if self.status in [BaseChannel.STOPPED, BaseChannel.STOPPING]:
             raise ChannelStopped("Channel is stopped so you can't send message.")
@@ -299,21 +300,20 @@ class BaseChannel:
             self.status = BaseChannel.PROCESSING
             try:
                 result = await self.subhandle(msg)
-                self.message_store.change_message_state(msg_store_id, message.Message.PROCESSED)
+                await self.message_store.change_message_state(msg_store_id, message.Message.PROCESSED)
                 return result
             except Dropped:
-                self.message_store.change_message_state(msg_store_id, message.Message.PROCESSED)
+                await self.message_store.change_message_state(msg_store_id, message.Message.PROCESSED)
                 raise
             except Rejected:
-                self.message_store.change_message_state(msg_store_id, message.Message.REJECTED)
+                await self.message_store.change_message_state(msg_store_id, message.Message.REJECTED)
                 raise
             except:
                 self.logger.exception('Error while processing message %s', msg)
-                self.message_store.change_message_state(msg_store_id, message.Message.ERROR)
+                await self.message_store.change_message_state(msg_store_id, message.Message.ERROR)
                 raise
             finally:
                 self.status = BaseChannel.WAITING
-                print("processed ", self, msg)
                 self.processed += 1
 
     async def subhandle(self, msg):
@@ -363,7 +363,7 @@ class BaseChannel:
 
         :return: The result of the processing.
         """
-        msg_dict = self.message_store.get(msg_id)
+        msg_dict = await self.message_store.get(msg_id)
         new_message = msg_dict['message'].renew()
         result = await self.handle(new_message)
         return result
@@ -372,7 +372,7 @@ class BaseChannel:
         return {
             'name': self.name,
             'status': BaseChannel.status_id_to_str(self.status),
-            'have_message_store': not isinstance(self.message_store, msgstore.NullMessageStore),
+            'has_message_store': not isinstance(self.message_store, msgstore.NullMessageStore),
             'processed': self.processed,
         }
 

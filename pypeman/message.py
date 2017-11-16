@@ -202,3 +202,6 @@ class Message():
 
     def __str__(self):
         return "<msg: %s>" % self.uuid
+
+    def __repr__(self):
+        return "<msg: %s- id(%s)>" % (self.uuid, id(self))

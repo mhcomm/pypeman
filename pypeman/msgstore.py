@@ -1,8 +1,10 @@
-import logging
-from pypeman.message import Message
 import os
 import re
+import asyncio
+import logging
 from collections import OrderedDict
+
+from pypeman.message import Message
 
 logger = logging.getLogger("pypeman.store")
 
@@ -21,7 +23,12 @@ class MessageStoreFactory():
 class MessageStore():
     """ A MessageStore keep an history of processed messages. Mainly used in channels. """
 
-    def store(self, msg):
+    async def start(self):
+        """
+        Called at startup to initialize store.
+        """
+
+    async def store(self, msg):
         """
         Store a message in the store.
 
@@ -29,7 +36,7 @@ class MessageStore():
         :return: Id for this specific message.
         """
 
-    def change_message_state(self, id, new_state):
+    async def change_message_state(self, id, new_state):
         """
         Change the `id` message state.
 
@@ -37,7 +44,7 @@ class MessageStore():
         :param new_state: Target state.
         """
 
-    def get(self, id):
+    async def get(self, id):
         """
         Return one message corresponding to given `id` with his status.
 
@@ -45,8 +52,7 @@ class MessageStore():
         :return: A dict `{'id':<message_id>, 'state': <message_state>, 'message': <message_object>}`.
         """
 
-    # TODO make it awaitable
-    def search(self, order_by='timestamp'):
+    async def search(self, start=0, count=10, order_by='timestamp'):
         """
         Return a list of message with store specific `id` and processed status.
 
@@ -54,6 +60,11 @@ class MessageStore():
         :param count: Count of elements since first element.
         :param order_by: Message order. Allowed values : ['timestamp', 'status'].
         :return: A list of dict `{'id':<message_id>, 'state': <message_state>, 'message': <message_object>}`.
+        """
+
+    async def total(self):
+        """
+        :return: total count of messages
         """
 
 
@@ -66,14 +77,17 @@ class NullMessageStoreFactory(MessageStoreFactory):
 class NullMessageStore(MessageStore):
     """ For testing purpose """
 
-    def store(self, msg):
+    async def store(self, msg):
         return None
 
-    def get(self, id):
+    async def get(self, id):
         return None
 
-    def search(self, order_by='timestamp'):
+    async def search(self, **kwargs):
         return None
+
+    async def total(self):
+        return 0
 
 
 class FakeMessageStoreFactory(MessageStoreFactory):
@@ -85,15 +99,18 @@ class FakeMessageStoreFactory(MessageStoreFactory):
 class FakeMessageStore(MessageStore):
     """ For testing purpose """
 
-    def store(self, msg):
+    async def store(self, msg):
         logger.debug("Should store message %s", msg)
         return 'fake_id'
 
-    def get(self, id):
+    async def get(self, id):
         return {'id':id, 'state': 'processed', 'message': None}
 
-    def search(self, order_by='timestamp'):
+    async def search(self, **kwargs):
         return []
+
+    async def total(self):
+        return 0
 
 
 class MemoryMessageStoreFactory(MessageStoreFactory):
@@ -112,28 +129,40 @@ class MemoryMessageStore(MessageStore):
         super().__init__()
         self.messages = base_dict.setdefault(store_id, OrderedDict())
 
-    def store(self, msg):
+    async def store(self, msg):
         msg_id = msg.uuid
-        self.messages[msg_id] = {'id': msg_id, 'state': Message.PENDING, 'message': msg.to_dict()}
+        self.messages[msg_id] = {'id': msg_id, 'state': Message.PENDING, 'timestamp': msg.timestamp, 'message': msg.to_dict()}
         return msg_id
 
-    def change_message_state(self, id, new_state):
+    async def change_message_state(self, id, new_state):
         self.messages[id]['state'] = new_state
 
-    def get(self, id):
+    async def get(self, id):
         resp = dict(self.messages[id])
         resp['message'] = Message.from_dict(resp['message'])
         return resp
 
-    def search(self, order_by='timestamp'):
+    async def search(self, start=0, count=10, order_by='timestamp'):
 
-        for value in self.messages.values():
+        if order_by.startswith('-'):
+            reverse = True
+            sort_key = order_by[1:]
+        else:
+            reverse = False
+            sort_key = order_by
+
+        result = []
+        for value in sorted(self.messages.values(), key=lambda x: x[sort_key], reverse=reverse):
 
             resp = dict(value)
             resp['message'] = Message.from_dict(resp['message'])
 
-            yield resp
+            result.append(resp)
 
+        return result[start: start + count]
+
+    async def total(self):
+        return len(self.messages)
 
 class FileMessageStoreFactory(MessageStoreFactory):
     """
@@ -152,6 +181,7 @@ class FileMessageStoreFactory(MessageStoreFactory):
 
 class FileMessageStore(MessageStore):
     """ Store a file in `<base_path>/<store_id>/<month>/<day>/` hierachy."""
+    # TODO file access should be done in another thread. Waiting for file backend.
 
     def __init__(self, path, store_id):
         super().__init__()
@@ -161,8 +191,20 @@ class FileMessageStore(MessageStore):
         # Match msg file name
         self.msg_re = re.compile(r'^([0-9]{8})_([0-9]{2})([0-9]{2})_[0-9abcdef]*$')
 
-    def store(self, msg):
+        try:
+            # Try to make dirs if necessary
+            os.makedirs(os.path.join(self.base_path))
+        except FileExistsError:
+            pass
+
+        self._total = 0
+
+    async def start(self):
+        self._total = await self.count_msg()
+
+    async def store(self, msg):
         """ Store a file in `<base_path>/<store_id>/<month>/<day>/` hierachy."""
+        # TODO implement a safer store to avoid broken messages
 
         # The filename is the file id
         filename = "{}_{}".format(msg.timestamp.strftime(DATE_FORMAT), msg.uuid)
@@ -177,32 +219,33 @@ class FileMessageStore(MessageStore):
         file_path = os.path.join(dirs, filename)
 
         # Write message to file
-        # TODO use async file writing
         with open(os.path.join(self.base_path, file_path), "w") as f:
             f.write(msg.to_json())
 
-        self.change_message_state(file_path, Message.PENDING)
+        await self.change_message_state(file_path, Message.PENDING)
+
+        self._total += 1
 
         return file_path
 
-    def change_message_state(self, id, new_state):
+    async def change_message_state(self, id, new_state):
         with open(os.path.join(self.base_path, id + '.meta'), "w") as f:
             f.write(new_state)
 
-    def get_message_state(self, id):
+    async def get_message_state(self, id):
         with open(os.path.join(self.base_path, id + '.meta'), "r") as f:
             state = f.read()
             return state
 
-    def get(self, id):
+    async def get(self, id):
         if not os.path.exists(os.path.join(self.base_path, id)):
             raise IndexError
 
         with open(os.path.join(self.base_path, id), "rb") as f:
             msg = Message.from_json(f.read().decode('utf-8'))
-            return {'id': id, 'state': self.get_message_state(id), 'message': msg}
+            return {'id': id, 'state': await self.get_message_state(id), 'message': msg}
 
-    def sorted_list_directories(self, path, reverse=True):
+    async def sorted_list_directories(self, path, reverse=True):
         """
         :param path: Base path
         :param reverse: reverse order
@@ -210,14 +253,47 @@ class FileMessageStore(MessageStore):
         """
         return sorted([d for d in os.listdir(path) if os.path.isdir(os.path.join(path, d))], reverse=reverse)
 
-    def search(self, order_by='timestamp'):
-        reverse = (order_by == 'timestamp')
+    async def count_msg(self):
+        """
+        Count message by listing all directories. To be used at startup.
+        """
+        count = 0
+        for year in await self.sorted_list_directories(os.path.join(self.base_path)):
+            for month in await self.sorted_list_directories(os.path.join(self.base_path, year)):
+                for day in await self.sorted_list_directories(os.path.join(self.base_path, year, month)):
+                    for msg_name in sorted(os.listdir(os.path.join(self.base_path, year, month, day))):
+                        found = self.msg_re.match(msg_name)
+                        if found:
+                            count +=1
+        return count
 
-        for year in self.sorted_list_directories(os.path.join(self.base_path), reverse=reverse):
-            for month in self.sorted_list_directories(os.path.join(self.base_path, year), reverse=reverse):
-                for day in self.sorted_list_directories(os.path.join(self.base_path, year, month), reverse=reverse):
+    async def search(self, start=0, count=10, order_by='timestamp'):
+        # TODO better performance for slicing by counting file in dirs ?
+        if order_by.startswith('-'):
+            reverse = True
+            sort_key = order_by[1:]
+        else:
+            reverse = False
+            sort_key = order_by
+
+        # TODO handle sort_key
+
+        result = []
+        end = start + count
+
+        position = 0
+        for year in await self.sorted_list_directories(os.path.join(self.base_path), reverse=reverse):
+            for month in await self.sorted_list_directories(os.path.join(self.base_path, year), reverse=reverse):
+                for day in await self.sorted_list_directories(os.path.join(self.base_path, year, month), reverse=reverse):
                     for msg_name in sorted(os.listdir(os.path.join(self.base_path, year, month, day)), reverse=reverse):
                         found = self.msg_re.match(msg_name)
                         if found:
-                            id = os.path.join(year, month, day, msg_name)
-                            yield self.get(id)
+                            if start <= position and position < end:
+                                mid = os.path.join(year, month, day, msg_name)
+                                result.append(await self.get(mid))
+                            position += 1
+
+        return result
+
+    async def total(self):
+        return self._total

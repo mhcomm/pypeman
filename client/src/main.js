@@ -4,12 +4,14 @@ import Vue from 'vue'
 import App from './App'
 import router from './router'
 import Vuetify from 'vuetify'
+import PypemanClient from './plugin/pypemanClient'
 import 'vuetify/dist/vuetify.min.css'
 import './assets/styles/roboto.css'
 
 Vue.config.productionTip = false
 
 Vue.use(Vuetify)
+Vue.use(PypemanClient, {url: 'ws://localhost:8765'})
 
 /* eslint-disable no-new */
 new Vue({

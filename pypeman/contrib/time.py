@@ -22,7 +22,7 @@ class CronChannel(channels.BaseChannel):
 
     async def start(self):
         await super().start()
-        crontab(self.cron, func=self.tic, start=True)
+        crontab(self.cron, func=self.tic, start=True, loop=self.loop)
 
     async def tic(self):
         msg = message.Message()

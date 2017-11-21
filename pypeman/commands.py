@@ -16,9 +16,10 @@ import sys
 if len(sys.argv) == 1:
     sys.argv.append('-h')
 
+CURRENT_DIR = os.getcwd()
 
 # Keep this import
-sys.path.insert(0, os.getcwd())
+sys.path.insert(0, CURRENT_DIR)
 
 import asyncio
 import traceback
@@ -35,7 +36,7 @@ from pypeman import channels
 from pypeman import nodes
 from pypeman import endpoints
 from pypeman.conf import settings
-from pypeman.remoteadmin import RemoteAdminServer, RemoteAdminClient, PypemanShell
+from pypeman import remoteadmin
 
 def load_project():
     settings.init_settings()
@@ -95,8 +96,20 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
         cli.run_as_thread()
 
     if remote_admin:
-        remote = RemoteAdminServer(settings.REMOTE_ADMIN_HOST, settings.REMOTE_ADMIN_PORT)
+        remote = remoteadmin.RemoteAdminServer(loop=loop, **settings.REMOTE_ADMIN_WEBSOCKET_CONFIG)
         loop.run_until_complete(remote.start())
+
+        print("Remote admin websocket started at {host}:{port}".format(
+            **settings.REMOTE_ADMIN_WEBSOCKET_CONFIG
+        ))
+
+        webadmin = remoteadmin.WebAdmin(loop=loop, **settings.REMOTE_ADMIN_WEB_CONFIG)
+
+        loop.run_until_complete(webadmin.start())
+
+        print("Web remote admin started at {host}:{port}".format(
+            **settings.REMOTE_ADMIN_WEB_CONFIG
+        ))
 
     print('Waiting for messages...')
     try:

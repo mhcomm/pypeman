@@ -58,4 +58,5 @@ setup(
         'all': ["hl7", "aiohttp", "xmltodict", "aiocron"]
     },
     tests_require=['nose', 'nose-cover3'],
+    include_package_data=True,
 )

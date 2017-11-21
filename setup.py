@@ -47,15 +47,15 @@ setup(
         'begins',
         'daemonlite',
         'websockets',
+        'aiohttp',
         'jsonrpcclient[websockets]',
         'jsonrpcserver'
     ],
     extras_require={
         'hl7': ["hl7"],
-        'http': ["aiohttp"],
         'xml': ["xmltodict"],
         'time': ["aiocron"],
-        'all': ["hl7", "aiohttp", "xmltodict", "aiocron"]
+        'all': ["hl7", "xmltodict", "aiocron"]
     },
     tests_require=['nose', 'nose-cover3'],
     include_package_data=True,

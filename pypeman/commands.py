@@ -213,8 +213,8 @@ def graph(dot: "Make dot compatible output (Can be viewed with http://ushiroad.c
 @begin.subcommand
 def pyshell():
     """ Start ipython shell to send command to remote instance """
-    client = RemoteAdminClient('ws://%s:%s' % (settings.REMOTE_ADMIN_HOST,
-                                               settings.REMOTE_ADMIN_PORT))
+    client = remoteadmin.RemoteAdminClient('ws://%s:%s' % (settings.REMOTE_ADMIN_WEBSOCKET_CONFIG['host'],
+                                               settings.REMOTE_ADMIN_WEBSOCKET_CONFIG['port']))
     client.init()
 
     from IPython import embed
@@ -225,9 +225,8 @@ def shell():
     """ Start a custom shell to administrate remote pypeman instance """
     settings.init_settings()
     try:
-        PypemanShell(
-            'ws://%s:%s' % (settings.REMOTE_ADMIN_HOST,
-                            settings.REMOTE_ADMIN_PORT)).cmdloop()
+        remoteadmin.PypemanShell('ws://%s:%s' % (settings.REMOTE_ADMIN_WEBSOCKET_CONFIG['host'],
+                                               settings.REMOTE_ADMIN_WEBSOCKET_CONFIG['port'])).cmdloop()
     except KeyboardInterrupt:
         print('\nQuitting...')
 

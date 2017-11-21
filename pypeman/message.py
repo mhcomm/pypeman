@@ -10,7 +10,7 @@ import logging
 
 default_logger = logging.getLogger(__name__)
 
-DATE_FORMAT = '%Y%m%d_%H%M'
+DATE_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
 class Message():
     """
@@ -50,6 +50,10 @@ class Message():
         self.meta = meta
 
         self.ctx = {}
+
+    def timestamp_str(self):
+        """ Return timestamp formated string """
+        return self.timestamp.strftime(DATE_FORMAT)
 
     def copy(self):
         """

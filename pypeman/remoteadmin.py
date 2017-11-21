@@ -15,6 +15,8 @@ from jsonrpcserver.response import NotificationResponse
 from jsonrpcclient.websockets_client import WebSocketsClient
 from jsonrpcclient.exceptions import ReceivedErrorResponse
 
+from aiohttp import web
+
 from pypeman.conf import settings
 from pypeman import channels
 from pypeman import message
@@ -144,12 +146,12 @@ class RemoteAdminServer():
 
         :params channel: The channel name.
         """
-        # TODO allow indexing
         chan = self.get_channel(channel)
-        print(channel, start, count)
+
         messages = await chan.message_store.search(start=start, count=count, order_by=order_by)
+
         for res in messages:
-            res['timestamp'] = res['message'].timestamp.isoformat()
+            res['timestamp'] = res['message'].timestamp_str()
             res['message'] = res['message'].to_json()
 
         return {'messages': messages, 'total': await chan.message_store.total()}
@@ -240,16 +242,21 @@ class RemoteAdminClient():
         """
         return self.send_command('stop_channel', [channel])
 
-    def list_msg(self, channel):
+    def list_msg(self, channel, start=0, count=10, order_by='timestamp'):
         """
         List first 10 messages on specified channel from remote instance.
 
         :params channel: The channel name.
+        :params start: Start index of listing.
+        :params count: Count from index.
+        :params order_by: Message order. only 'timestamp' and '-timestamp' handled for now.
         :returns: list of message with status.
         """
-        result = self.send_command('list_msg', [channel])
-        for res in result:
-            res['message'] = message.Message.from_json(res['message'])
+        result = self.send_command('list_msg', [channel, start, count, order_by])
+
+        for m in result['messages']:
+            m['message'] = message.Message.from_json(m['message'])
+
         return result
 
     def replay_msg(self, channel, msg_ids):
@@ -258,10 +265,20 @@ class RemoteAdminClient():
 
         :params channel: The channel name.
         :params msg_ids: Message id list to replay
-        :returns: List of result message.
+        :returns: List of result for each message. Result
+            can be {'error': <msg_error>} for one id if error
+            occurs.
         """
-        result = self.send_command('replay_msg', [channel, msg_ids])
-        return [message.Message.from_dict(msg) for msg in result]
+        request_result = self.send_command('replay_msg', [channel, msg_ids])
+
+        result = []
+        for msg in request_result:
+            if 'error' not in msg:
+                result.append(message.Message.from_dict(msg))
+            else:
+                result.append(msg)
+
+        return result
 
     def push_msg(self, channel, text):
         """
@@ -287,49 +304,6 @@ def _with_current_channel(func):
             return None
 
     return wrapper
-
-from aiohttp import web
-class WebAdmin():
-    def __init__(self, loop, host, port, ssl):
-        self.host = host
-        self.port = port
-        self.ssl = ssl
-        self.loop = loop
-
-    async def start(self):
-
-        client_dir = os.path.join(os.path.dirname(os.path.join(__file__)), 'client/dist')
-        app = web.Application()
-        app.router.add_get(
-            '/configs.js',
-            self.handle_config
-        )
-        app.router.add_static(
-            '/',
-            path=os.path.join(client_dir),
-            name='static'
-        )
-        await self.loop.create_server(
-            protocol_factory=app.make_handler(),
-            host=self.host,
-            port=self.port,
-            ssl=self.ssl
-        )
-
-    async def handle_config(self, request):
-        conf = settings.REMOTE_ADMIN_WEBSOCKET_CONFIG
-        server_url = "ws{is_secure}://{host}:{port}".format(
-            is_secure='s' if conf['ssl'] else '',
-            **conf
-        )
-
-        conf = {
-            'serverConfig': server_url
-        }
-        # TODO Not really cool but works.
-        resp = """window.configs = {};""".format(json.dumps(conf))
-
-        return web.Response(text=resp)
 
 
 
@@ -382,9 +356,23 @@ class PypemanShell(cmd.Cmd):
 
     @_with_current_channel
     def do_list(self, channel, arg):
-        "List last 10 messages of selected channel"
-        result = self.client.list_msg(channel)
-        for res in result:
+        "List messages of selected channel. You can specify start, end and order_by arguments"
+        args = arg.split()
+        start, end, order_by = 0, 10, '-timestamp'
+
+        if len(args) > 0:
+            start = args[0]
+        if len(args) > 1:
+            start = args[1]
+        if len(args) > 2:
+            start = args[2]
+
+        result = self.client.list_msg(channel, start, end, order_by)
+
+        if not result['total']:
+            print('No message yet.')
+
+        for res in result['messages']:
             print(res['message'].timestamp, res['id'], res['state'])
 
     @_with_current_channel
@@ -394,7 +382,10 @@ class PypemanShell(cmd.Cmd):
         results = self.client.replay_msg(channel, msg_ids)
         for msg_id, msg in zip(msg_ids, results):
             print("Result message for replaying message %s:" % msg_id)
-            print(msg.to_print())
+            if isinstance(msg, message.Message):
+                print(msg.to_print())
+            else:
+                print('Error on msg: %s - %s' % (msg_id, msg['error']))
 
     @_with_current_channel
     def do_push(self, channel, arg):
@@ -406,3 +397,45 @@ class PypemanShell(cmd.Cmd):
     def do_exit(self, arg):
         "Exit program"
         sys.exit()
+
+class WebAdmin():
+    def __init__(self, loop, host, port, ssl):
+        self.host = host
+        self.port = port
+        self.ssl = ssl
+        self.loop = loop
+
+    async def start(self):
+
+        client_dir = os.path.join(os.path.dirname(os.path.join(__file__)), 'client/dist')
+        app = web.Application()
+        app.router.add_get(
+            '/configs.js',
+            self.handle_config
+        )
+        app.router.add_static(
+            '/',
+            path=os.path.join(client_dir),
+            name='static'
+        )
+        await self.loop.create_server(
+            protocol_factory=app.make_handler(),
+            host=self.host,
+            port=self.port,
+            ssl=self.ssl
+        )
+
+    async def handle_config(self, request):
+        conf = settings.REMOTE_ADMIN_WEBSOCKET_CONFIG
+        server_url = "ws{is_secure}://{host}:{port}".format(
+            is_secure='s' if conf['ssl'] else '',
+            **conf
+        )
+
+        conf = {
+            'serverConfig': server_url
+        }
+        # TODO Not really cool but works.
+        resp = """window.configs = {};""".format(json.dumps(conf))
+
+        return web.Response(text=resp)

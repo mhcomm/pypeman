@@ -16,6 +16,7 @@
   "dependencies": {
     "jsonrpc-websocket-client": "^0.2.0",
     "vue": "^2.5.2",
+    "vue-config": "^1.0.0",
     "vue-router": "^3.0.1",
     "vuetify": "^0.16.9"
   },

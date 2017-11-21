@@ -1,3 +1,4 @@
+import os
 import sys
 import asyncio
 import logging
@@ -38,9 +39,11 @@ class RemoteAdminServer():
     Expose json/rpc function to a client by a websocket.
     """
 
-    def __init__(self, host, port):
+    def __init__(self, loop, host='locahost', port='8091', ssl=None):
         self.host = host
         self.port = port
+        self.ssl = ssl
+        self.loop = loop
         self.ctx = {}
 
     def get_channel(self, name):
@@ -64,12 +67,12 @@ class RemoteAdminServer():
 
         start_server = websockets.serve(
             self.command,
-            self.host,
-            self.port
+            host=self.host,
+            port=self.port,
+            ssl=self.ssl,
+            loop=self.loop
         )
         await start_server
-
-        print("Remote admin started on ws://%s:%s" % (self.host, self.port))
 
     async def command(self, websocket, path):
         """
@@ -284,6 +287,50 @@ def _with_current_channel(func):
             return None
 
     return wrapper
+
+from aiohttp import web
+class WebAdmin():
+    def __init__(self, loop, host, port, ssl):
+        self.host = host
+        self.port = port
+        self.ssl = ssl
+        self.loop = loop
+
+    async def start(self):
+
+        client_dir = os.path.join(os.path.dirname(os.path.join(__file__)), 'client/dist')
+        app = web.Application()
+        app.router.add_get(
+            '/configs.js',
+            self.handle_config
+        )
+        app.router.add_static(
+            '/',
+            path=os.path.join(client_dir),
+            name='static'
+        )
+        await self.loop.create_server(
+            protocol_factory=app.make_handler(),
+            host=self.host,
+            port=self.port,
+            ssl=self.ssl
+        )
+
+    async def handle_config(self, request):
+        conf = settings.REMOTE_ADMIN_WEBSOCKET_CONFIG
+        server_url = "ws{is_secure}://{host}:{port}".format(
+            is_secure='s' if conf['ssl'] else '',
+            **conf
+        )
+
+        conf = {
+            'serverConfig': server_url
+        }
+        # TODO Not really cool but works.
+        resp = """window.configs = {};""".format(json.dumps(conf))
+
+        return web.Response(text=resp)
+
 
 
 class PypemanShell(cmd.Cmd):

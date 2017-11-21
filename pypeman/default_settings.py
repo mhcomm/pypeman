@@ -10,6 +10,18 @@ DEBUG_PARAMS = dict(
     slow_callback_duration=0.1
 )
 
+REMOTE_ADMIN_WEBSOCKET_CONFIG =  {
+    'host': 'localhost',
+    'port': '8091',
+    'ssl': None
+}
+
+REMOTE_ADMIN_WEB_CONFIG = {
+    'host': 'localhost',
+    'port': '8090',
+    'ssl': None
+}
+
 HTTP_ENDPOINT_CONFIG = ['0.0.0.0', '8080']
 
 PERSISTENCE_BACKEND = None

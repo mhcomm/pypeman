@@ -97,7 +97,6 @@ class HttpRequest(nodes.BaseNode):
 
     def generate_request_url(self, msg):
         url_dict = msg.meta
-        print(msg.payload)
         if self.payload_in_url_dict:
             url_dict = dict(url_dict)
             try:
@@ -116,7 +115,6 @@ class HttpRequest(nodes.BaseNode):
         conn=None
         ssl_context=None
         if self.client_cert:
-            print(self.client_cert)
             if self.verify:
                 ssl_context = ssl.create_default_context()
             else:

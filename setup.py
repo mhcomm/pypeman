@@ -4,45 +4,58 @@ from importlib import import_module
 VERSION = import_module("pypeman").__version__
 URL = import_module("pypeman").__url__
 
-setup(name='pypeman',
-      version=VERSION,
-      description='Minimalistic but pragmatic ESB / ETL / EAI in Python',
-      classifiers=[
-          'Development Status :: 3 - Alpha',
-          'License :: OSI Approved :: Apache Software License',
-          'Programming Language :: Python :: 3.4',
-          'Intended Audience :: Developers',
-          'Intended Audience :: Information Technology',
-          'Intended Audience :: Healthcare Industry',
-          'Operating System :: POSIX :: Linux',
-          'Topic :: Database',
-          'Topic :: Internet',
-          'Topic :: Internet :: File Transfer Protocol (FTP)',
-          'Programming Language :: Python',
-      ],
-      keywords='esb etl eai pipeline data processing asyncio http',
-      url=URL,
+with open("./README.rst") as desc_file:
+    long_description = desc_file.read()
 
-      author='Jeremie Pardou',
-      author_email='jeremie.pardou@mhcomm.fr',
+setup(
+    name='pypeman',
+    version=VERSION,
+    description='Minimalistic but pragmatic ESB / ETL / EAI in Python',
+    long_description=long_description,
+    classifiers=[
+        'Development Status :: 4 - Beta',
+        'License :: OSI Approved :: Apache Software License',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3 :: Only',
+        'Intended Audience :: Developers',
+        'Intended Audience :: Information Technology',
+        'Intended Audience :: Healthcare Industry',
+        'Operating System :: POSIX :: Linux',
+        'Topic :: Database',
+        'Topic :: Internet',
+        'Topic :: Internet :: File Transfer Protocol (FTP)',
+        'Programming Language :: Python',
+    ],
+    keywords='esb etl eai pipeline data processing asyncio http ftp hl7',
+    url=URL,
 
-      license='Apache Software License',
-      packages=['pypeman', 'pypeman.helpers', 'pypeman.contrib'],
+    author='Jeremie Pardou',
+    author_email='jeremie.pardou@mhcomm.fr',
 
-      entry_points={
-          'console_scripts': [
-              'pypeman = pypeman.commands:run.start',
-          ]
-      },
+    license='Apache Software License',
+    packages=['pypeman', 'pypeman.helpers', 'pypeman.contrib'],
 
-      test_suite='nose.collector',
-      install_requires=['begins'],
-      extras_require={
-          'hl7': ["hl7"],
-          'http': ["aiohttp"],
-          'xml': ["xmltodict"],
-          'time': ["aiocron"],
-          'all': ["hl7", "aiohttp", "xmltodict", "aiocron"]
-      },
-      tests_require=['nose', 'nose-cover3'],
+    entry_points={
+        'console_scripts': [
+            'pypeman = pypeman.commands:run.start',
+        ]
+    },
+
+    test_suite='nose.collector',
+    install_requires=[
+        'begins',
+        'daemonlite',
+        'websockets',
+        'jsonrpcclient[websockets]',
+        'jsonrpcserver'
+    ],
+    extras_require={
+        'hl7': ["hl7"],
+        'http': ["aiohttp"],
+        'xml': ["xmltodict"],
+        'time': ["aiocron"],
+        'all': ["hl7", "aiohttp", "xmltodict", "aiocron"]
+    },
+    tests_require=['nose', 'nose-cover3'],
 )

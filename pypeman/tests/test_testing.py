@@ -135,13 +135,3 @@ class ChannelsTests(unittest.TestCase):
 
         self.assertEqual(n.processed, 1, "Channel in test mode not working")
         self.assertEqual(ret.payload, "XEF", "Mocking with function broken")
-
-
-
-
-
-
-
-
-
-

@@ -12,10 +12,7 @@ from pypeman import message
 from pypeman import nodes
 from pypeman import msgstore
 from pypeman import events
-from pypeman.tests.common import TestException
-
-message_content = """{"test":1}"""
-
+from pypeman.tests.common import TestException, generate_msg
 
 class TestNode(nodes.BaseNode):
     def __init__(self, *args, **kwargs):
@@ -43,14 +40,6 @@ class ExceptNode(TestNode):
     def process(self, msg):
         result = super().process(msg)
         raise TestException()
-
-def generate_msg(timestamp=(1981, 12, 28, 13, 37)):
-    # Default message
-    m = message.Message()
-    m.timestamp = datetime.datetime(*timestamp)
-    m.payload = message_content
-
-    return m
 
 
 class ChannelsTests(unittest.TestCase):
@@ -88,7 +77,9 @@ class ChannelsTests(unittest.TestCase):
         n = TestNode()
         msg = generate_msg()
 
-        chan.add(n)
+        same_chan = chan.add(n)
+
+        self.assertEqual(same_chan, chan, "Add doesn't return channel")
 
         # Launch channel processing
         self.start_channels()
@@ -117,9 +108,12 @@ class ChannelsTests(unittest.TestCase):
 
         msg = generate_msg()
 
-        chan.add(n1)
+        same_chan = chan.append(n1)
+
+        self.assertEqual(chan, same_chan, "Append don't return channel.")
+
         sub = chan.fork(name="subchannel")
-        sub.add(n2, n3, n4)
+        sub.append(n2, n3, n4)
 
         # Launch channel processing
         self.start_channels()
@@ -230,14 +224,44 @@ class ChannelsTests(unittest.TestCase):
 
         chan.add(nodes.JsonToPython(), nodes.PythonToJson())
 
-        @asyncio.coroutine
-        def go():
-            result = yield from chan.handle(msg)
-            self.assertEqual(result.payload, msg.payload, "Channel handle not working")
+        # Launch channel processing
+        self.start_channels()
+        result = self.loop.run_until_complete(chan.handle(msg))
+
+        self.assertEqual(result.payload, msg.payload, "Channel handle not working")
+
+    def test_channel_with_generator(self):
+        """ Whether BaseChannel with generator is working """
+
+        chan = BaseChannel(name="test_channel7.3", loop=self.loop)
+        chan2 = BaseChannel(name="test_channel7.31", loop=self.loop)
+        msg = generate_msg()
+        msg2 = msg.copy()
+
+        class TestIter(nodes.BaseNode):
+            def process(self, msg):
+                def iter():
+                    for i in range(3):
+                        yield msg
+                return iter()
+
+        final_node = nodes.Log()
+        mid_node = nodes.Log()
+
+        chan.add(TestIter(name="testiterr"), nodes.Log(), TestIter(name="testiterr"), final_node)
+        chan2.add(TestIter(name="testiterr"), mid_node, nodes.Drop())
 
         # Launch channel processing
         self.start_channels()
-        self.loop.run_until_complete(go())
+        result = self.loop.run_until_complete(chan.handle(msg))
+
+        self.assertEqual(result.payload, msg.payload, "Generator node not working")
+        self.assertEqual(final_node.processed, 9, "Generator node not working")
+
+        result = self.loop.run_until_complete(chan2.handle(msg2))
+
+        self.assertEqual(mid_node.processed, 3, "Generator node not working with drop_node")
+
 
     def test_channel_events(self):
         """ Whether BaseChannel handling return a good result """
@@ -255,17 +279,12 @@ class ChannelsTests(unittest.TestCase):
             state_sequence.append(new_state)
 
         @events.channel_change_state.receiver
-        @asyncio.coroutine
-        def handle_change_state_async(channel=None, old_state=None, new_state=None):
+        async def handle_change_state_async(channel=None, old_state=None, new_state=None):
             print(channel.name, old_state, new_state)
-
-        @asyncio.coroutine
-        def go():
-            result = yield from chan.handle(msg)
 
         # Launch channel processing
         self.start_channels()
-        self.loop.run_until_complete(go())
+        self.loop.run_until_complete(chan.handle(msg))
         self.loop.run_until_complete(chan.stop())
 
         print(state_sequence)
@@ -352,7 +371,6 @@ class ChannelsTests(unittest.TestCase):
 
             del chan
 
-
     def test_channel_stopped_dont_process_message(self):
         """ Whether BaseChannel handling return a good result """
 
@@ -361,17 +379,13 @@ class ChannelsTests(unittest.TestCase):
 
         chan.add(nodes.JsonToPython(), nodes.PythonToJson())
 
-        @asyncio.coroutine
-        def go():
-            result = yield from chan.handle(msg)
-
         # Launch channel processing
         self.start_channels()
-        self.loop.run_until_complete(go())
+        self.loop.run_until_complete(chan.handle(msg))
         self.loop.run_until_complete(chan.stop())
 
         with self.assertRaises(channels.ChannelStopped) as cm:
-            self.loop.run_until_complete(go())
+            self.loop.run_until_complete(chan.handle(msg))
 
     def test_channel_exception(self):
         """ Whether BaseChannel handling return an exception in case of error in main branch """
@@ -391,7 +405,7 @@ class ChannelsTests(unittest.TestCase):
 
         chan = BaseChannel(name="test_channel9", loop=self.loop, message_store_factory=msgstore.FakeMessageStoreFactory())
         n = TestNode()
-        msg = generate_msg()
+        msg = generate_msg(with_context=True)
 
         chan.add(n)
 
@@ -411,7 +425,7 @@ class ChannelsTests(unittest.TestCase):
         n = TestNode()
         n_error = TestConditionalErrorNode()
 
-        msg = generate_msg()
+        msg = generate_msg(with_context=True)
         msg2 = generate_msg(timestamp=(1982, 11, 27, 12, 35))
         msg3 = generate_msg(timestamp=(1982, 11, 28, 12, 35))
         msg4 = generate_msg(timestamp=(1982, 11, 28, 14, 35))
@@ -423,7 +437,6 @@ class ChannelsTests(unittest.TestCase):
         chan.add(n_error)
 
         # Launch channel processing
-
         self.start_channels()
         self.loop.run_until_complete(chan.handle(msg))
         self.loop.run_until_complete(chan.handle(msg2))
@@ -443,12 +456,35 @@ class ChannelsTests(unittest.TestCase):
         self.assertEqual(len(msg_stored), 5, "Should be 5 messages in store!")
 
         # Test processed message
-        dict_msg = chan.message_store.get('%s' % msg3.uuid.hex)
+        dict_msg = chan.message_store.get('%s' % msg3.uuid)
         self.assertEqual(dict_msg['state'], 'processed', "Message %s should be in processed state!" % msg3)
 
         # Test failed message
-        dict_msg = chan.message_store.get('%s' % msg5.uuid.hex)
+        dict_msg = chan.message_store.get('%s' % msg5.uuid)
         self.assertEqual(dict_msg['state'], 'error', "Message %s should be in error state!" % msg5)
+
+    def test_memory_message_store(self):
+        """ We can store a message in FileMessageStore """
+
+        store_factory = msgstore.MemoryMessageStoreFactory()
+
+        chan = BaseChannel(name="test_channel10", loop=self.loop, message_store_factory=store_factory)
+
+        n1 = TestNode()
+        n2 = TestNode()
+        n3 = TestNode()
+        n4 = TestNode()
+
+        chan.add(n1, n2)
+        fork = chan.fork()
+        fork.add(n3)
+
+        self.assertTrue(isinstance(fork.message_store, msgstore.NullMessageStore))
+
+        whe = chan.when(True, message_store_factory=store_factory)
+        whe.add(n4)
+
+        self.assertTrue(isinstance(whe.message_store, msgstore.MemoryMessageStore))
 
     def test_replay_from_memory_message_store(self):
         """ We can store a message in FileMessageStore """
@@ -459,14 +495,13 @@ class ChannelsTests(unittest.TestCase):
 
         n = TestNode()
 
-        msg = generate_msg()
+        msg = generate_msg(with_context=True)
         msg2 = generate_msg(timestamp=(1982, 11, 27, 12, 35))
 
 
         chan.add(n)
 
         # Launch channel processing
-
         self.start_channels()
         self.loop.run_until_complete(chan.handle(msg))
         self.loop.run_until_complete(chan.handle(msg2))
@@ -476,7 +511,7 @@ class ChannelsTests(unittest.TestCase):
         for msg in msg_stored:
             print(msg)
 
-        self.assertEqual(len(msg_stored), 2, "Should be 3 messages in store!")
+        self.assertEqual(len(msg_stored), 2, "Should be 2 messages in store!")
 
         self.loop.run_until_complete(chan.replay(msg_stored[0]['id']))
 
@@ -495,7 +530,7 @@ class ChannelsTests(unittest.TestCase):
         n = TestNode()
         n_error = TestConditionalErrorNode()
 
-        msg = generate_msg()
+        msg = generate_msg(with_context=True)
         msg2 = generate_msg(timestamp=(1982, 11, 27, 12, 35))
         msg3 = generate_msg(timestamp=(1982, 11, 28, 12, 35))
         msg4 = generate_msg(timestamp=(1982, 11, 28, 14, 35))
@@ -526,14 +561,14 @@ class ChannelsTests(unittest.TestCase):
         self.assertEqual(len(msg_stored), 5, "Should be 5 messages in store!")
 
         # Test processed message
-        dict_msg = chan.message_store.get('1982/11/28/19821128_1235_%s' % msg3.uuid.hex)
+        dict_msg = chan.message_store.get('1982/11/28/19821128_1235_%s' % msg3.uuid)
         self.assertEqual(dict_msg['state'], 'processed', "Message %s should be in processed state!" % msg3)
 
         # Test failed message
-        dict_msg = chan.message_store.get('1982/11/12/19821112_1435_%s' % msg5.uuid.hex)
+        dict_msg = chan.message_store.get('1982/11/12/19821112_1435_%s' % msg5.uuid)
         self.assertEqual(dict_msg['state'], 'error', "Message %s should be in error state!" % msg5)
 
-        self.assertTrue(os.path.exists("%s/%s/1982/11/28/19821128_1235_%s" % (tempdir, chan.name, msg3.uuid.hex)))
+        self.assertTrue(os.path.exists("%s/%s/1982/11/28/19821128_1235_%s" % (tempdir, chan.name, msg3.uuid)))
 
         # TODO put in tear_down ?
         shutil.rmtree(tempdir, ignore_errors=True)

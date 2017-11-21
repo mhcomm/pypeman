@@ -1,11 +1,10 @@
 import sys
 import asyncio
+from asyncio import ensure_future
 import warnings
 
 from pypeman import endpoints, channels, nodes, message
 
-# For compatibility purpose
-from asyncio import async as ensure_future
 
 import hl7
 
@@ -13,9 +12,10 @@ class MLLPProtocol(asyncio.Protocol):
     """
     Minimal Lower-Layer Protocol (MLLP) takes the form:
         <VT>[HL7 Message]<FS><CR>
+
     References:
-    .. [1] http://www.hl7standards.com/blog/2007/05/02/hl7-mlp-minimum-layer-protocol-defined/
-    .. [2] http://www.hl7standards.com/blog/2007/02/01/ack-message-original-mode-acknowledgement/
+        - http://www.hl7standards.com/blog/2007/05/02/hl7-mlp-minimum-layer-protocol-defined/
+        - http://www.hl7standards.com/blog/2007/02/01/ack-message-original-mode-acknowledgement/
     """
 
     def __init__(self, handler, loop=None):
@@ -93,10 +93,9 @@ class MLLPEndpoint(endpoints.BaseEndpoint):
     def set_handler(self, handler):
         self.handler = handler
 
-    @asyncio.coroutine
-    def start(self):
+    async def start(self):
         if self.handler:
-            srv = yield from self.loop.create_server(lambda: MLLPProtocol(self.handler, loop=self.loop), self.address, self.port)
+            srv = await self.loop.create_server(lambda: MLLPProtocol(self.handler, loop=self.loop), self.address, self.port)
             print("MLLP server started at http://{}:{}".format(self.address, self.port))
             return srv
         else:
@@ -115,17 +114,15 @@ class MLLPChannel(channels.BaseChannel):
             encoding = sys.getdefaultencoding()
         self.encoding = encoding
 
-    @asyncio.coroutine
-    def start(self):
-        yield from super().start()
+    async def start(self):
+        await super().start()
         self.mllp_endpoint.set_handler(handler=self.handle_hl7_message)
 
-    @asyncio.coroutine
-    def handle_hl7_message(self, hl7_message):
+    async def handle_hl7_message(self, hl7_message):
         content = hl7_message.decode(self.encoding)
         msg = message.Message(content_type='text/hl7', payload=content, meta={})
         try:
-            result = yield from self.handle(msg)
+            result = await self.handle(msg)
             return result.payload.encode(self.encoding)
         except channels.Dropped:
             ack = hl7.parse(content, encoding=self.encoding)

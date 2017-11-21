@@ -10,26 +10,40 @@ from aiohttp import web
 class HTTPEndpoint(endpoints.BaseEndpoint):
     """
     Endpoint to receive HTTP connection from outside.
+
+    :param http_args: dict to pass as **kwargs** to aiohttp.Application for example for
+        `client_max_size`
     """
 
-    def __init__(self, adress='127.0.0.1', port='8080', loop=None):
+    def __init__(self, adress='127.0.0.1', port='8080', loop=None, http_args=None):
         super().__init__()
+        self.http_args = http_args or {}
+        self.ssl_context = http_args.pop('ssl_context', None)
+
         self._app = None
         self.address = adress
         self.port = port
         self.loop = loop or asyncio.get_event_loop()
 
-    def add_route(self,*args, **kwargs):
-        if not self._app:
-            self._app = web.Application(loop=self.loop)
-        # TODO route should be added later
+    def add_route(self, *args, **kwargs):
+        if self._app is None:
+            self._app = web.Application(**self.http_args)
+
         self._app.router.add_route(*args, **kwargs)
 
-    @asyncio.coroutine
-    def start(self):
+    async def start(self):
         if self._app is not None:
-            srv = yield from self.loop.create_server(self._app.make_handler(), self.address, self.port)
-            print("Server started at http://{}:{}".format(self.address, self.port))
+            srv = await self.loop.create_server(
+                protocol_factory=self._app.make_handler(),
+                host=self.address,
+                port=self.port,
+                ssl=self.ssl_context
+            )
+            print("Server started at http{}://{}:{}".format(
+                's' if self.ssl_context else '',
+                self.address,
+                self.port
+            ))
             return srv
         else:
             print("No HTTP route.")
@@ -40,12 +54,10 @@ class HttpChannel(channels.BaseChannel):
     become metadata of message. Needs ``aiohttp`` python dependency to work.
 
     :param endpoint: HTTP endpoint used to get connections.
-
     :param method: Method filter.
-
     :param url: Only matching urls messages will be sent to this channel.
-
     :param encoding: Encoding of message. Default to 'utf-8'.
+
     """
     dependencies = ['aiohttp']
     app = None
@@ -59,17 +71,15 @@ class HttpChannel(channels.BaseChannel):
             raise TypeError('Missing "endpoint" argument')
         self.http_endpoint = endpoint
 
-    @asyncio.coroutine
-    def start(self):
-        yield from super().start()
+    async def start(self):
+        await super().start()
         self.http_endpoint.add_route(self.method, self.url, self.handle_request)
 
-    @asyncio.coroutine
-    def handle_request(self, request):
-        content = yield from request.text()
+    async def handle_request(self, request):
+        content = await request.text()
         msg = message.Message(content_type='http_request', payload=content, meta={'method': request.method})
         try:
-            result = yield from self.handle(msg)
+            result = await self.handle(msg)
             encoding = self.encoding or 'utf-8'
             return web.Response(body=result.payload.encode(encoding), status=result.meta.get('status', 200))
 
@@ -107,8 +117,7 @@ class HttpRequest(nodes.BaseNode):
                 raise
         return self.url % url_dict
 
-    @asyncio.coroutine
-    def handle_request(self, msg):
+    async def handle_request(self, msg):
         """ generate url and handle request """
         url = self.generate_request_url(msg)
         loop = self.channel.loop
@@ -166,10 +175,9 @@ class HttpRequest(nodes.BaseNode):
             resp_text = yield from resp.text()
             return str(resp_text)
 
-    @asyncio.coroutine
-    def process(self, msg):
+    async def process(self, msg):
         """ handles request """
-        msg.payload = yield from self.handle_request(msg)
+        msg.payload = await self.handle_request(msg)
         return msg
 
 

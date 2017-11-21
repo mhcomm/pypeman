@@ -79,6 +79,9 @@ class BaseNode:
 
     :param name: Name of node. Used in log or test.
     :param log_output: To enable output logging for this node.
+    :store_output_as: Store output message in msg.ctx as specified key
+    :store_input_as: Store input message in msg.ctx as specified key
+    :passthrough: If True, node is executed but output message is same as input
 
     """
 
@@ -98,10 +101,9 @@ class BaseNode:
         if log_output:
             # Enable logging
             self._handle_without_log = self.handle
-            self.handle = self._log_handle
+            setattr(self, 'handle', self._log_handle)
 
-    @asyncio.coroutine
-    def handle(self, msg):
+    async def handle(self, msg):
         """ Handle message is called by channel to launch process method on it.
         Some other structural processing take place here.
         Please, don't modify unless you know what you are doing.
@@ -112,51 +114,49 @@ class BaseNode:
 
         # TODO : Make sure exceptions are well raised (does not happen if i.e 1/0 here atm)
         if self.store_input_as:
-            msg.ctx[self.store_input_as] = dict(
-                meta=dict(msg.meta),
-                payload=deepcopy(msg.payload),
-            )
+            msg.add_context(self.store_input_as, msg)
 
         if self.passthrough:
             old_msg = msg.copy()
 
         # Allow process as coroutine function
         if asyncio.iscoroutinefunction(self.process):
-            result = yield from self.async_run(msg)
+            result = await self.async_run(msg)
         else:
             result = self.run(msg)
 
         self.processed += 1
 
         if isinstance(result, asyncio.Future):
-            result = yield from result
+            result = await result
 
         if self.next_node:
             if isinstance(result, types.GeneratorType):
-                for res in result:
-                    result = yield from self.next_node.handle(res)
+                gene = result
+                result = msg # Necessary if all nodes result are dropped
+                for res in gene:
+                    try:
+                        result = await self.next_node.handle(res)
+                    except Dropped:
+                        pass
                     # TODO Here result is last value returned. Is it a good idea ?
             else:
                 if self.store_output_as:
-                    result.ctx[self.store_output_as] = dict(
-                        meta=dict(result.meta),
-                        payload=deepcopy(result.payload),
-                    )
+                    msg.add_context(self.store_output_as, msg)
 
                 if self.passthrough:
                     result.payload = old_msg.payload
                     result.meta = old_msg.meta
 
-                result = yield from self.next_node.handle(result)
+                result = await self.next_node.handle(result)
 
         return result
 
-    @asyncio.coroutine
-    def _log_handle(self, msg):
+    async def _log_handle(self, msg):
         """
         Used when node logging is enabled. Log after node processing.
         """
-        result = yield from self._handle_without_log(msg)
+        result = await self._handle_without_log(msg)
 
         self.channel.logger.info('%s node from handles %s', str(self), str(result))
 
@@ -165,8 +165,7 @@ class BaseNode:
 
         return result
 
-    @asyncio.coroutine
-    def _test_handle(self, msg):
+    async def _test_handle(self, msg):
         """ Specific handle for TEST mode to enable some testing and introspection operations like mock input and/or
         output, or count processed message.
 
@@ -182,14 +181,13 @@ class BaseNode:
             else:
                 msg = self._mock_input
 
-        result = yield from self._handle(msg)
+        result = await self._handle(msg)
 
         return result
 
-    @asyncio.coroutine
-    def async_run(self, msg):
+    async def async_run(self, msg):
         """ Used to overload behaviour like thread Node without rewriting handle process """
-        result = yield from self.process(msg)
+        result = await self.process(msg)
         return result
 
     def run(self, msg):
@@ -235,7 +233,7 @@ class BaseNode:
 
         if not hasattr(self, '_handle'):
             self._handle = self.handle
-            self.handle = self._test_handle
+            setattr(self, 'handle', self._test_handle)
 
         if hasattr(self, '_orig_process'):
             self.process = self._orig_process
@@ -256,9 +254,16 @@ class RaiseError(BaseNode):
 
 
 class Drop(BaseNode):
-    """ This node used to tell the channel the message is Dropped. """
+    """ Use this node to tell the channel the message is Dropped. """
+    def __init__(self, message=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.message = message
+
     def process(self, msg):
-        raise Dropped()
+        if self.message:
+            raise Dropped(self.message)
+        else:
+            raise Dropped()
 
 class DropNode(Drop):
     def __init__(self, *args, **kwargs):
@@ -333,9 +338,8 @@ class Sleep(BaseNode):
         self.duration = duration
         super().__init__(*args, **kwargs)
 
-    @asyncio.coroutine
-    def process(self, msg):
-        yield from asyncio.sleep(self.duration, loop=self.channel.loop)
+    async def process(self, msg):
+        await asyncio.sleep(self.duration, loop=self.channel.loop)
         return msg
 
 
@@ -477,7 +481,6 @@ class Save(ThreadNode):
             self.backend = SaveFileBackend(path=parsed.path, filename=filename, channel=self.channel)
         else:
             self.backend = SaveNullBackend()
-
 
     def process(self, msg):
         self.backend.store(msg)

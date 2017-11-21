@@ -103,15 +103,26 @@ class NodesTests(unittest.TestCase):
 
         m = generate_msg(message_content='test')
 
-        @asyncio.coroutine
-        def go():
-           ret = yield from n.handle(m)
-           # Check return
-           self.assertTrue(isinstance(ret, message.Message))
-           self.assertEqual(ret.payload, 'test', "Sleep node not working !")
-           return ret
+        ret = self.loop.run_until_complete(n.handle(m))
 
-        self.loop.run_until_complete(go())
+        # Check return
+        self.assertTrue(isinstance(ret, message.Message))
+        self.assertEqual(ret.payload, 'test', "Sleep node not working !")
+
+    def test_drop_node(self):
+        """ Whether Drop() node is working """
+
+        msg_to_show = "It's only dropped"
+        n = nodes.Drop(message=msg_to_show)
+        n.channel = FakeChannel(self.loop)
+
+        m = generate_msg(message_content='test')
+
+        with self.assertRaises(nodes.Dropped) as cm:
+            ret = self.loop.run_until_complete(n.handle(m))
+
+        self.assertEqual(str(cm.exception), msg_to_show, "Drop node message not working !")
+
 
     def test_b64_nodes(self):
         """ if B64 nodes are functional """
@@ -130,15 +141,12 @@ class NodesTests(unittest.TestCase):
 
         base = bytes(m.payload)
 
-        @asyncio.coroutine
-        def go():
-           ret = yield from n1.handle(m)
-           ext_new = yield from n2.handle(ret)
-           # Check return
-           self.assertTrue(isinstance(ret, message.Message))
-           self.assertEqual(base, ext_new.payload, "B64 nodes not working !")
+        ret = self.loop.run_until_complete(n1.handle(m))
+        ext_new = self.loop.run_until_complete(n2.handle(ret))
 
-        self.loop.run_until_complete(go())
+        # Check return
+        self.assertTrue(isinstance(ret, message.Message))
+        self.assertEqual(base, ext_new.payload, "B64 nodes not working !")
 
     def test_json_to_python_node(self):
         """ if JsonToPython() node functional """
@@ -148,16 +156,10 @@ class NodesTests(unittest.TestCase):
 
         m = generate_msg(message_content='{"test":1}')
 
-        @asyncio.coroutine
-        def go():
-           ret = yield from n.handle(m)
-           # Check return
-           self.assertTrue(isinstance(ret, message.Message))
-           self.assertEqual(ret.payload, {"test":1}, "JsonToPython node not working !")
-
-           return ret
-
-        self.loop.run_until_complete(go())
+        ret = self.loop.run_until_complete(n.handle(m))
+        # Check return
+        self.assertTrue(isinstance(ret, message.Message))
+        self.assertEqual(ret.payload, {"test":1}, "JsonToPython node not working !")
 
     def test_thread_node(self):
         """ if Thread node functional """
@@ -169,15 +171,9 @@ class NodesTests(unittest.TestCase):
 
         m = generate_msg()
 
-        @asyncio.coroutine
-        def go():
-           ret = yield from n.handle(m)
-           # Check return
-           self.assertTrue(isinstance(ret, message.Message))
-
-           return ret
-
-        self.loop.run_until_complete(go())
+        ret = self.loop.run_until_complete(n.handle(m))
+        # Check return
+        self.assertTrue(isinstance(ret, message.Message))
 
     @unittest.skipIf(not os.environ.get('PYPEMAN_TEST_SMTP_USER')
                      or not os.environ.get('PYPEMAN_TEST_SMTP_PASSWORD')
@@ -200,15 +196,9 @@ class NodesTests(unittest.TestCase):
         m = generate_msg()
         m.payload = "Message content is full of silence !"
 
-        @asyncio.coroutine
-        def go():
-           ret = yield from n.handle(m)
-           # Check return
-           self.assertTrue(isinstance(ret, message.Message))
+        ret = self.loop.run_until_complete(n.handle(m))
 
-           return ret
-
-        self.loop.run_until_complete(go())
+        self.assertTrue(isinstance(ret, message.Message))
 
     def test_save_node(self):
         """ if Save() node functional """
@@ -256,16 +246,11 @@ class NodesTests(unittest.TestCase):
 
         base = str(m.payload)
 
-        @asyncio.coroutine
-        def go():
-           ret = yield from n1.handle(m)
-           ext_new = yield from n2.handle(ret)
-           # Check return
-           self.assertTrue(isinstance(ret, message.Message))
-           self.assertEqual(base, ext_new.payload, "XML nodes not working !")
-
-        self.loop.run_until_complete(go())
-
+        ret = self.loop.run_until_complete(n1.handle(m))
+        ext_new = self.loop.run_until_complete(n2.handle(ret))
+        # Check return
+        self.assertTrue(isinstance(ret, message.Message))
+        self.assertEqual(base, ext_new.payload, "XML nodes not working !")
 
     def test_ftp_nodes(self):
         """ Whether FTP nodes are functional """

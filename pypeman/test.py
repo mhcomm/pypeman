@@ -2,11 +2,15 @@ from unittest import TestCase
 import asyncio
 from pypeman import channels
 
-# TODO implement settings overload
+# TODO implement settings override
 # TODO implement MessageStoreMock
 
 class PypeTestCase(TestCase):
     loop = None
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.addCleanup(self.cleanLoop)
 
     @classmethod
     def setUpClass(cls):
@@ -27,6 +31,24 @@ class PypeTestCase(TestCase):
             chan._reset_test()
 
     @classmethod
+    def cleanLoop(cls):
+        """ Replace current loop by a new one to avoid side effect on next test."""
+        for chan in channels.all:
+            cls.loop.run_until_complete(chan.stop())
+
+        pending = asyncio.Task.all_tasks(loop=cls.loop)
+        asyncio.gather(*pending, loop=cls.loop).cancel()
+
+        cls.loop.close()
+        cls.loop = asyncio.new_event_loop()
+
+        # Start channels
+        for chan in channels.all:
+            chan.loop = cls.loop
+            cls.loop.run_until_complete(chan.start())
+            chan._reset_test()
+
+    @classmethod
     def tearDownClass(cls):
         super().tearDownClass()
 
@@ -38,19 +60,38 @@ class PypeTestCase(TestCase):
 
     @classmethod
     def finish_all_tasks(cls):
+        """
+        You can use this function if you have some subchannel in you channel
+        and want to see the final result by processing all remaining tasks.
 
-        # Useful to execute future callbacks
+        :return: A list of raised exceptions during task execution.
+        """
+        raised_exceptions = []
+
         pending = asyncio.Task.all_tasks(loop=cls.loop)
 
-        if pending:
-            cls.loop.run_until_complete(asyncio.gather(*pending))
+        for task in pending:
+            if not task.done(): # Exclude already resolved exception
+                try:
+                    cls.loop.run_until_complete(task)
+                except Exception as exc: # noqa
+                    raised_exceptions.append(exc)
+
+        return raised_exceptions
 
     def get_channel(self, name):
+        """
+        Return a channel by is name. Remember to prepend with parent channel
+        name for subchannel.
+
+        :return: Channel instance corresponding to `name`
+            or None if channel not found.
+        """
         for chan in channels.all:
             if chan.name == name:
                 chan._reset_test()
                 return chan
-        return None
+        raise NameError("Channel '%s' doesn't exist" % name)
 
     def set_loop_to_debug(self):
         """

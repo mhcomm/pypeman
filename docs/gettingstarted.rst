@@ -6,25 +6,11 @@ Installation
 
 With pip ::
 
-    pip install pypeman
+    pip install pypeman # or
+    pip install pypeman[all] # To install with all optionnal dependencies
 
-
-...or from source
-
-Clone it: ::
-
-    git clone https://github.com/mhcomm/pypeman.git
-
-then:
-
-.. code-block:: sh
-
-    cd pypeman
-    python -m setup install  # to install 'normally'
-    # Or for development version
-    python -m setup develop
-
-## Basic usage
+Basic usage
+-----------
 
 Create a fresh project with: ::
 
@@ -43,18 +29,24 @@ To get command help and more details about commands: ::
 
     pypeman --help
 
-To create a fresh project (partially implemented): ::
+To create a fresh project: ::
 
     pypeman startproject <project_name>
 
-To start pypeman: ::
+To start pypeman as daemon: ::
 
-    pypeman start
+    pypeman start [--reload] [--remote-admin]
+
+To stop pypeman: ::
+
+    pypeman stop
 
 To show a channel graph: ::
 
     pypeman graph
 
-To list optional dependencies used by your channels: ::
+To launch a remote shell (only if remote-admin is activated): ::
 
-    pypeman requirements
+    pypeman shell
+
+

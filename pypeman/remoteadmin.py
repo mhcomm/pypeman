@@ -41,11 +41,11 @@ class RemoteAdminServer():
     Expose json/rpc function to a client by a websocket.
     """
 
-    def __init__(self, loop, host='locahost', port='8091', ssl=None):
+    def __init__(self, loop=None, host='localhost', port='8091', ssl=None):
         self.host = host
         self.port = port
         self.ssl = ssl
-        self.loop = loop
+        self.loop = loop or asyncio.get_event_loop()
         self.ctx = {}
 
     def get_channel(self, name):
@@ -66,6 +66,10 @@ class RemoteAdminServer():
         methods.add(self.list_msg)
         methods.add(self.replay_msg)
         methods.add(self.push_msg)
+
+        print(dict(            host=self.host,
+            port=self.port,
+            ssl=self.ssl))
 
         start_server = websockets.serve(
             self.command,
@@ -188,9 +192,14 @@ class RemoteAdminServer():
 
 
 class RemoteAdminClient():
-    def __init__(self, url):
+    """
+    Remote admin client. To be use by ipython shell or pypeman shell.
+
+    :params url: Pypeman Websocket url.
+    """
+    def __init__(self, loop=None, url='ws://localhost:8091'):
         self.url = url
-        self.loop = asyncio.get_event_loop()
+        self.loop = loop or asyncio.get_event_loop()
 
     def init(self):
         pass
@@ -207,14 +216,14 @@ class RemoteAdminClient():
         """
         Asynchronous version of command sending
         """
-        async with websockets.connect(self.url) as ws:
+        async with websockets.connect(self.url, loop=self.loop) as ws:
             response = await WebSocketsClient(ws).request(command, *args)
             return response
 
     def exec(self, command):
         """
         Execute any valid python code on remote instance
-        and return stout result.
+        and return stdout result.
         """
         result = self.send_command('exec', [command])
         print(result)
@@ -306,7 +315,6 @@ def _with_current_channel(func):
     return wrapper
 
 
-
 class PypemanShell(cmd.Cmd):
     intro = 'Welcome to the pypeman shell. Type help or ? to list commands.\n'
     prompt = 'pypeman > '
@@ -360,7 +368,7 @@ class PypemanShell(cmd.Cmd):
         args = arg.split()
         start, end, order_by = 0, 10, '-timestamp'
 
-        if len(args) > 0:
+        if args:
             start = args[0]
         if len(args) > 1:
             start = args[1]

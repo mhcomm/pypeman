@@ -59,6 +59,12 @@ git push --tags
     - Now under Releases you can view all of your releases.
     - Copy the download link (tar.gz) and save it somewhere.
 
+- [ ] Generate webclient:
+```
+cd pypeman/client
+npm install
+npm run build
+```
 - [ ] Generate packages:
 ```
 python setup.py sdist bdist_wheel

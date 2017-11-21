@@ -82,7 +82,7 @@ class HttpChannel(channels.BaseChannel):
 class HttpRequest(nodes.BaseNode):
     """ Http request node """
 
-    def __init__(self, *args, url, method=None, headers=None, auth=None, verify=True, params=None, client_cert=None, **kwargs):
+    def __init__(self, url, *args, method=None, headers=None, auth=None, verify=True, params=None, client_cert=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.url = url
         self.method = method
@@ -97,6 +97,7 @@ class HttpRequest(nodes.BaseNode):
 
     def generate_request_url(self, msg):
         url_dict = msg.meta
+        print(msg.payload)
         if self.payload_in_url_dict:
             url_dict = dict(url_dict)
             try:
@@ -111,18 +112,19 @@ class HttpRequest(nodes.BaseNode):
     def handle_request(self, msg):
         """ generate url and handle request """
         url = self.generate_request_url(msg)
-
+        loop = self.channel.loop
         conn=None
         ssl_context=None
         if self.client_cert:
+            print(self.client_cert)
             if self.verify:
                 ssl_context = ssl.create_default_context()
             else:
                 ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
             ssl_context.load_cert_chain(self.client_cert[0], self.client_cert[1])
-            conn = aiohttp.TCPConnector(ssl_context=ssl_context)
+            conn = aiohttp.TCPConnector(ssl_context=ssl_context, loop=loop)
         else:
-            conn = aiohttp.TCPConnector(verify_ssl=self.verify)
+            conn = aiohttp.TCPConnector(verify_ssl=self.verify, loop=loop)
 
         headers = self.headers
         if not headers:
@@ -132,7 +134,19 @@ class HttpRequest(nodes.BaseNode):
             method = msg.meta.get('method','get')
         params=self.params
         if not params:
-            method = msg.meta.get('params', None)
+            params = msg.meta.get('params', None)
+
+        get_params = []
+        if params:
+            for key in iter(params):
+                if type(params[key]) is list:
+                    for value in params[key]:
+                        get_params.append((key, value))
+                else:
+                    get_params.append((key, params[key]))
+        else:
+            get_params = None
+
 
         if type(self.auth) == tuple:
             basic_auth = aiohttp.BasicAuth(self.auth[0], self.auth[1])
@@ -143,7 +157,14 @@ class HttpRequest(nodes.BaseNode):
         if method in ['put', 'post']:
             data=msg.payload
         with aiohttp.ClientSession(connector=conn) as session:
-            resp = yield from session.request(method=method, url=url, auth=basic_auth, headers=headers, params=self.params, data=data)
+            resp = yield from session.request(
+                    method=method,
+                    url=url,
+                    auth=basic_auth,
+                    headers=headers,
+                    params=get_params,
+                    data=data
+                    )
             resp_text = yield from resp.text()
             return str(resp_text)
 

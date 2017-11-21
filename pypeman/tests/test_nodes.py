@@ -3,6 +3,8 @@ import unittest
 import asyncio
 import logging
 import time
+import json
+import aiohttp
 from unittest import mock
 
 from pypeman import nodes, message
@@ -30,6 +32,13 @@ def tstfct(msg):
 
 def tstfct2(msg):
     return 'fctname'
+
+def get_mock_coro(return_value):
+    @asyncio.coroutine
+    def mock_coro(*args, **kwargs):
+        return return_value
+
+    return mock.Mock(wraps=mock_coro)
 
 class NodesTests(unittest.TestCase):
     def setUp(self):
@@ -301,7 +310,96 @@ class NodesTests(unittest.TestCase):
             fake_ftp.upload_file.assert_called_once_with('test_write.part', 'message_content')
             fake_ftp.rename.assert_called_once_with('test_write.part', 'test_write')
 
-    
+
+    def test_httprequest_nodes(self):
+        """ Whether HttpRequest node are functional """
+
+        channel = FakeChannel(self.loop)
+
+        auth = ("login", "mdp")
+        url = 'http://url/%(meta.beta)s/%(payload.alpha)s'
+        b_auth = aiohttp.BasicAuth(auth[0], auth[1])
+        client_cert = ('/cert.key', '/cert.crt')
+        http_node1 = nodes.HttpRequest(url=url, verify=False, auth=auth)
+        http_node1.channel = channel
+
+
+
+        content1 = {"alpha": "payload_url"}
+        msg1 = generate_msg(message_content=content1)
+        meta_params = {'omega': 'meta_params'}
+        headers1 = {'test': 'test'}
+        msg1.meta = {"beta": "meta_url", 'params': meta_params, 'headers': headers1}
+        req_url1 = 'http://url/meta_url/payload_url'
+        req_kwargs1 = {
+            'data':None,
+            'params':[('omega', 'meta_params')],
+            'url':req_url1,
+            'headers': headers1,
+            'method':'get',
+            'auth':b_auth
+            }
+
+        msg2 = generate_msg(message_content=content1)
+        msg2.meta = dict(msg1.meta)
+        msg2.meta['method'] = 'post'
+        msg2.meta['params'] = {'zeta':['un', 'deux', 'trois']}
+        req_kwargs2 = dict(req_kwargs1)
+        req_kwargs2['method'] = 'post'
+        req_kwargs2['params'] = [
+                ('zeta', 'un'),
+                ('zeta', 'deux'),
+                ('zeta', 'trois'),
+#                ('omega', 'meta_params')
+                ]
+        req_kwargs2['data'] = content1
+
+        args_headers = {'args_headers': 'args_headers'}
+        args_params = {'theta':['uno', 'dos']}
+        http_node2 = nodes.HttpRequest(
+            url=url,
+            method='post',
+            client_cert=client_cert,
+            auth=b_auth,
+            headers=args_headers,
+            params=args_params
+        )
+        http_node2.channel = channel
+        msg3 = msg1.copy()
+        req_kwargs3 = dict(req_kwargs1)
+        req_kwargs3['method'] = 'post'
+        req_kwargs3['params'] = [
+                ('theta', 'uno'),
+                ('theta', 'dos'),
+                ]
+        req_kwargs3['headers'] = args_headers
+        req_kwargs3['data'] = content1
+
+        with mock.patch('pypeman.contrib.http.aiohttp.ClientSession',
+        autospec=True) as mock_client_session, mock.patch('ssl.SSLContext',
+        autospec=True) as mock_ssl_context:
+            mock_ctx_mgr = mock_client_session.return_value
+            mock_session = mock_ctx_mgr.__enter__.return_value
+            mock_session.request = get_mock_coro(mock.MagicMock())
+            mock_load_cert_chain = mock_ssl_context.return_value.load_cert_chain
+
+            result = self.loop.run_until_complete(http_node1.handle(msg1))
+            mock_session.request.assert_called_once_with(**req_kwargs1)
+            mock_load_cert_chain.assert_not_called()
+
+            mock_session.reset_mock()
+
+            result = self.loop.run_until_complete(http_node1.handle(msg2))
+            mock_session.request.assert_called_once_with(**req_kwargs2)
+            mock_load_cert_chain.assert_not_called()
+
+            mock_session.reset_mock()
+
+            result = self.loop.run_until_complete(http_node2.handle(msg3))
+            mock_session.request.assert_called_once_with(**req_kwargs3)
+            mock_load_cert_chain.assert_called_once_with(client_cert[0], client_cert[1])
+
+
     def test_file_reader_node(self):
         """if FileReader are functionnal"""
 

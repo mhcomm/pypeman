@@ -114,7 +114,7 @@ class FakeMessageStore(MessageStore):
 
 
 class MemoryMessageStoreFactory(MessageStoreFactory):
-    """ Return a Memory message store. All message are loose at pypeman stop. """
+    """ Return a Memory message store. All message are lost at pypeman stop. """
     def __init__(self):
         self.base_dict = {}
 
@@ -200,7 +200,7 @@ class FileMessageStore(MessageStore):
         self._total = 0
 
     async def start(self):
-        self._total = await self.count_msg()
+        self._total = await self.count_msgs()
 
     async def store(self, msg):
         """ Store a file in `<base_path>/<store_id>/<month>/<day>/` hierachy."""
@@ -253,7 +253,7 @@ class FileMessageStore(MessageStore):
         """
         return sorted([d for d in os.listdir(path) if os.path.isdir(os.path.join(path, d))], reverse=reverse)
 
-    async def count_msg(self):
+    async def count_msgs(self):
         """
         Count message by listing all directories. To be used at startup.
         """
@@ -288,7 +288,7 @@ class FileMessageStore(MessageStore):
                     for msg_name in sorted(os.listdir(os.path.join(self.base_path, year, month, day)), reverse=reverse):
                         found = self.msg_re.match(msg_name)
                         if found:
-                            if start <= position and position < end:
+                            if start <= position < end:
                                 mid = os.path.join(year, month, day, msg_name)
                                 result.append(await self.get(mid))
                             position += 1

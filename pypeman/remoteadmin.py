@@ -146,7 +146,7 @@ class RemoteAdminServer():
 
     async def list_msg(self, channel, start=0, count=10, order_by='timestamp'):
         """
-        List first 10 messages from message store of specified channel.
+        List first `count` messages from message store of specified channel.
 
         :params channel: The channel name.
         """

@@ -13,7 +13,7 @@
         </div>
 
         <div class="processed">
-            {{ channel.processed }} message(s)
+            {{ channel.processed_msgs }} message(s)
         </div>
 
         <div class="status">
@@ -64,7 +64,7 @@ export default {
     return {
       headers: [
         {text: 'Channel name', align: 'left', value: 'name'},
-        {text: 'Msg Processed', value: 'processed'},
+        {text: 'Processed Msgs', value: 'processed_msgs'},
         {text: 'Status', value: 'status'},
         {text: 'Subchannels', value: 'subchannel'},
         {text: 'Msg store', value: 'msgstore'}

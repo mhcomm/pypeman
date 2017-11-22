@@ -36,7 +36,7 @@ class TestConditionalErrorNode(nodes.BaseNode):
 
 
 class ExceptNode(TestNode):
-    # This node raise an exception
+    # This node raises an exception
     def process(self, msg):
         result = super().process(msg)
         raise TestException()

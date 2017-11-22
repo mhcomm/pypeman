@@ -64,7 +64,7 @@ class BaseChannel:
         self._nodes = []
         self._node_map = {}
         self._status = BaseChannel.STOPPED
-        self.processed = 0
+        self.processed_msgs = 0
 
         if name:
             self.name = name
@@ -314,7 +314,7 @@ class BaseChannel:
                 raise
             finally:
                 self.status = BaseChannel.WAITING
-                self.processed += 1
+                self.processed_msgs += 1
 
     async def subhandle(self, msg):
         """ Overload this method only if you know what you are doing. Called by ``handle`` method.
@@ -373,18 +373,14 @@ class BaseChannel:
             'name': self.name,
             'status': BaseChannel.status_id_to_str(self.status),
             'has_message_store': not isinstance(self.message_store, msgstore.NullMessageStore),
-            'processed': self.processed,
+            'processed': self.processed_msgs,
         }
 
     def subchannels(self):
         res = []
 
         for node in self._nodes:
-            if isinstance(node, SubChannel):
-                chan_dict = node.to_dict()
-                chan_dict['subchannels'] = node.subchannels()
-                res.append(chan_dict)
-            elif isinstance(node, ConditionSubChannel):
+            if isinstance(node, SubChannel) or isinstance(node, ConditionSubChannel):
                 chan_dict = node.to_dict()
                 chan_dict['subchannels'] = node.subchannels()
                 res.append(chan_dict)
@@ -393,22 +389,6 @@ class BaseChannel:
                     chan_dict = channel.to_dict()
                     chan_dict['subchannels'] = channel.subchannels()
                     res.append(chan_dict)
-        return res
-
-    def flat_subchannels(self):
-        res = []
-
-        for node in self._nodes:
-            if isinstance(node, SubChannel):
-                res.append(node.to_dict())
-                res += node.flat_subchannels()
-            elif isinstance(node, ConditionSubChannel):
-                res.append(node.to_dict())
-                res += node.flat_subchannels()
-            elif isinstance(node, Case):
-                for _, channel in node.cases:
-                    res.append(channel.to_dict())
-                    res += channel.flat_subchannels()
         return res
 
     def graph(self, prefix='', dot=False):

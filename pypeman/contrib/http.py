@@ -142,27 +142,19 @@ class HttpRequest(nodes.BaseNode):
         else:
             conn = aiohttp.TCPConnector(verify_ssl=self.verify, loop=loop)
 
-        headers = self.headers
-        if not headers:
-            headers = msg.meta.get('headers')
-        method = self.method
-        if not method:
-            method = msg.meta.get('method','get')
-        params = self.params
-        if not params:
-            params = msg.meta.get('params', None)
+        headers = choose_first_not_none(self.headers, msg.meta.get('headers'))
+        method = choose_first_not_none(self.method, msg.meta.get('method'), 'get')
+        params = choose_first_not_none(self.params, msg.meta.get('params'))
 
-        get_params = []
+        get_params = None
         if params:
-            for key in iter(params):
-                if isinstance(params[key], list):
-                    for value in params[key]:
+            get_params = []
+            for key, param in params.items():
+                if isinstance(param, list):
+                    for value in param:
                         get_params.append((key, value))
                 else:
-                    get_params.append((key, params[key]))
-        else:
-            get_params = None
-
+                    get_params.append((key, param))
 
         if isinstance(self.auth, tuple):
             basic_auth = aiohttp.BasicAuth(self.auth[0], self.auth[1])

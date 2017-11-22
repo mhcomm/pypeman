@@ -142,9 +142,9 @@ class HttpRequest(nodes.BaseNode):
         else:
             conn = aiohttp.TCPConnector(verify_ssl=self.verify, loop=loop)
 
-        headers = choose_first_not_none(self.headers, msg.meta.get('headers'))
-        method = choose_first_not_none(self.method, msg.meta.get('method'), 'get')
-        params = choose_first_not_none(self.params, msg.meta.get('params'))
+        headers = nodes.choose_first_not_none(self.headers, msg.meta.get('headers'))
+        method = nodes.choose_first_not_none(self.method, msg.meta.get('method'), 'get')
+        params = nodes.choose_first_not_none(self.params, msg.meta.get('params'))
 
         get_params = None
         if params:

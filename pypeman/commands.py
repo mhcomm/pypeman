@@ -213,7 +213,7 @@ def graph(dot: "Make dot compatible output (Can be viewed with http://ushiroad.c
 @begin.subcommand
 def pyshell():
     """ Start ipython shell to send command to remote instance """
-    client = remoteadmin.RemoteAdminClient('ws://%s:%s' % (settings.REMOTE_ADMIN_WEBSOCKET_CONFIG['host'],
+    client = remoteadmin.RemoteAdminClient(url='ws://%s:%s' % (settings.REMOTE_ADMIN_WEBSOCKET_CONFIG['host'],
                                                settings.REMOTE_ADMIN_WEBSOCKET_CONFIG['port']))
     client.init()
 

@@ -296,19 +296,17 @@ class NodesTests(unittest.TestCase):
             fake_ftp.rename.assert_called_once_with('test_write.part', 'test_write')
 
 
-    def test_httprequest_nodes(self):
-        """ Whether HttpRequest node are functional """
+    def test_httprequest_node(self):
+        """ Whether HttpRequest node is functional """
 
         channel = FakeChannel(self.loop)
 
         auth = ("login", "mdp")
         url = 'http://url/%(meta.beta)s/%(payload.alpha)s'
         b_auth = aiohttp.BasicAuth(auth[0], auth[1])
-        client_cert = ('/cert.key', '/cert.crt')
+        client_cert=('/cert.key','/cert.crt')
         http_node1 = nodes.HttpRequest(url=url, verify=False, auth=auth)
         http_node1.channel = channel
-
-
 
         content1 = {"alpha": "payload_url"}
         msg1 = generate_msg(message_content=content1)
@@ -317,12 +315,12 @@ class NodesTests(unittest.TestCase):
         msg1.meta = {"beta": "meta_url", 'params': meta_params, 'headers': headers1}
         req_url1 = 'http://url/meta_url/payload_url'
         req_kwargs1 = {
-            'data':None,
-            'params':[('omega', 'meta_params')],
-            'url':req_url1,
+            'data': None,
+            'params': [('omega', 'meta_params')],
+            'url': req_url1,
             'headers': headers1,
-            'method':'get',
-            'auth':b_auth
+            'method': 'get',
+            'auth': b_auth
             }
 
         msg2 = generate_msg(message_content=content1)
@@ -365,21 +363,44 @@ class NodesTests(unittest.TestCase):
         autospec=True) as mock_ssl_context:
             mock_ctx_mgr = mock_client_session.return_value
             mock_session = mock_ctx_mgr.__enter__.return_value
-            mock_session.request = get_mock_coro(mock.MagicMock())
+            mg = mock.MagicMock()
+            mg.text = get_mock_coro(mock.MagicMock())
+            mock_session.request = get_mock_coro(mg)
             mock_load_cert_chain = mock_ssl_context.return_value.load_cert_chain
 
+            """
+                Test 1:
+                - default get,
+                - auth tuple in object BasicAuth,
+                - simple dict params from meta,
+                - headers from meta
+                - url construction
+            """
             result = self.loop.run_until_complete(http_node1.handle(msg1))
             mock_session.request.assert_called_once_with(**req_kwargs1)
             mock_load_cert_chain.assert_not_called()
 
             mock_session.reset_mock()
 
+            """
+                Test 2:
+                - post in meta with data from content,
+                - list in dict params from meta,
+            """
             result = self.loop.run_until_complete(http_node1.handle(msg2))
             mock_session.request.assert_called_once_with(**req_kwargs2)
             mock_load_cert_chain.assert_not_called()
 
             mock_session.reset_mock()
 
+            """
+                Test 3:
+                - post in node args,
+                - object BasicAuth for auth,
+                - list in dict params from args,
+                - headers from args
+                - client_cert
+            """
             result = self.loop.run_until_complete(http_node2.handle(msg3))
             mock_session.request.assert_called_once_with(**req_kwargs3)
             mock_load_cert_chain.assert_called_once_with(client_cert[0], client_cert[1])

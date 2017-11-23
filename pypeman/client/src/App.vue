@@ -62,8 +62,7 @@ export default {
       drawer: false,
       clientError: false,
       items: [
-        {title: 'Channels', icon: null, route: {name: 'channels'}},
-        {title: 'Other', icon: null, route: {name: 'home'}}
+        {title: 'Channel list', icon: null, route: {name: 'channels'}}
       ]
     }
   }

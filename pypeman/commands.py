@@ -225,7 +225,7 @@ def shell():
     """ Start a custom shell to administrate remote pypeman instance """
     settings.init_settings()
     try:
-        remoteadmin.PypemanShell('ws://%s:%s' % (settings.REMOTE_ADMIN_WEBSOCKET_CONFIG['host'],
+        remoteadmin.PypemanShell(url='ws://%s:%s' % (settings.REMOTE_ADMIN_WEBSOCKET_CONFIG['host'],
                                                settings.REMOTE_ADMIN_WEBSOCKET_CONFIG['port'])).cmdloop()
     except KeyboardInterrupt:
         print('\nQuitting...')

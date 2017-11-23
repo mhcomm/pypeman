@@ -49,7 +49,10 @@ setup(
         'websockets',
         'aiohttp',
         'jsonrpcclient[websockets]',
-        'jsonrpcserver'
+        'jsonrpcserver',
+        'sqlitedict',
+        # TODO Remove next dependency as soon as jsonrpcclient is removed
+        'requests'
     ],
     extras_require={
         'hl7': ["hl7"],

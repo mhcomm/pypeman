@@ -6,7 +6,7 @@ import shutil
 import tempfile
 from unittest import mock
 
-from pypeman import channels
+from pypeman import channels, endpoints
 from pypeman.channels import BaseChannel
 from pypeman import message
 from pypeman import nodes
@@ -308,6 +308,13 @@ class ChannelsTests(unittest.TestCase):
         valid_sequence = [BaseChannel.STOPPED, BaseChannel.STARTING, BaseChannel.WAITING,
                           BaseChannel.PROCESSING, BaseChannel.WAITING, BaseChannel.STOPPING, BaseChannel.STOPPED]
         self.assertEqual(state_sequence, valid_sequence, "Sequence state is not valid")
+
+    def test_http_channe(self):
+        """ Whether HTTPChannel is working"""
+
+        # TODO it's just for regression now. Make better test
+        end = endpoints.HTTPEndpoint(loop=self.loop)
+        chan = channels.HttpChannel(name="httpchan", endpoint=end, loop=self.loop)
 
     def test_ftp_channel(self):
         """ Whether FTPWatcherChannel is working"""

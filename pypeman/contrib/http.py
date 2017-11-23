@@ -18,7 +18,7 @@ class HTTPEndpoint(endpoints.BaseEndpoint):
     def __init__(self, adress=None, address='127.0.0.1', port='8080', loop=None, http_args=None):
         super().__init__()
         self.http_args = http_args or {}
-        self.ssl_context = http_args.pop('ssl_context', None)
+        self.ssl_context = self.http_args.pop('ssl_context', None)
 
         if adress is not None:
             warnings.warn("HTTPEndpoint 'adress' param is deprecated. Replace it by 'address'", DeprecationWarning)

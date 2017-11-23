@@ -90,16 +90,26 @@ class HttpChannel(channels.BaseChannel):
 
 
 class HttpRequest(nodes.BaseNode):
-    """ Http request node """
+    """
+        Http request node
+        :param url: url to send.
+        :param method: 'get', 'put' or 'post', use meta['method'] if None, Default to 'get'.
+        :param headers: headers for request, use meta['headers'] if None.
+        :param auth: tuple or aiohttp.BasicAuth object.
+        :param verify: verify ssl. Default True.
+        :param params: get params in dict. List for multiple elements, ex : {'param1': 'omega', param2: ['alpha', 'beta']}
+        :param client_cert: tuple with .crt and .key path
+    """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, url, *args, method=None, headers=None, auth=None, verify=True, params=None, client_cert=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.url = kwargs.pop('url')
-        self.method = kwargs.pop('method', None)
-        self.headers = kwargs.pop('headers', None)
-        self.auth = kwargs.pop('auth', None)
-        self.verify = kwargs.pop('verify', True)
-        self.client_cert = kwargs.pop('client_cert', None)
+        self.url = url
+        self.method = method
+        self.headers = headers
+        self.auth = auth
+        self.verify = verify
+        self.params = params
+        self.client_cert = client_cert
         self.url = self.url.replace('%(meta.', '%(')
         self.payload_in_url_dict = 'payload.' in self.url
         # TODO: create used payload keys for better perf of generate_request_url()
@@ -119,32 +129,51 @@ class HttpRequest(nodes.BaseNode):
     async def handle_request(self, msg):
         """ generate url and handle request """
         url = self.generate_request_url(msg)
-
-        conn=None
-        ssl_context=None
+        loop = self.channel.loop
+        conn = None
+        ssl_context = None
         if self.client_cert:
             if self.verify:
                 ssl_context = ssl.create_default_context()
             else:
                 ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
             ssl_context.load_cert_chain(self.client_cert[0], self.client_cert[1])
-            conn = aiohttp.TCPConnector(ssl_context=ssl_context)
+            conn = aiohttp.TCPConnector(ssl_context=ssl_context, loop=loop)
         else:
-            conn = aiohttp.TCPConnector(verify_ssl=self.verify)
+            conn = aiohttp.TCPConnector(verify_ssl=self.verify, loop=loop)
 
-        headers = self.headers
-        if not headers:
-            headers = msg.meta.get('headers')
-        method=self.method
-        if not method:
-            method = msg.meta.get('method','get')
-        if type(self.auth) == tuple:
+        headers = nodes.choose_first_not_none(self.headers, msg.meta.get('headers'))
+        method = nodes.choose_first_not_none(self.method, msg.meta.get('method'), 'get')
+        params = nodes.choose_first_not_none(self.params, msg.meta.get('params'))
+
+        get_params = None
+        if params:
+            get_params = []
+            for key, param in params.items():
+                if isinstance(param, list):
+                    for value in param:
+                        get_params.append((key, value))
+                else:
+                    get_params.append((key, param))
+
+        if isinstance(self.auth, tuple):
             basic_auth = aiohttp.BasicAuth(self.auth[0], self.auth[1])
         else:
             basic_auth = self.auth
+
+        data = None
+        if method in ['put', 'post']:
+            data = msg.payload
         with aiohttp.ClientSession(connector=conn) as session:
-            resp = await session.request(method=method, url=url, auth=basic_auth, headers=headers)
-            resp_text = await resp.text()
+            resp = await session.request(
+                    method=method,
+                    url=url,
+                    auth=basic_auth,
+                    headers=headers,
+                    params=get_params,
+                    data=data
+                    )
+            resp_text =  await resp.text()
             return str(resp_text)
 
     async def process(self, msg):

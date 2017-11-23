@@ -41,7 +41,7 @@ class RemoteAdminServer():
     Expose json/rpc function to a client by a websocket.
     """
 
-    def __init__(self, loop=None, host='localhost', port='8091', ssl=None):
+    def __init__(self, loop=None, host='localhost', port='8091', ssl=None, url=None):
         self.host = host
         self.port = port
         self.ssl = ssl
@@ -431,7 +431,7 @@ class WebAdmin():
 
     async def handle_config(self, request):
         conf = settings.REMOTE_ADMIN_WEBSOCKET_CONFIG
-        server_url = "ws{is_secure}://{host}:{port}".format(
+        server_url = conf['url'] or "ws{is_secure}://{host}:{port}".format(
             is_secure='s' if conf['ssl'] else '',
             **conf
         )

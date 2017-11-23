@@ -1,6 +1,17 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
 
-## [0.2.0](https://github.com/mhcomm/pypeman/compare/0.2.0...0.1.0)
+## [0.3.0](https://github.com/mhcomm/pypeman/compare/0.2.0...0.3.0)
+
+* Add remote admin throught websocket
+* Add shell and pyshell remote admin client
+* Add alpha version of webclient
+* Enhance HTTP request node to allow POST
+* Node have now persistent context between executions
+* Fix loop cleaning between each test
+* Fix error on drop node with generator
+* Fix broken HTTP endpoints with more than one channel
+
+## [0.2.0](https://github.com/mhcomm/pypeman/compare/0.1.0...0.2.0)
 
 * Migrate to python 3.5 syntax and stop py34 compatibility
 * Test over py35 and py36

@@ -12,8 +12,8 @@ repository: https://pypi.python.org/pypi
 username: YOUR_USERNAME_HERE
 password: YOUR_PASSWORD_HERE
 
-[pypitest]
-repository: https://testpypi.python.org/pypi
+[testpypi]
+repository: https://test.pypi.org/legacy/
 username: YOUR_USERNAME_HERE
 password: YOUR_PASSWORD_HERE
 
@@ -50,8 +50,8 @@ git push --tags
 - [ ] Make a release on github
 
     - Go to the project homepage on github
-    - On top, you will see Release link. Click on it.
-    - Click on Draft a new relase
+    - Near the top, you will see Releases link. Click on it.
+    - Click on 'Draft a new release'
     - Fill in all the details
         - Tag version should be the version number of your package release
         - Release Title can be anything you want.
@@ -64,19 +64,18 @@ git push --tags
 cd pypeman/client
 npm install
 npm run build
+cd ../..
 ```
 - [ ] Generate packages:
 ```
 python setup.py sdist bdist_wheel
 ```
-- [ ] publish release en pypi and see result on https://testpypi.python.org/pypi :
+- [ ] publish release on pypi and see result on https://testpypi.python.org/pypi :
 ```
-twine register -r pypitest dist/pypeman-x.x.x.tar.gz
-twine upload -r pypitest dist/*
+twine upload -r testpypi dist/*
 ```
 - [ ] Then when all is ok, release on PyPI by uploading both sdist and wheel:
 ```
-twine register dist/pypeman-x.x.x.tar.gz
 twine upload dist/*
 ```
 

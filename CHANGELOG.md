@@ -1,5 +1,9 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
 
+## [0.3.1](https://github.com/mhcomm/pypeman/compare/0.3.0...0.3.1)
+
+* Fix HTTPchannel fail without http_args
+
 ## [0.3.0](https://github.com/mhcomm/pypeman/compare/0.2.0...0.3.0)
 
 * Add remote admin throught websocket

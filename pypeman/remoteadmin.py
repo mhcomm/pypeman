@@ -67,10 +67,6 @@ class RemoteAdminServer():
         methods.add(self.replay_msg)
         methods.add(self.push_msg)
 
-        print(dict(            host=self.host,
-            port=self.port,
-            ssl=self.ssl))
-
         start_server = websockets.serve(
             self.command,
             host=self.host,
@@ -323,7 +319,7 @@ class PypemanShell(cmd.Cmd):
     def __init__(self, url):
         super().__init__()
         self.current_channel = None
-        self.client = RemoteAdminClient(url)
+        self.client = RemoteAdminClient(url=url)
         self.client.init()
 
     def do_channels(self, arg):

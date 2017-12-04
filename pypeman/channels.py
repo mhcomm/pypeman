@@ -631,6 +631,8 @@ class FileWatcherChannel(BaseChannel):
                                 fut = ensure_future(self.handle(msg), loop=self.loop)
                                 fut.add_done_callback(self._handle_callback)
 
+        except: # TODO: might explicitely silence some special cases.
+            self.logger.exception("filewatcher problem")
         finally:
             if not self.status in (BaseChannel.STOPPING, BaseChannel.STOPPED,):
                 ensure_future(self.watch_for_file(), loop=self.loop)

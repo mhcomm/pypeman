@@ -6,6 +6,8 @@ from collections import OrderedDict
 
 from pypeman.message import Message
 
+from pypeman.errors import PypemanConfigError
+
 logger = logging.getLogger("pypeman.store")
 
 DATE_FORMAT = '%Y%m%d_%H%M'
@@ -173,6 +175,8 @@ class FileMessageStoreFactory(MessageStoreFactory):
     # TODO add an option to reguraly archive old file or delete them
     def __init__(self, path):
         super().__init__()
+        if path is None:
+            raise PypemanConfigError('file message store requires a path')
         self.base_path = path
 
     def get_store(self, store_id):

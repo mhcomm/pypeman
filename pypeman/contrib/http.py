@@ -75,8 +75,9 @@ class HttpChannel(channels.BaseChannel):
         self.http_endpoint = endpoint
 
     async def start(self):
+        first_start = self._first_start
         await super().start()
-        if self._first_start:
+        if first_start:
             self.http_endpoint.add_route(self.method, self.url, self.handle_request)
 
     async def handle_request(self, request):

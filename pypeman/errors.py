@@ -3,3 +3,6 @@ class PypemanError(Exception):
 
 class PypemanConfigError(PypemanError):
     """ custom error """
+
+class PypemanParamError(PypemanError):
+    """ custom error """

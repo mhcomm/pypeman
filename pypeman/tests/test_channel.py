@@ -12,6 +12,7 @@ from pypeman import message
 from pypeman import nodes
 from pypeman import msgstore
 from pypeman import events
+from pypeman.errors import PypemanParamError
 from pypeman.tests.common import TestException, generate_msg
 
 class TestNode(nodes.BaseNode):
@@ -309,12 +310,27 @@ class ChannelsTests(unittest.TestCase):
                           BaseChannel.PROCESSING, BaseChannel.WAITING, BaseChannel.STOPPING, BaseChannel.STOPPED]
         self.assertEqual(state_sequence, valid_sequence, "Sequence state is not valid")
 
-    def test_http_channe(self):
+    def test_http_channel(self):
         """ Whether HTTPChannel is working"""
 
         # TODO it's just for regression now. Make better test
-        end = endpoints.HTTPEndpoint(loop=self.loop)
-        chan = channels.HttpChannel(name="httpchan", endpoint=end, loop=self.loop)
+        dflt_endp = endpoints.HTTPEndpoint(loop=self.loop)
+        self.assertEqual(dflt_endp.url, 'localhost:8080')
+        chan1 = channels.HttpChannel(name="httpchan1", endpoint=dflt_endp, loop=self.loop)
+
+        hp_endp = endpoints.HTTPEndpoint(loop=self.loop, address='localhost', port=8081)
+        self.assertEqual(hp_endp.url, 'localhost:8081')
+        chan2 = channels.HttpChannel(name="httpchan2", endpoint=hp_endp, loop=self.loop)
+        
+        url_endp = endpoints.HTTPEndpoint(loop=self.loop, address='localhost', port=8081, url='0.0.0.0:8082')
+        self.assertEqual(url_endp.url, '0.0.0.0:8082')
+        chan3 = channels.HttpChannel(name="httpchan3", endpoint=url_endp, loop=self.loop)
+
+        def mk_bp_endp():
+            return endpoints.HTTPEndpoint(loop=self.loop, url='0.0.0.0:8082', sock='place_holder')
+
+        self.assertRaises(PypemanParamError, mk_bp_endp)
+        
 
     def test_ftp_channel(self):
         """ Whether FTPWatcherChannel is working"""

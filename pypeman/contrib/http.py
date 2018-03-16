@@ -2,6 +2,7 @@ import asyncio
 import ssl
 import warnings
 import socket
+import logging
 
 import aiohttp
 from aiohttp import web
@@ -10,19 +11,20 @@ from pypeman import endpoints, channels, nodes, message
 from pypeman.errors import PypemanParamError
 
 
+logger = logging.getLogger(__name__)
+
+
 class HTTPEndpoint(endpoints.BaseEndpoint):
     """
     Endpoint to receive HTTP connection from outside.
 
     """
-
     def __init__(
-            self, adress=None, 
-            address=None, 
-            port=None, 
-            loop=None, 
-            http_args=None, 
-            url=None, 
+            self,
+            adress=None, address=None, port=None, # obsolete params
+            loop=None,
+            http_args=None,
+            host=None,
             sock=None,
             reuse_port=False,
             ):
@@ -31,10 +33,12 @@ class HTTPEndpoint(endpoints.BaseEndpoint):
                 `client_max_size`
             :param reuse_port: bool if true then the listening port specified in the url parameter) 
                 will be shared with other processes on same port
-            :param sock: socket object already bound and configured
+            :param host: string 'host:port' or ':port' or 'host'
+            :param sock: host-string (same as host parameter)
+                or socket-string ("unix:/sojet/file/path")
+                or bound socket object
         """
         super().__init__()
-        default_url = 'localhost:8080'
         self.http_args = http_args or {}
         self.ssl_context = self.http_args.pop('ssl_context', None)
         self.loop = loop or asyncio.get_event_loop()
@@ -42,40 +46,47 @@ class HTTPEndpoint(endpoints.BaseEndpoint):
         self._app = None
         self.sock = sock
  
-        if adress is not None:
-            address = adress
+        address = address or adress
         if address or port:
-            warnings.warn("HTTPEndpoint 'address', 'adress' and 'port' params are deprecated. Replace it by 'url'", 
+            warnings.warn("HTTPEndpoint 'address', 'adress' and 'port' params are deprecated. Replace it by 'host' or 'sock'", 
                 DeprecationWarning)
-            url = url or ((address if address else 'localhost')+ ':' + str(port if port else 8080))
-        if url and sock:
-            raise PypemanParamError("There can only be one (parameter url or sock)")
+            if host or sock:
+                raise PypemanParamError("Obsolete params ('adress', 'address', 'port') can not be mixed with new params ('host', 'sock')") 
+            sock = sock or host or ((address if address else '')+ ':' + str(port if port else ''))
+ 
+        if host and sock:
+            raise PypemanParamError("There can only be one (parameter host or sock)")
+        self.sock = sock or host or ''
         
-        self.url = url
-        if sock is None:
-            self.url = url or default_url
 
+    def make_socket(self):
+        """
+            make and bind socket if string object is passed
+        """
+        sock = self.sock
+        if not isinstance(sock, str):
+            return sock
 
-    def make_socket(self, url):
-        """
-            make and bind socket
-        """
-        if not url.startswith('unix:'):
-            host, port = url.split(":")
-            port = int(port)
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        if not sock.startswith('unix:'):
+            if ':' not in sock:
+                sock += ':'
+            host, port = sock.split(":")
+            host = host or 'localhost'
+            port = int(port or 8080)
+            self.sock = host + ':' + str(port)
+            sock_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             if self.reuse_port:
                 SO_REUSEPORT = 15
-                sock.setsockopt(socket.SOL_SOCKET, SO_REUSEPORT, 1)
-            sock.bind((host, port))
+                sock_obj.setsockopt(socket.SOL_SOCKET, SO_REUSEPORT, 1)
+            sock_obj.bind((host, port))
         else:
-            ignore, path = url.split(":", 1)
-            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            path = sock.split(":", 1)[1]
+            sock_obj = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             if self.reuse_port:
                 SO_REUSEPORT = 15
-                sock.setsockopt(socket.SOL_SOCKET, SO_REUSEPORT, 1)
-            sock.bind(path)
-        return sock
+                sock_obj.setsockopt(socket.SOL_SOCKET, SO_REUSEPORT, 1)
+            sock_obj.bind(path)
+        return sock_obj
         
 
     def add_route(self, *args, **kwargs):
@@ -85,22 +96,21 @@ class HTTPEndpoint(endpoints.BaseEndpoint):
         self._app.router.add_route(*args, **kwargs)
 
     async def start(self):
-        if self.sock is None:
-            self.sock = self.make_socket(self.url)
+        self.sock_obj = self.make_socket(self.sock)
         if self._app is not None:
             srv = await self.loop.create_server(
                 protocol_factory=self._app.make_handler(),
-                sock=self.sock,
+                sock=self.sock_obj,
                 ssl=self.ssl_context
             )
-            print("Server started at http{}://{}:{}".format(
-                's' if self.ssl_context else '',
-                self.address,
-                self.port
-            ))
+            message = "Server started at %r" % self.sock
+            print(message)
+            logger.info(message)
             return srv
         else:
             print("No HTTP route.")
+            logger.warning("No HTTP route.")
+
 
 class HttpChannel(channels.BaseChannel):
     """

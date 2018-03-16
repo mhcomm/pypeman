@@ -315,19 +315,26 @@ class ChannelsTests(unittest.TestCase):
 
         # TODO it's just for regression now. Make better test
         dflt_endp = endpoints.HTTPEndpoint(loop=self.loop)
-        self.assertEqual(dflt_endp.url, 'localhost:8080')
+        dflt_endp.make_socket()
+        self.assertEqual(dflt_endp.sock, 'localhost:8080')
         chan1 = channels.HttpChannel(name="httpchan1", endpoint=dflt_endp, loop=self.loop)
 
         hp_endp = endpoints.HTTPEndpoint(loop=self.loop, address='localhost', port=8081)
-        self.assertEqual(hp_endp.url, 'localhost:8081')
+        hp_endp.make_socket()
+        self.assertEqual(hp_endp.sock, 'localhost:8081')
         chan2 = channels.HttpChannel(name="httpchan2", endpoint=hp_endp, loop=self.loop)
         
-        url_endp = endpoints.HTTPEndpoint(loop=self.loop, address='localhost', port=8081, url='0.0.0.0:8082')
-        self.assertEqual(url_endp.url, '0.0.0.0:8082')
-        chan3 = channels.HttpChannel(name="httpchan3", endpoint=url_endp, loop=self.loop)
+        def mk_url_endp():
+            url_endp = endpoints.HTTPEndpoint(loop=self.loop, address='localhost', port=8081, host='0.0.0.0:8082')
+            url_endp.make_socket()
+
+        self.assertRaises(PypemanParamError, mk_url_endp)
+
 
         def mk_bp_endp():
-            return endpoints.HTTPEndpoint(loop=self.loop, url='0.0.0.0:8082', sock='place_holder')
+            endp = endpoints.HTTPEndpoint(loop=self.loop, host='0.0.0.0:8082', sock='place_holder')
+            endp.make_socket()
+            return endp
 
         self.assertRaises(PypemanParamError, mk_bp_endp)
         

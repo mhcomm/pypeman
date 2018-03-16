@@ -141,7 +141,7 @@ class RemoteAdminServer():
             'status': channels.BaseChannel.status_id_to_str(chan.status)
         }
 
-    async def list_msg(self, channel, start=0, count=10, order_by='timestamp'):
+    async def list_msg(self, channel, start=0, count=10, order_by='timestamp', send_raw_payload=False):
         """
         List first `count` messages from message store of specified channel.
 
@@ -153,7 +153,11 @@ class RemoteAdminServer():
 
         for res in messages:
             res['timestamp'] = res['message'].timestamp_str()
-            res['message'] = res['message'].to_json()
+            if send_raw_payload:
+                res['message'] = res['message'].to_json()
+            else:
+                msg = res['message']
+                res['message'] = '"hello"' # chan.mk_jsonable_msg_info()
 
         return {'messages': messages, 'total': await chan.message_store.total()}
 
@@ -180,7 +184,7 @@ class RemoteAdminServer():
         Push a message in the channel.
 
         :params channel: The channel name.
-        :params msg_ids: The text added to the payload.
+        :params text: The text added to the payload.
         """
         chan = self.get_channel(channel)
         msg = message.Message(payload=text)
@@ -248,7 +252,7 @@ class RemoteAdminClient():
         """
         return self.send_command('stop_channel', [channel])
 
-    def list_msg(self, channel, start=0, count=10, order_by='timestamp'):
+    def list_msg(self, channel, start=0, count=10, order_by='timestamp', send_raw_payload=True):
         """
         List first 10 messages on specified channel from remote instance.
 
@@ -258,7 +262,7 @@ class RemoteAdminClient():
         :params order_by: Message order. only 'timestamp' and '-timestamp' handled for now.
         :returns: list of message with status.
         """
-        result = self.send_command('list_msg', [channel, start, count, order_by])
+        result = self.send_command('list_msg', [channel, start, count, order_by, send_raw_payload])
 
         for m in result['messages']:
             m['message'] = message.Message.from_json(m['message'])

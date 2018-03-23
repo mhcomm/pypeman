@@ -417,17 +417,26 @@ class WebAdmin():
             '/configs.js',
             self.handle_config
         )
+
+        # redirect to index.html
+        app.router.add_get('/', self.redirect_to_index)
+
         app.router.add_static(
             '/',
             path=os.path.join(client_dir),
             name='static'
         )
+
         await self.loop.create_server(
             protocol_factory=app.make_handler(),
             host=self.host,
             port=self.port,
             ssl=self.ssl
         )
+
+    async def redirect_to_index(self, request):
+        """ redirect to index.html"""
+        return web.HTTPFound("index.html")
 
     async def handle_config(self, request):
         conf = settings.REMOTE_ADMIN_WEBSOCKET_CONFIG

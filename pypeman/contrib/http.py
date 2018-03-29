@@ -56,9 +56,7 @@ class HTTPEndpoint(endpoints.BaseEndpoint):
         if host and sock:
             raise PypemanParamError("There can only be one (parameter host or sock)")
         self.sock = sock or host or ''
-       
-        if not isinstance(sock, str) and reuse_port:
-            pass 
+
 
     def make_socket(self):
         """

@@ -4,6 +4,7 @@ import asyncio
 import datetime
 import shutil
 import tempfile
+from socket import SOL_SOCKET
 from unittest import mock
 
 from pypeman import channels, endpoints
@@ -310,34 +311,97 @@ class ChannelsTests(unittest.TestCase):
                           BaseChannel.PROCESSING, BaseChannel.WAITING, BaseChannel.STOPPING, BaseChannel.STOPPED]
         self.assertEqual(state_sequence, valid_sequence, "Sequence state is not valid")
 
-    def test_http_channel(self):
+
+    @mock.patch('pypeman.contrib.http.socket')
+    def test_http_channel(self, mock_sock):
         """ Whether HTTPChannel is working"""
 
-        # TODO it's just for regression now. Make better test
-        dflt_endp = endpoints.HTTPEndpoint(loop=self.loop)
-        dflt_endp.make_socket()
-        self.assertEqual(dflt_endp.sock, 'localhost:8080')
-        chan1 = channels.HttpChannel(name="httpchan1", endpoint=dflt_endp, loop=self.loop)
+        tests = [
+            dict(out_params={'sock':'localhost:8080'}),
+            dict(
+                in_params={'address':'localhost', 'port':8081}, 
+                out_params={'sock':'localhost:8081'},
+            ),
+            dict(
+                in_params={'address':'localhost', 'port':8081, 'host':'0.0.0.0:8082'},
+                out_params={'raising':True},
+            ),
+            dict(
+                in_params={'host':'0.0.0.0:8082', 'sock':'place_holder'},
+                out_params={'raising':True},
+                comment="either socket or host",
+            ),
+            dict(
+                in_params={'address':'localhost', 'port':8081, 'sock':'place_holder'},
+                out_params={'raising':True},
+                comment="either addr,port or sock",
+            ),
+            dict(
+                in_params={'address':'0.0.0.0'},
+                out_params={'sock':'0.0.0.0:8080'},
+                comment="dflt_port 8080"
+            ),
+            dict(
+                in_params={'port':8081},
+                out_params={'sock':'localhost:8081'},
+                comment="dflt addr localhost",
+            ),
+            dict(
+                in_params={'host':'0.0.0.0:8082', 'reuse_port':True},
+                out_params={'sock':'0.0.0.0:8082'},
+            ),
+        ]
 
-        hp_endp = endpoints.HTTPEndpoint(loop=self.loop, address='localhost', port=8081)
-        hp_endp.make_socket()
-        self.assertEqual(hp_endp.sock, 'localhost:8081')
-        chan2 = channels.HttpChannel(name="httpchan2", endpoint=hp_endp, loop=self.loop)
-        
-        def mk_url_endp():
-            url_endp = endpoints.HTTPEndpoint(loop=self.loop, address='localhost', port=8081, host='0.0.0.0:8082')
-            url_endp.make_socket()
+        fake_socket = mock.MagicMock()
+        mock_sock.socket.return_value = fake_socket
 
-        self.assertRaises(PypemanParamError, mk_url_endp)
+        for test in tests:
+            in_params = test.get('in_params',{})
+            out_params = test.get('out_params',{})
+            comment = test.get('comment',"")
+            raising = out_params.pop('raising', False)
 
+            adress = in_params.get('adress')
+            address = in_params.get('address')
+            port = in_params.get('port')
+            host = in_params.get('host')
+            sock = in_params.get('sock')
+            http_args =  in_params.get('http_args')
+            reuse_port = in_params.get('reuse_port')
 
-        def mk_bp_endp():
-            endp = endpoints.HTTPEndpoint(loop=self.loop, host='0.0.0.0:8082', sock='place_holder')
-            endp.make_socket()
-            return endp
+            def mk_endp():
+                endp = endpoints.HTTPEndpoint(
+                    loop=self.loop, 
+                    adress=adress, address=address, port=port, 
+                    http_args=http_args,
+                    host=host,
+                    sock=sock,
+                    reuse_port=reuse_port
+                )
+                endp.make_socket()
+                return endp
 
-        self.assertRaises(PypemanParamError, mk_bp_endp)
-        
+            check_msg = "%s: %s -> %s" % (comment, in_params, out_params)
+            print(check_msg)
+            if raising:
+                self.assertRaises(PypemanParamError, mk_endp)
+                continue
+            endp = mk_endp()
+
+            if isinstance(endp.sock, str):
+                assert mock_sock.socket.called
+                sock_params = out_params.get('sock', 'localhost:8080')
+                sock_host, sock_port = sock_params.split(":")
+                assert fake_socket.bind.called_with(sock_host, sock_port)
+
+            if in_params.get('reuse_port'):
+                assert fake_socket.setsockopt(SOL_SOCKET, 15, 1)
+
+            for key, value in out_params.items():
+                self.assertEqual(getattr(endp, key), value, check_msg)
+
+            chan = channels.HttpChannel(endpoint=endp, loop=self.loop)    
+            
 
     def test_ftp_channel(self):
         """ Whether FTPWatcherChannel is working"""
@@ -445,11 +509,5 @@ class ChannelsTests(unittest.TestCase):
         self.start_channels()
         with self.assertRaises(TestException) as cm:
             self.loop.run_until_complete(chan.process(msg))
-
-
-
-
-
-
 
 

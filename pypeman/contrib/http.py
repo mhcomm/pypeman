@@ -44,7 +44,6 @@ class HTTPEndpoint(endpoints.BaseEndpoint):
         self.loop = loop or asyncio.get_event_loop()
         self.reuse_port = reuse_port
         self._app = None
-        self.sock = sock
  
         address = address or adress
         if address or port:
@@ -57,7 +56,7 @@ class HTTPEndpoint(endpoints.BaseEndpoint):
         if host and sock:
             raise PypemanParamError("There can only be one (parameter host or sock)")
         self.sock = sock or host or ''
-        
+
 
     def make_socket(self):
         """
@@ -65,7 +64,11 @@ class HTTPEndpoint(endpoints.BaseEndpoint):
         """
         sock = self.sock
         if not isinstance(sock, str):
-            return sock
+            self.sock_obj = sock
+            if self.reuse_port:
+                SO_REUSEPORT = 15
+                self.sock_obj.setsockopt(socket.SOL_SOCKET, SO_REUSEPORT, 1)
+            return
 
         if not sock.startswith('unix:'):
             if ':' not in sock:
@@ -86,7 +89,7 @@ class HTTPEndpoint(endpoints.BaseEndpoint):
                 SO_REUSEPORT = 15
                 sock_obj.setsockopt(socket.SOL_SOCKET, SO_REUSEPORT, 1)
             sock_obj.bind(path)
-        return sock_obj
+        self.sock_obj = sock_obj
         
 
     def add_route(self, *args, **kwargs):
@@ -96,7 +99,7 @@ class HTTPEndpoint(endpoints.BaseEndpoint):
         self._app.router.add_route(*args, **kwargs)
 
     async def start(self):
-        self.sock_obj = self.make_socket(self.sock)
+        self.make_socket()
         if self._app is not None:
             srv = await self.loop.create_server(
                 protocol_factory=self._app.make_handler(),

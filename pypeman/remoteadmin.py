@@ -141,11 +141,22 @@ class RemoteAdminServer():
             'status': channels.BaseChannel.status_id_to_str(chan.status)
         }
 
-    async def list_msg(self, channel, start=0, count=10, order_by='timestamp', send_raw_payload=False):
+    async def list_msg(self, channel, start=0, count=10, order_by='timestamp', mk_b64pickle=False):
         """
         List first `count` messages from message store of specified channel.
 
         :params channel: The channel name.
+        :param mk_b64pickle: if True (yield payload / ctx fields as b64
+                encoded pickles)
+                if False a a dict with a field type and a field repr will be
+                    created.
+                Perhaps better to have a fmt param, having one of following values
+                "native": returns native python objects
+                "b64pickle": all fields b64 encoded pickles of the related
+                             python object
+                "jsonable": as an object, that can be json encoded if possible
+                    otherwise as a dict containing the type
+                    and a repr of the object.
         """
         chan = self.get_channel(channel)
 
@@ -153,11 +164,11 @@ class RemoteAdminServer():
 
         for res in messages:
             res['timestamp'] = res['message'].timestamp_str()
-            if send_raw_payload:
+            if mk_b64pickle:
                 res['message'] = res['message'].to_json()
             else:
                 msg = res['message']
-                res['message'] = '"hello"' # chan.mk_jsonable_msg_info()
+                res['message'] = chan.jsonable_msg_info_for_admin(msg)
 
         return {'messages': messages, 'total': await chan.message_store.total()}
 
@@ -252,7 +263,8 @@ class RemoteAdminClient():
         """
         return self.send_command('stop_channel', [channel])
 
-    def list_msg(self, channel, start=0, count=10, order_by='timestamp', send_raw_payload=True):
+    def list_msg(self, channel, start=0, count=10, order_by='timestamp',
+                 mk_b64pickle=True):
         """
         List first 10 messages on specified channel from remote instance.
 
@@ -262,7 +274,8 @@ class RemoteAdminClient():
         :params order_by: Message order. only 'timestamp' and '-timestamp' handled for now.
         :returns: list of message with status.
         """
-        result = self.send_command('list_msg', [channel, start, count, order_by, send_raw_payload])
+        result = self.send_command('list_msg', [channel, start, count, 
+                                   order_by, mk_b64pickle])
 
         for m in result['messages']:
             m['message'] = message.Message.from_json(m['message'])

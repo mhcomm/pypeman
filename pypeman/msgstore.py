@@ -57,7 +57,7 @@ class MessageStore():
 
     async def search(self, start=0, count=10, order_by='timestamp'):
         """
-        Return a list of message with store specific `id` and processed status.
+        Return a list of messages with store specific `id` and processed status.
 
         :param start: First element.
         :param count: Count of elements since first element.
@@ -252,6 +252,8 @@ class FileMessageStore(MessageStore):
             raise IndexError
 
         with open(os.path.join(self.base_path, id), "rb") as f:
+            # TODO: we might implement an async version, that reads chunkwise for huge files
+            # and adds a sleep(0) after each chunk to allow task switching?
             msg = Message.from_json(f.read().decode('utf-8'))
             return {'id': id, 'state': await self.get_message_state(id), 'message': msg}
 

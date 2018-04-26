@@ -12,6 +12,8 @@ from pypeman import message, msgstore, events
 from pypeman.helpers.sleeper import Sleeper
 
 
+from pypeman.helpers.serializers import JsonableEncoder
+
 logger = logging.getLogger(__name__)
 
 # List all channel registered
@@ -468,6 +470,28 @@ class BaseChannel:
 
         for end, sub in after:
             sub.graph_dot(end=end)
+
+    def jsonable_msg_info_for_admin(self, msg):
+        """ creates jsonable info representing the message for admin interfaces.
+            (Perhaps there's a better method name?)
+        """
+
+        encoder = JsonableEncoder()
+
+        result = {}
+        logger.debug("keys = %s", vars(self).keys())
+        result['timestamp'] = msg.timestamp.strftime(message.DATE_FORMAT)
+        result['uuid'] = msg.uuid
+        result['payload'] = encoder.encode(msg.payload)
+        result['meta'] = msg.meta
+        result['ctx'] = {}
+
+        for k, ctx_msg in msg.ctx.items():
+            result['ctx'][k] = {}
+            result['ctx'][k]['payload'] = encoder.encode(ctx_msg['payload'])
+            result['ctx'][k]['meta'] = dict(ctx_msg['meta'])
+
+        return result
 
     def __str__(self):
         return "<chan: %s>" % self.name

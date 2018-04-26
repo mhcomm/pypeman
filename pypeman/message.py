@@ -90,7 +90,12 @@ class Message():
 
     def to_dict(self):
         """
-        Convert the current message object to a dict. Payload is pickled.
+        Convert the current message object to a dict, that can be converted
+            to a json.
+        Therefore the payload and all the context is pickled and base64 encoded.
+
+        Warning: the returned dict cannot be converted to json if meta contains
+            objects, that connot be dumped as json.
 
         :return: A dict with an equivalent of message
         """
@@ -119,10 +124,11 @@ class Message():
     @staticmethod
     def from_dict(data):
         """
-        Convert the input dict previously converted with `.as_dict()` method in Message object.
+        Converts an input dict previously converted with `.to_dict()` method
+            to a Message object.
 
         :param data: The input dict.
-        :return: The message message object correponding to given data.
+        :return: The message message object corresponding to given data.
         """
         result = Message()
         result.timestamp = datetime.datetime.strptime(data['timestamp'], DATE_FORMAT)

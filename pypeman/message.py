@@ -95,7 +95,7 @@ class Message():
         Therefore the payload and all the context is pickled and base64 encoded.
 
         Warning: the returned dict cannot be converted to json if meta contains
-            objects, that connot be dumped as json.
+            objects, that cannot be dumped as json.
 
         :return: A dict with an equivalent of message
         """

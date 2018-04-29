@@ -479,7 +479,6 @@ class BaseChannel:
         encoder = JsonableEncoder()
 
         result = {}
-        logger.debug("keys = %s", vars(self).keys())
         result['timestamp'] = msg.timestamp.strftime(message.DATE_FORMAT)
         result['uuid'] = msg.uuid
         result['payload'] = encoder.encode(msg.payload)

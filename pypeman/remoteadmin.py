@@ -148,7 +148,7 @@ class RemoteAdminServer():
         :params channel: The channel name.
         :param mk_b64pickle: if True (yield payload / ctx fields as b64
                 encoded pickles)
-                if False a a dict with a field type and a field repr will be
+                if False a dict with a field type and a field repr will be
                     created.
                 Perhaps better to have a fmt param, having one of following values
                 "native": returns native python objects

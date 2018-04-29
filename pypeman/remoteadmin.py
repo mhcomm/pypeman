@@ -146,17 +146,17 @@ class RemoteAdminServer():
         List first `count` messages from message store of specified channel.
 
         :params channel: The channel name.
-        :param mk_b64pickle: if True (yield payload / ctx fields as b64
-                encoded pickles)
-                if False a dict with a field type and a field repr will be
-                    created.
-                Perhaps better to have a fmt param, having one of following values
-                "native": returns native python objects
-                "b64pickle": all fields b64 encoded pickles of the related
-                             python object
-                "jsonable": as an object, that can be json encoded if possible
-                    otherwise as a dict containing the type
-                    and a repr of the object.
+        :param mk_b64pickle: if True (yield payload / ctx fields as b64 encoded pickles)
+                if False a a dict with a field type, field value and a field repr
+                will be created.
+                Field types depend on the channel's jsonable_msg_info_for_admin() method
+                typical values are:
+                    "asis": value is the object 'asis', as the object could be pickled
+                    "bytes": bytes just as ASCII string
+                    "utf8bytes": bytes as UTF8 string
+                    "b64":  base 64 encoded bytes
+                    "repr": a repr() string of the object is returned
+                    "b64pickle": all fields b64 encoded pickles of the related python object
         """
         chan = self.get_channel(channel)
 

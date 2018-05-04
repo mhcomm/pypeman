@@ -252,8 +252,10 @@ class FileMessageStore(MessageStore):
             raise IndexError
 
         with open(os.path.join(self.base_path, id), "rb") as f:
-            # TODO: we might implement an async version, that reads chunkwise for huge files
-            # and adds a sleep(0) after each chunk to allow task switching?
+            # TODO: we might implement an async version for huge files
+            # - use either https://github.com/Tinche/aiofiles
+            # - read chunks + add sleep(0) (not good for blocking network file systems)
+            
             msg = Message.from_json(f.read().decode('utf-8'))
             return {'id': id, 'state': await self.get_message_state(id), 'message': msg}
 

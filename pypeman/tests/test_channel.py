@@ -312,10 +312,9 @@ class ChannelsTests(unittest.TestCase):
         self.assertEqual(state_sequence, valid_sequence, "Sequence state is not valid")
 
 
-    @mock.patch('pypeman.contrib.http.socket')
+    @mock.patch('socket.socket')
     def test_http_channel(self, mock_sock):
         """ Whether HTTPChannel is working"""
-
         tests = [
             dict(out_params={'sock':'localhost:8080'}),
             dict(
@@ -353,8 +352,7 @@ class ChannelsTests(unittest.TestCase):
         ]
 
         fake_socket = mock.MagicMock()
-        mock_sock.socket.return_value = fake_socket
-
+        mock_sock.return_value = fake_socket
         for test in tests:
             in_params = test.get('in_params',{})
             out_params = test.get('out_params',{})
@@ -389,7 +387,7 @@ class ChannelsTests(unittest.TestCase):
             endp = mk_endp()
 
             if isinstance(endp.sock, str):
-                assert mock_sock.socket.called
+                assert mock_sock.called
                 sock_params = out_params.get('sock', 'localhost:8080')
                 sock_host, sock_port = sock_params.split(":")
                 assert fake_socket.bind.called_with(sock_host, sock_port)

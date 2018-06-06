@@ -3,14 +3,16 @@ import datetime
 import uuid
 import copy
 from uuid import UUID
-import pickle
 import json
-import base64
 import logging
+
+from pypeman.helpers.serializers import B64PickleEncoder
 
 default_logger = logging.getLogger(__name__)
 
 DATE_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
+DEFAULT_ENCODER_CLS = B64PickleEncoder
+
 
 
 class Message():
@@ -88,7 +90,7 @@ class Message():
             payload=copy.deepcopy(msg.payload),
         )
 
-    def to_dict(self):
+    def to_dict(self, payload_encoder=None):
         """
         Convert the current message object to a dict, that can be converted
             to a json.
@@ -97,48 +99,70 @@ class Message():
         Warning: the returned dict cannot be converted to json if meta contains
             objects, that cannot be dumped as json.
 
+        :param encoder: Encoder object that will be used to encode the payload
+            if set to None B64PickleEncoder() will be used, which just pickles an object
+            and encodes with base64.
+
         :return: A dict with an equivalent of message
         """
+
+        payload_encoder = (payload_encoder if payload_encoder
+                           else DEFAULT_ENCODER_CLS())
+
+        encode = payload_encoder.encode
         result = {}
         result['timestamp'] = self.timestamp.strftime(DATE_FORMAT)
         result['uuid'] = self.uuid
-        result['payload'] = base64.b64encode(pickle.dumps(self.payload)).decode('ascii')
+        result['payload'] = encode(self.payload)
         result['meta'] = self.meta
         result['ctx'] = {}
 
         for k, ctx_msg in self.ctx.items():
             result['ctx'][k] = {}
-            result['ctx'][k]['payload'] = base64.b64encode(pickle.dumps(ctx_msg['payload'])).decode('ascii')
+            result['ctx'][k]['payload'] = encode(ctx_msg['payload'])
             result['ctx'][k]['meta'] = dict(ctx_msg['meta'])
 
         return result
 
-    def to_json(self):
+    def to_json(self, payload_encoder=None):
         """
         Create json string for current message.
 
+        :param encoder: Encoder object that will be used to encode the payload.
+            more info at documentation of to_dict()
+
         :return: a json string equivalent for message.
         """
-        return json.dumps(self.to_dict())
+        return json.dumps(self.to_dict(payload_encoder=payload_encoder))
 
     @staticmethod
-    def from_dict(data):
+    def from_dict(data, payload_encoder=None):
         """
         Converts an input dict previously converted with `.to_dict()` method
             to a Message object.
 
         :param data: The input dict.
+
+        :param encoder: Encoder object that will be used to decode the payload
+            if set to None B64PickleEncoder() will be used, which decodes an
+                object that was pickled and then base64 encoded.
+
         :return: The message message object corresponding to given data.
         """
+        payload_encoder = (payload_encoder if payload_encoder
+                           else DEFAULT_ENCODER_CLS())
+
+        decode = payload_encoder.decode
+
         result = Message()
         result.timestamp = datetime.datetime.strptime(data['timestamp'], DATE_FORMAT)
         result.uuid = UUID(data['uuid']).hex
-        result.payload = pickle.loads(base64.b64decode(data['payload'].encode('ascii')))
+        result.payload = decode(data['payload'])
         result.meta = data['meta']
 
         for k, ctx_msg in data['ctx'].items():
             result.ctx[k] = {}
-            result.ctx[k]['payload'] = pickle.loads(base64.b64decode(ctx_msg['payload'].encode('ascii')))
+            result.ctx[k]['payload'] = decode(ctx_msg['payload'])
             result.ctx[k]['meta'] = dict(ctx_msg['meta'])
 
         return result

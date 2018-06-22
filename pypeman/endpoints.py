@@ -17,7 +17,7 @@ class BaseEndpoint:
 
 
 class SocketEndpoint(BaseEndpoint):
-    def __init__(self, loop=None, sock=None, reuse_port=False):
+    def __init__(self, loop=None, sock=None, default_port='8080', reuse_port=None):
         """
             :param reuse_port: bool if true then the listening port specified in the url parameter) 
                 will be shared with other processes on same port
@@ -28,6 +28,16 @@ class SocketEndpoint(BaseEndpoint):
         super().__init__()
         self.loop = loop or asyncio.get_event_loop()
         self.reuse_port = reuse_port
+
+        if isinstance(sock, str):
+            if not sock.startswith('unix:'):
+                if ':' not in sock:
+                    sock += ':'
+                host, port = sock.split(":")
+                host = host or '127.0.0.1'
+                port = port or default_port
+                sock = host + ':' + port
+
         self.sock = sock
 
     def make_socket(self):
@@ -54,10 +64,6 @@ class SocketEndpoint(BaseEndpoint):
         else:
             sock_obj = sock
 
-        if self.reuse_port:
-            SO_REUSEPORT = 15
-            sock_obj.setsockopt(socket.SOL_SOCKET, SO_REUSEPORT, 1)
-
         self.sock_obj = sock_obj
 
 
@@ -66,4 +72,5 @@ from pypeman.helpers import lazyload
 wrap = lazyload.Wrapper(__name__)
 
 wrap.add_lazy('pypeman.contrib.http', 'HTTPEndpoint', ['aiohttp'])
+
 wrap.add_lazy('pypeman.contrib.hl7', 'MLLPEndpoint', ['hl7'])

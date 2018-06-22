@@ -4,7 +4,7 @@ from asyncio import ensure_future
 import warnings
 
 from pypeman import endpoints, channels, nodes, message
-
+from pypeman.errors import PypemanParamError
 
 import hl7
 
@@ -76,18 +76,38 @@ class MLLPProtocol(asyncio.Protocol):
         super().connection_lost(exc)
 
 
-class MLLPEndpoint(endpoints.BaseEndpoint):
+class MLLPEndpoint(endpoints.SocketEndpoint):
 
-    def __init__(self, address='127.0.0.1', port='2100', encoding='utf-8', loop=None):
-        super().__init__()
+    def __init__(
+            self,
+            address='127.0.0.1', port='2100', # obsolete params
+            encoding='utf-8',
+            loop=None,
+            host=None,
+            sock=None,
+            reuse_port=None,
+            ):
+
         self.handlers = []
         self.address = address
         self.port = port
         self.loop = loop or asyncio.get_event_loop()
+        if address or port:
+            warnings.warn("HTTPEndpoint 'address', 'adress' and 'port' params are deprecated. "
+                "Replace it by 'host' or 'sock'", DeprecationWarning)
+            if host or sock:
+                raise PypemanParamError("Obsolete params ('adress', 'address', 'port') "
+                    "can not be mixed with new params ('host', 'sock')")
+            sock = address + ':' + str(port)
+        if host and sock:
+            raise PypemanParamError("There can only be one (parameter host or sock)")
+        sock = sock or host
 
         if encoding != 'utf-8':
             warnings.warn("MLLPEndpoint 'encoding' parameters is deprecated", DeprecationWarning)
         self.encoding = encoding
+
+        super().__init__(loop=loop, sock=sock, default_port='2100', reuse_port=reuse_port)
 
 
     def set_handler(self, handler):
@@ -95,7 +115,11 @@ class MLLPEndpoint(endpoints.BaseEndpoint):
 
     async def start(self):
         if self.handler:
-            srv = await self.loop.create_server(lambda: MLLPProtocol(self.handler, loop=self.loop), self.address, self.port)
+            srv = await self.loop.create_server(
+                protocol_factory=lambda: MLLPProtocol(self.handler, loop=self.loop),
+                sock=self.sock_obj,
+                reuse_port=self.reuse_port,
+            )
             print("MLLP server started at http://{}:{}".format(self.address, self.port))
             return srv
         else:

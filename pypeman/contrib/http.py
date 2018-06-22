@@ -25,7 +25,7 @@ class HTTPEndpoint(endpoints.SocketEndpoint):
             http_args=None,
             host=None,
             sock=None,
-            reuse_port=False,
+            reuse_port=None,
             ):
         """
             :param http_args: dict to pass as **kwargs** to aiohttp.Application for example for
@@ -76,7 +76,8 @@ class HTTPEndpoint(endpoints.SocketEndpoint):
             srv = await self.loop.create_server(
                 protocol_factory=self._app.make_handler(),
                 sock=self.sock_obj,
-                ssl=self.ssl_context
+                ssl=self.ssl_context,
+                reuse_port=self.reuse_port,
             )
             message = "Server started at %r" % self.sock
             print(message)

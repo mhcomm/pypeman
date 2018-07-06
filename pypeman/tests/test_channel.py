@@ -316,7 +316,7 @@ class ChannelsTests(unittest.TestCase):
     def test_http_channel(self, mock_sock):
         """ Whether HTTPChannel is working"""
         tests = [
-            dict(out_params={'sock':'localhost:8080'}),
+            dict(out_params={'sock':'127.0.0.1:8080'}),
             dict(
                 in_params={'address':'localhost', 'port':8081}, 
                 out_params={'sock':'localhost:8081'},
@@ -342,8 +342,8 @@ class ChannelsTests(unittest.TestCase):
             ),
             dict(
                 in_params={'port':8081},
-                out_params={'sock':'localhost:8081'},
-                comment="dflt addr localhost",
+                out_params={'sock':'127.0.0.1:8081'},
+                comment="dflt addr 127.0.0.1",
             ),
             dict(
                 in_params={'host':'0.0.0.0:8082', 'reuse_port':True},

@@ -49,20 +49,13 @@ class HTTPEndpoint(endpoints.SocketEndpoint):
             if host or sock:
                 raise PypemanParamError("Obsolete params ('adress', 'address', 'port') "
                     "can not be mixed with new params ('host', 'sock')") 
-            sock = sock or host or ((address if address else '') + ':' + str(port if port else ''))
+            sock = (address if address else '') + ':' + str(port if port else '')
  
         if host and sock:
             raise PypemanParamError("There can only be one (parameter host or sock)")
         sock = sock or host or ''
-        if isinstance(sock, str):
-            if not sock.startswith('unix:'):
-                if ':' not in sock:
-                    sock += ':'
-                host, port = sock.split(":")
-                host = host or 'localhost'
-                port = port or '8080'
-                sock = host + ':' + port
-        super().__init__(loop, sock, reuse_port)
+
+        super().__init__(loop=loop, sock=sock, reuse_port=reuse_port)
 
     def add_route(self, *args, **kwargs):
         if self._app is None:

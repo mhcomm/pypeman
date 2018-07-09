@@ -70,7 +70,6 @@ class HTTPEndpoint(endpoints.SocketEndpoint):
                 protocol_factory=self._app.make_handler(),
                 sock=self.sock_obj,
                 ssl=self.ssl_context,
-                reuse_port=self.reuse_port,
             )
             message = "Server started at %r" % self.sock
             print(message)

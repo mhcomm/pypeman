@@ -21,6 +21,7 @@ class SocketEndpoint(BaseEndpoint):
         """
             :param reuse_port: bool if true then the listening port specified in the url parameter) 
                 will be shared with other processes on same port
+                no effect with bound socket object
             :param sock: string 'host:port'
                 or socket-string ("unix:/sojet/file/path")
                 or bound socket object
@@ -60,6 +61,9 @@ class SocketEndpoint(BaseEndpoint):
             else:
                 bind_param = sock.split(":", 1)[1]
                 sock_obj = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            if self.reuse_port:
+                SO_REUSEPORT = 15
+                sock_obj.setsockopt(socket.SOL_SOCKET, SO_REUSEPORT, 1)
             sock_obj.bind(bind_param)
         else:
             sock_obj = sock

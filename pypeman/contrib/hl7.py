@@ -118,7 +118,6 @@ class MLLPEndpoint(endpoints.SocketEndpoint):
             srv = await self.loop.create_server(
                 protocol_factory=lambda: MLLPProtocol(self.handler, loop=self.loop),
                 sock=self.sock_obj,
-                reuse_port=self.reuse_port,
             )
             print("MLLP server started at http://{}:{}".format(self.address, self.port))
             return srv

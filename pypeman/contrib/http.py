@@ -1,7 +1,6 @@
 import asyncio
 import ssl
 import warnings
-import socket
 import logging
 
 import aiohttp
@@ -14,7 +13,7 @@ from pypeman.errors import PypemanParamError
 logger = logging.getLogger(__name__)
 
 
-class HTTPEndpoint(endpoints.BaseEndpoint):
+class HTTPEndpoint(endpoints.SocketEndpoint):
     """
     Endpoint to receive HTTP connection from outside.
 
@@ -26,7 +25,7 @@ class HTTPEndpoint(endpoints.BaseEndpoint):
             http_args=None,
             host=None,
             sock=None,
-            reuse_port=False,
+            reuse_port=None,
             ):
         """
             :param http_args: dict to pass as **kwargs** to aiohttp.Application for example for
@@ -38,59 +37,25 @@ class HTTPEndpoint(endpoints.BaseEndpoint):
                 or socket-string ("unix:/sojet/file/path")
                 or bound socket object
         """
-        super().__init__()
+
         self.http_args = http_args or {}
         self.ssl_context = self.http_args.pop('ssl_context', None)
-        self.loop = loop or asyncio.get_event_loop()
-        self.reuse_port = reuse_port
         self._app = None
  
         address = address or adress
         if address or port:
-            warnings.warn("HTTPEndpoint 'address', 'adress' and 'port' params are deprecated. Replace it by 'host' or 'sock'", 
-                DeprecationWarning)
+            warnings.warn("HTTPEndpoint 'address', 'adress' and 'port' params are deprecated. "
+                "Replace it by 'host' or 'sock'", DeprecationWarning)
             if host or sock:
-                raise PypemanParamError("Obsolete params ('adress', 'address', 'port') can not be mixed with new params ('host', 'sock')") 
-            sock = sock or host or ((address if address else '')+ ':' + str(port if port else ''))
+                raise PypemanParamError("Obsolete params ('adress', 'address', 'port') "
+                    "can not be mixed with new params ('host', 'sock')") 
+            sock = (address if address else '') + ':' + str(port if port else '')
  
         if host and sock:
             raise PypemanParamError("There can only be one (parameter host or sock)")
-        self.sock = sock or host or ''
+        sock = sock or host or ''
 
-
-    def make_socket(self):
-        """
-            make and bind socket if string object is passed
-        """
-        sock = self.sock
-        if not isinstance(sock, str):
-            self.sock_obj = sock
-            if self.reuse_port:
-                SO_REUSEPORT = 15
-                self.sock_obj.setsockopt(socket.SOL_SOCKET, SO_REUSEPORT, 1)
-            return
-
-        if not sock.startswith('unix:'):
-            if ':' not in sock:
-                sock += ':'
-            host, port = sock.split(":")
-            host = host or 'localhost'
-            port = int(port or 8080)
-            self.sock = host + ':' + str(port)
-            sock_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            if self.reuse_port:
-                SO_REUSEPORT = 15
-                sock_obj.setsockopt(socket.SOL_SOCKET, SO_REUSEPORT, 1)
-            sock_obj.bind((host, port))
-        else:
-            path = sock.split(":", 1)[1]
-            sock_obj = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            if self.reuse_port:
-                SO_REUSEPORT = 15
-                sock_obj.setsockopt(socket.SOL_SOCKET, SO_REUSEPORT, 1)
-            sock_obj.bind(path)
-        self.sock_obj = sock_obj
-        
+        super().__init__(loop=loop, sock=sock, reuse_port=reuse_port)
 
     def add_route(self, *args, **kwargs):
         if self._app is None:
@@ -104,7 +69,7 @@ class HTTPEndpoint(endpoints.BaseEndpoint):
             srv = await self.loop.create_server(
                 protocol_factory=self._app.make_handler(),
                 sock=self.sock_obj,
-                ssl=self.ssl_context
+                ssl=self.ssl_context,
             )
             message = "Server started at %r" % self.sock
             print(message)

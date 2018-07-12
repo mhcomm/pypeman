@@ -6,6 +6,8 @@ import shutil
 import tempfile
 from unittest import mock
 
+import pytest
+
 from pypeman.channels import BaseChannel
 from pypeman import nodes, msgstore, channels
 from pypeman.tests.common import TestException, generate_msg
@@ -52,6 +54,14 @@ class RemoteAdminTests(unittest.TestCase):
 
     def test_remote_admin_list(self):
         """ Channel remote listing working """
+        import pytest_asyncio.plugin
+
+        # Unfortunately this test is within a Unittest class. Therefore
+        # we have to do things slightly more clumsy than in a pytest test class
+        # if this were not a subclass of unittest we would just have added
+        # the parameter 'unused_tcp_port' to the test function.
+        port = pytest_asyncio.plugin.unused_tcp_port()  # port used for rmt admin
+
         store_factory = msgstore.MemoryMessageStoreFactory()
 
         chan = BaseChannel(name="test_remote050", loop=self.loop, message_store_factory=store_factory)
@@ -80,11 +90,11 @@ class RemoteAdminTests(unittest.TestCase):
         self.loop.run_until_complete(chan.handle(msg3))
         self.loop.run_until_complete(chan.handle(msg4))
 
-        server = RemoteAdminServer(loop=self.loop)
+        server = RemoteAdminServer(loop=self.loop, port=port)
 
         self.loop.run_until_complete(server.start())
 
-        client = RemoteAdminClient(loop=self.loop)
+        client = RemoteAdminClient(loop=self.loop, url="ws://localhost:%d" % port)
         client.init()
 
         # List channels

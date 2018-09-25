@@ -3,7 +3,8 @@ begins
 daemonlite
 websockets
 jsonrpcserver
-jsonrpcclient[websockets]
+jsonrpcclient[websockets]<=2.5.2
+
 requests # For jsonrpcclient
 ipython
 sqlitedict

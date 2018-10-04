@@ -177,7 +177,6 @@ class BaseChannel:
         for node in self._nodes:
             node._reset_test()
 
-
     def add(self, *args):
         """
         Add specified nodes to channel (Shortcut for append).
@@ -228,7 +227,9 @@ class BaseChannel:
         :return: The forked channel
         """
 
-        s = SubChannel(name=name, parent_channel=self, message_store_factory=message_store_factory, loop=self.loop)
+        s = SubChannel(
+            name=name, parent_channel=self,
+            message_store_factory=message_store_factory, loop=self.loop)
         self._nodes.append(s)
         return s
 
@@ -242,7 +243,9 @@ class BaseChannel:
         :return: The conditional path channel.
         """
 
-        s = ConditionSubChannel(condition=condition, name=name, parent_channel=self, message_store_factory=message_store_factory, loop=self.loop)
+        s = ConditionSubChannel(
+            condition=condition, name=name, parent_channel=self,
+            message_store_factory=message_store_factory, loop=self.loop)
         self._nodes.append(s)
         return s
 
@@ -265,7 +268,8 @@ class BaseChannel:
         if names is None:
             names = [None] * len(conditions)
 
-        c = Case(*conditions, names=names, parent_channel=self, message_store_factory=message_store_factory, loop=self.loop)
+        c = Case(*conditions, names=names, parent_channel=self,
+                 message_store_factory=message_store_factory, loop=self.loop)
         self._nodes.append(c)
         return [chan for cond, chan in c.cases]
 
@@ -308,7 +312,7 @@ class BaseChannel:
             except Rejected:
                 await self.message_store.change_message_state(msg_store_id, message.Message.REJECTED)
                 raise
-            except:
+            except Exception:
                 self.logger.exception('Error while processing message %s', msg)
                 await self.message_store.change_message_state(msg_store_id, message.Message.ERROR)
                 raise
@@ -329,7 +333,7 @@ class BaseChannel:
         if self.next_node:
             if isinstance(result, types.GeneratorType):
                 gene = result
-                result = msg # Necessary if all nodes result are dropped
+                result = msg  # Necessary if all nodes result are dropped
                 for res in gene:
                     try:
                         result = await self.next_node.handle(res)
@@ -398,7 +402,7 @@ class BaseChannel:
         for node in self._nodes:
             if isinstance(node, SubChannel):
                 print(prefix + '|—\\ (%s)' % node.name)
-                node.graph(prefix= '|  ' + prefix)
+                node.graph(prefix='|  ' + prefix)
             elif isinstance(node, ConditionSubChannel):
                 print(prefix + '|?\\ (%s)' % node.name)
                 node.graph(prefix='|  ' + prefix)
@@ -466,7 +470,7 @@ class SubChannel(BaseChannel):
         try:
             result = fut.result()
             logger.debug("Subchannel %s end process message %s", self, result)
-        except:
+        except Exception:
             self.logger.exception("Error while processing msg in subchannel %s", self)
 
     async def process(self, msg):
@@ -483,7 +487,7 @@ class ConditionSubChannel(BaseChannel):
     all further channel processing.
     """
 
-    def __init__(self, condition=lambda x:True, **kwargs):
+    def __init__(self, condition=lambda x: True, **kwargs):
         super().__init__(**kwargs)
         self.condition = condition
 
@@ -504,6 +508,7 @@ class ConditionSubChannel(BaseChannel):
 
         return result
 
+
 class Case():
     """ Case node internally used for `.case()` BaseChannel method. Don't use it.
     """
@@ -520,7 +525,9 @@ class Case():
             message_store_factory = msgstore.NullMessageStoreFactory()
 
         for cond, name in zip(args, names):
-            b = BaseChannel(name=name, parent_channel=parent_channel, message_store_factory=message_store_factory, loop=self.loop)
+            b = BaseChannel(name=name, parent_channel=parent_channel,
+                            message_store_factory=message_store_factory,
+                            loop=self.loop)
             self.cases.append((cond, b))
 
     def _reset_test(self):
@@ -553,7 +560,7 @@ class FileWatcherChannel(BaseChannel):
 
     """
 
-    NEW, UNCHANGED, MODIFIED, DELETED  = range(4)
+    NEW, UNCHANGED, MODIFIED, DELETED = range(4)
 
     def __init__(self, *args, basedir='', regex='.*', interval=1, binary_file=False, path='', **kwargs):
         super().__init__(*args, **kwargs)
@@ -631,14 +638,14 @@ class FileWatcherChannel(BaseChannel):
                                 fut = ensure_future(self.handle(msg), loop=self.loop)
                                 fut.add_done_callback(self._handle_callback)
 
-        except: # TODO: might explicitely silence some special cases.
+        except Exception:  # TODO: might explicitely silence some special cases.
             self.logger.exception("filewatcher problem")
         finally:
-            if not self.status in (BaseChannel.STOPPING, BaseChannel.STOPPED,):
+            if self.status not in (BaseChannel.STOPPING, BaseChannel.STOPPED,):
                 ensure_future(self.watch_for_file(), loop=self.loop)
 
 
-from pypeman.helpers import lazyload
+from pypeman.helpers import lazyload  # noqa: E402
 
 wrap = lazyload.Wrapper(__name__)
 

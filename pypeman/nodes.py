@@ -1,12 +1,12 @@
-import os
-import json
-import types
 import asyncio
-import logging
 import base64
+import json
+import logging
+import os
+import smtplib
+import types
 import warnings
 
-import smtplib
 from email.mime.text import MIMEText
 
 from datetime import datetime
@@ -23,8 +23,6 @@ from pypeman.persistence import get_backend
 logger = logging.getLogger(__name__)
 loop = asyncio.get_event_loop()
 
-from copy import deepcopy
-
 # All declared nodes register here
 all = []
 
@@ -32,6 +30,7 @@ all = []
 default_thread_pool = ThreadPoolExecutor(max_workers=3)
 
 SENTINEL = object()
+
 
 def choose_first_not_none(*args):
     """ Choose first non None alternative in args.
@@ -144,7 +143,7 @@ class BaseNode:
         if self.next_node:
             if isinstance(result, types.GeneratorType):
                 gene = result
-                result = msg # Necessary if all nodes result are dropped
+                result = msg  # Necessary if all nodes result are dropped
                 for res in gene:
                     try:
                         result = await self.next_node.handle(res)
@@ -298,6 +297,7 @@ class Drop(BaseNode):
         else:
             raise Dropped()
 
+
 class DropNode(Drop):
     def __init__(self, *args, **kwargs):
         warnings.warn("DropNode node is deprecated. Replace it by Drop node", DeprecationWarning)
@@ -360,7 +360,8 @@ class Log(BaseNode):
         if self.channel.parent_uids:
             self.channel.logger.log(self.lvl, 'Parent channels: %s', ', '.join(self.channel.parent_names))
 
-        msg.log(logger=self.channel.logger, payload=True, meta=True, context=self.show_ctx, log_level=self.lvl)
+        msg.log(logger=self.channel.logger, payload=True, meta=True,
+                context=self.show_ctx, log_level=self.lvl)
 
         return msg
 
@@ -470,7 +471,7 @@ class SaveFileBackend():
         today = datetime.now()
         timestamp = message.timestamp
 
-        context = {'counter':self.counter,
+        context = {'counter': self.counter,
                    'year': today.year,
                    'month': today.month,
                    'day': today.day,
@@ -551,7 +552,7 @@ class FileReader(BaseNode):
             filepath = msg.meta['filepath']
 
         context = get_context(msg=msg, counter=self.counter)
-        filepath =  filepath % context
+        filepath = filepath % context
         name = os.path.basename(filepath)
 
         if self.binary_file:
@@ -590,7 +591,7 @@ class FileWriter(BaseNode):
             raise ValueError("filepath must be defined in parameters or in msg.meta")
 
         context = get_context(msg=msg, counter=self.counter)
-        dest =  filepath % context
+        dest = filepath % context
         old_file = dest
         if self.safe_file:
             dest = old_file + '.tmp'
@@ -659,6 +660,7 @@ class ToOrderedDict(BaseNode):
        if the payload does not contain certain values defaults can be specified with defaults
     """
     NONE = object()
+
     def __init__(self, *args, **kwargs):
         self.keys = kwargs.pop('keys')
         defaults = kwargs.pop('defaults', dict())
@@ -763,7 +765,9 @@ class Email(ThreadNode):
 
 
 # Contrib nodes
-from pypeman.helpers import lazyload
+# TODO: can we move this line to top of file?
+
+from pypeman.helpers import lazyload  # noqa: E402
 
 wrap = lazyload.Wrapper(__name__)
 

@@ -1,20 +1,16 @@
-import os
-import unittest
 import asyncio
-import datetime
-import shutil
-import tempfile
+import unittest
+
 from socket import SOL_SOCKET
 from unittest import mock
 
 from pypeman import channels, endpoints
 from pypeman.channels import BaseChannel
-from pypeman import message
 from pypeman import nodes
-from pypeman import msgstore
 from pypeman import events
 from pypeman.errors import PypemanParamError
 from pypeman.tests.common import TestException, generate_msg
+
 
 class TestNode(nodes.BaseNode):
     def __init__(self, *args, **kwargs):
@@ -38,9 +34,9 @@ class TestConditionalErrorNode(nodes.BaseNode):
 
 
 class ExceptNode(TestNode):
-    # This node raises an exception
+    # This node raises an exception
     def process(self, msg):
-        result = super().process(msg)
+        super().process(msg)
         raise TestException()
 
 
@@ -147,7 +143,7 @@ class ChannelsTests(unittest.TestCase):
 
         self.assertEqual(n1.processed, 1, "Sub Channel not working")
 
-        with self.assertRaises(TestException) as cm:
+        with self.assertRaises(TestException):
             self.clean_loop()
 
         self.assertEqual(n2.processed, 1, "Sub Channel not working")
@@ -218,7 +214,6 @@ class ChannelsTests(unittest.TestCase):
         self.assertEqual(cond2.name, "test_channel6.second", "Casechannel name is incorrect")
         self.assertEqual(cond3.name, "test_channel6.third", "Casechannel name is incorrect")
 
-
     def test_channel_subchannel(self):
         """ Whether BaseChannel subchannel works """
         chan = BaseChannel(name="test_channel6.5", loop=self.loop)
@@ -231,8 +226,9 @@ class ChannelsTests(unittest.TestCase):
 
         print(chan.subchannels())
 
-        self.assertEqual(len(chan.subchannels()[0]['subchannels'][0]['subchannels']), 2, "Subchannel graph not working")
-
+        self.assertEqual(
+            len(chan.subchannels()[0]['subchannels'][0]['subchannels']),
+            2, "Subchannel graph not working")
 
     def test_channel_result(self):
         """ Whether BaseChannel handling return a good result """
@@ -280,7 +276,6 @@ class ChannelsTests(unittest.TestCase):
 
         self.assertEqual(mid_node.processed, 3, "Generator node not working with drop_node")
 
-
     def test_channel_events(self):
         """ Whether BaseChannel handling return a good result """
 
@@ -308,55 +303,55 @@ class ChannelsTests(unittest.TestCase):
         print(state_sequence)
 
         valid_sequence = [BaseChannel.STOPPED, BaseChannel.STARTING, BaseChannel.WAITING,
-                          BaseChannel.PROCESSING, BaseChannel.WAITING, BaseChannel.STOPPING, BaseChannel.STOPPED]
+                          BaseChannel.PROCESSING, BaseChannel.WAITING,
+                          BaseChannel.STOPPING, BaseChannel.STOPPED]
         self.assertEqual(state_sequence, valid_sequence, "Sequence state is not valid")
-
 
     @mock.patch('socket.socket')
     def test_http_channel(self, mock_sock):
         """ Whether HTTPChannel is working"""
         tests = [
-            dict(out_params={'sock':'127.0.0.1:8080'}),
+            dict(out_params={'sock': '127.0.0.1:8080'}),
             dict(
-                in_params={'address':'localhost', 'port':8081}, 
-                out_params={'sock':'localhost:8081'},
+                in_params={'address': 'localhost', 'port': 8081},
+                out_params={'sock': 'localhost:8081'},
             ),
             dict(
-                in_params={'address':'localhost', 'port':8081, 'host':'0.0.0.0:8082'},
-                out_params={'raising':True},
+                in_params={'address': 'localhost', 'port': 8081, 'host': '0.0.0.0:8082'},
+                out_params={'raising': True},
             ),
             dict(
-                in_params={'host':'0.0.0.0:8082', 'sock':'place_holder'},
-                out_params={'raising':True},
+                in_params={'host': '0.0.0.0:8082', 'sock': 'place_holder'},
+                out_params={'raising': True},
                 comment="either socket or host",
             ),
             dict(
-                in_params={'address':'localhost', 'port':8081, 'sock':'place_holder'},
-                out_params={'raising':True},
+                in_params={'address': 'localhost', 'port': 8081, 'sock': 'place_holder'},
+                out_params={'raising': True},
                 comment="either addr,port or sock",
             ),
             dict(
-                in_params={'address':'0.0.0.0'},
-                out_params={'sock':'0.0.0.0:8080'},
+                in_params={'address': '0.0.0.0'},
+                out_params={'sock': '0.0.0.0:8080'},
                 comment="dflt_port 8080"
             ),
             dict(
-                in_params={'port':8081},
-                out_params={'sock':'127.0.0.1:8081'},
+                in_params={'port': 8081},
+                out_params={'sock': '127.0.0.1:8081'},
                 comment="dflt addr 127.0.0.1",
             ),
             dict(
-                in_params={'host':'0.0.0.0:8082', 'reuse_port':True},
-                out_params={'sock':'0.0.0.0:8082'},
+                in_params={'host': '0.0.0.0:8082', 'reuse_port': True},
+                out_params={'sock': '0.0.0.0:8082'},
             ),
         ]
 
         fake_socket = mock.MagicMock()
         mock_sock.return_value = fake_socket
         for test in tests:
-            in_params = test.get('in_params',{})
-            out_params = test.get('out_params',{})
-            comment = test.get('comment',"")
+            in_params = test.get('in_params', {})
+            out_params = test.get('out_params', {})
+            comment = test.get('comment', "")
             raising = out_params.pop('raising', False)
 
             adress = in_params.get('adress')
@@ -364,13 +359,13 @@ class ChannelsTests(unittest.TestCase):
             port = in_params.get('port')
             host = in_params.get('host')
             sock = in_params.get('sock')
-            http_args =  in_params.get('http_args')
+            http_args = in_params.get('http_args')
             reuse_port = in_params.get('reuse_port')
 
             def mk_endp():
                 endp = endpoints.HTTPEndpoint(
-                    loop=self.loop, 
-                    adress=adress, address=address, port=port, 
+                    loop=self.loop,
+                    adress=adress, address=address, port=port,
                     http_args=http_args,
                     host=host,
                     sock=sock,
@@ -398,8 +393,7 @@ class ChannelsTests(unittest.TestCase):
             for key, value in out_params.items():
                 self.assertEqual(getattr(endp, key), value, check_msg)
 
-            chan = channels.HttpChannel(endpoint=endp, loop=self.loop)    
-            
+            channels.HttpChannel(endpoint=endp, loop=self.loop)
 
     def test_ftp_channel(self):
         """ Whether FTPWatcherChannel is working"""
@@ -419,9 +413,9 @@ class ChannelsTests(unittest.TestCase):
 
         fake_ftp_helper = mock.Mock(return_value=fake_ftp)
 
-        with mock.patch('pypeman.contrib.ftp.FTPHelper', new=fake_ftp_helper) as mock_ftp:
+        with mock.patch('pypeman.contrib.ftp.FTPHelper', new=fake_ftp_helper):
             chan = channels.FTPWatcherChannel(name="ftpchan", regex=".*", loop=self.loop,
-                                              basedir="testdir", # delete_after=True,
+                                              basedir="testdir",  # delete_after=True,
                                               **ftp_config)
 
             chan.watch_for_file = asyncio.coroutine(mock.Mock())
@@ -461,7 +455,7 @@ class ChannelsTests(unittest.TestCase):
 
             # Third tick. Should download a new file.
 
-            mock_list_dir.return_value=set(["file1", "file2", "file3"])
+            mock_list_dir.return_value = set(["file1", "file2", "file3"])
 
             fake_ftp.download_file.reset_mock()
             mock_list_dir.reset_mock()
@@ -472,7 +466,6 @@ class ChannelsTests(unittest.TestCase):
 
             mock_list_dir.assert_called_once_with("testdir")
             fake_ftp.download_file.assert_called_once_with("testdir/file3")
-
 
             # To avoid auto launch of ftp watch
             channels.all.remove(chan)
@@ -492,7 +485,7 @@ class ChannelsTests(unittest.TestCase):
         self.loop.run_until_complete(chan.handle(msg))
         self.loop.run_until_complete(chan.stop())
 
-        with self.assertRaises(channels.ChannelStopped) as cm:
+        with self.assertRaises(channels.ChannelStopped):
             self.loop.run_until_complete(chan.handle(msg))
 
     def test_channel_exception(self):
@@ -505,7 +498,5 @@ class ChannelsTests(unittest.TestCase):
 
         # Launch channel processing
         self.start_channels()
-        with self.assertRaises(TestException) as cm:
+        with self.assertRaises(TestException):
             self.loop.run_until_complete(chan.process(msg))
-
-

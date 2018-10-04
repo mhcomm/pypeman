@@ -2,16 +2,17 @@
 
 """
 
-import os
-import time
+import asyncio
 import datetime
 import logging
-from importlib import reload
-import asyncio
+import os
+import time
 
+from importlib import reload
 
 from pypeman import nodes
 from pypeman import message
+
 
 def setup_settings(module):
     """ helper allows to have specific settings for a test
@@ -23,7 +24,8 @@ def setup_settings(module):
     reload(pypeman.conf)
     import pypeman.tests.test_app.settings as tst_settings
     reload(tst_settings)
-    from pypeman.conf import settings
+    from pypeman.conf import settings  # noqa: F401
+
 
 def teardown_settings():
     """ helper allowing to reset settings to default
@@ -32,26 +34,30 @@ def teardown_settings():
 
     # TODO: try later with del sys.modules[module_name]
     import logging
-    logger = logging.getLogger()
+    logger = logging.getLogger()  # noqa: F841
     import pypeman.default_settings
     reload(pypeman.default_settings)
     try:
         import pypeman.conf
-        reload(pypeman.conf) #########
+        reload(pypeman.conf)  # ########
     except ImportError:
         pass
 
+
 default_message_content = """{"test":1}"""
 default_message_meta = {'question': 'unknown'}
-def generate_msg(timestamp=None, message_content=default_message_content, message_meta=None, with_context=False):
+
+
+def generate_msg(timestamp=None, message_content=default_message_content,
+                 message_meta=None, with_context=False):
     """ generates a default message """
     m = message.Message()
     if timestamp:
         if isinstance(timestamp, tuple):
             m.timestamp = datetime.datetime(*timestamp)
-        else: # assume it's a datetime object
+        else:  # assume it's a datetime object
             m.timestamp = timestamp
-    else: # just use current time
+    else:  # just use current time
         m.timestamp = datetime.datetime.utcnow()
 
     m.payload = message_content
@@ -68,8 +74,10 @@ def generate_msg(timestamp=None, message_content=default_message_content, messag
 
     return m
 
+
 class TestException(Exception):
     """ custom Exception """
+
 
 class SimpleTestNode(nodes.BaseNode):
     """ simple node, that can be used for unit testing
@@ -96,4 +104,3 @@ class SimpleTestNode(nodes.BaseNode):
         self.logger.info("Process done: %s", msg)
         self.processed = True
         return msg
-

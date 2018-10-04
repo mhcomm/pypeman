@@ -1,15 +1,14 @@
-import os
-import unittest
 import asyncio
-import logging
+import os
 import time
-import json
-import aiohttp
+import unittest
+
 from unittest import mock
 
+import aiohttp
 from pypeman import nodes, message, conf, persistence
 
-from pypeman.tests.common import generate_msg, setup_settings, teardown_settings
+from pypeman.tests.common import generate_msg
 
 
 class FakeChannel():
@@ -27,11 +26,14 @@ class LongNode(nodes.ThreadNode):
         time.sleep(1)
         return msg
 
+
 def tstfct(msg):
     return '/fctpath'
 
+
 def tstfct2(msg):
     return 'fctname'
+
 
 def get_mock_coro(return_value):
     @asyncio.coroutine
@@ -39,6 +41,7 @@ def get_mock_coro(return_value):
         return return_value
 
     return mock.Mock(wraps=mock_coro)
+
 
 class NodesTests(unittest.TestCase):
     def setUp(self):
@@ -111,12 +114,11 @@ class NodesTests(unittest.TestCase):
 
             m = generate_msg(message_content='test')
 
-            ret = self.loop.run_until_complete(n.handle(m))
+            self.loop.run_until_complete(n.handle(m))
 
             self.assertEqual(result[0], 'value', "Can't persist data for node")
             self.assertEqual(result[1], 'Yo', "Default value not working")
             self.assertEqual(result[2], 'yay', "Exception on missing key not working")
-
 
     def test_node_sqlite_persistence(self):
         """ Whether BaseNode() data sqlite persistence works"""
@@ -150,14 +152,13 @@ class NodesTests(unittest.TestCase):
             m = generate_msg(message_content='test')
             print('self', id(self.loop))
 
-            ret = self.loop.run_until_complete(n.handle(m))
+            self.loop.run_until_complete(n.handle(m))
 
             self.assertEqual(result[0], 'value', "Can't persist data for node")
             self.assertEqual(result[1], 'Yo', "Default value not working")
             self.assertEqual(result[2], 'yay', "Exception on missing key not working")
 
             os.remove(db_path)
-
 
     def test_log_node(self):
         """ whether Log() node functional """
@@ -195,10 +196,9 @@ class NodesTests(unittest.TestCase):
         m = generate_msg(message_content='test')
 
         with self.assertRaises(nodes.Dropped) as cm:
-            ret = self.loop.run_until_complete(n.handle(m))
+            self.loop.run_until_complete(n.handle(m))
 
         self.assertEqual(str(cm.exception), msg_to_show, "Drop node message not working !")
-
 
     def test_b64_nodes(self):
         """ if B64 nodes are functional """
@@ -235,7 +235,7 @@ class NodesTests(unittest.TestCase):
         ret = self.loop.run_until_complete(n.handle(m))
         # Check return
         self.assertTrue(isinstance(ret, message.Message))
-        self.assertEqual(ret.payload, {"test":1}, "JsonToPython node not working !")
+        self.assertEqual(ret.payload, {"test": 1}, "JsonToPython node not working !")
 
     def test_thread_node(self):
         """ if Thread node functional """
@@ -255,7 +255,7 @@ class NodesTests(unittest.TestCase):
                      or not os.environ.get('PYPEMAN_TEST_SMTP_PASSWORD')
                      or not os.environ.get('PYPEMAN_TEST_RECIPIENT_EMAIL'),
                      "Email node test skipped. Set PYPEMAN_TEST_SMTP_USER, PYPEMAN_TEST_SMTP_PASSWORD and "
-                        "PYPEMAN_TEST_RECIPIENT_EMAIL to enable it.")
+                     "PYPEMAN_TEST_RECIPIENT_EMAIL to enable it.")
     def test_email_node(self):
         """ if Email() node is functional """
 
@@ -265,8 +265,10 @@ class NodesTests(unittest.TestCase):
         smtp_user = os.environ['PYPEMAN_TEST_SMTP_USER']
         smtp_password = os.environ['PYPEMAN_TEST_SMTP_PASSWORD']
 
-        n = nodes.Email(host="mailtrap.io", port=2525, start_tls=False, ssl=False, user=smtp_user, password=smtp_password,
-                        subject="Sent from email node of Pypeman", sender=recipients, recipients=recipients)
+        n = nodes.Email(host="mailtrap.io", port=2525, start_tls=False,
+                        ssl=False, user=smtp_user, password=smtp_password,
+                        subject="Sent from email node of Pypeman",
+                        sender=recipients, recipients=recipients)
         n.channel = FakeChannel(self.loop)
 
         m = generate_msg()
@@ -284,7 +286,8 @@ class NodesTests(unittest.TestCase):
 
             mock_makedirs.return_value = None
 
-            n = nodes.Save(uri='file:///tmp/test/?filename=%(msg_year)s/%(msg_month)s/message%(msg_day)s-%(counter)s.txt')
+            n = nodes.Save(uri='file:///tmp/test/?filename=%(msg_year)s/'
+                           '%(msg_month)s/message%(msg_day)s-%(counter)s.txt')
             n.channel = FakeChannel(self.loop)
 
             m = generate_msg(timestamp=(1981, 12, 28, 13, 37))
@@ -300,11 +303,10 @@ class NodesTests(unittest.TestCase):
             handle = mock_file()
             handle.write.assert_called_once_with('content')
 
-
     def test_xml_nodes(self):
         """ if XML nodes are functional """
         try:
-            import xmltodict
+            import xmltodict  # noqa F401
         except ImportError:
             raise unittest.SkipTest("Missing dependency xmltodict.")
 
@@ -340,7 +342,7 @@ class NodesTests(unittest.TestCase):
 
         fake_ftp_helper = mock.Mock(return_value=fake_ftp)
 
-        with mock.patch('pypeman.contrib.ftp.FTPHelper', new=fake_ftp_helper) as mock_ftp:
+        with mock.patch('pypeman.contrib.ftp.FTPHelper', new=fake_ftp_helper):
 
             reader = nodes.FTPFileReader(filepath="test_read", **ftp_config)
             delete = nodes.FTPFileDeleter(filepath="test_delete", **ftp_config)
@@ -371,7 +373,6 @@ class NodesTests(unittest.TestCase):
             fake_ftp.upload_file.assert_called_once_with('test_write.part', 'message_content')
             fake_ftp.rename.assert_called_once_with('test_write.part', 'test_write')
 
-
     def test_httprequest_node(self):
         """ Whether HttpRequest node is functional """
 
@@ -380,7 +381,7 @@ class NodesTests(unittest.TestCase):
         auth = ("login", "mdp")
         url = 'http://url/%(meta.beta)s/%(payload.alpha)s'
         b_auth = aiohttp.BasicAuth(auth[0], auth[1])
-        client_cert=('/cert.key','/cert.crt')
+        client_cert = ('/cert.key', '/cert.crt')
         http_node1 = nodes.HttpRequest(url=url, verify=False, auth=auth)
         http_node1.channel = channel
 
@@ -402,19 +403,19 @@ class NodesTests(unittest.TestCase):
         msg2 = generate_msg(message_content=content1)
         msg2.meta = dict(msg1.meta)
         msg2.meta['method'] = 'post'
-        msg2.meta['params'] = {'zeta':['un', 'deux', 'trois']}
+        msg2.meta['params'] = {'zeta': ['un', 'deux', 'trois']}
         req_kwargs2 = dict(req_kwargs1)
         req_kwargs2['method'] = 'post'
         req_kwargs2['params'] = [
                 ('zeta', 'un'),
                 ('zeta', 'deux'),
                 ('zeta', 'trois'),
-#                ('omega', 'meta_params')
+                # ('omega', 'meta_params')
                 ]
         req_kwargs2['data'] = content1
 
         args_headers = {'args_headers': 'args_headers'}
-        args_params = {'theta':['uno', 'dos']}
+        args_params = {'theta': ['uno', 'dos']}
         http_node2 = nodes.HttpRequest(
             url=url,
             method='post',
@@ -434,9 +435,11 @@ class NodesTests(unittest.TestCase):
         req_kwargs3['headers'] = args_headers
         req_kwargs3['data'] = content1
 
-        with mock.patch('pypeman.contrib.http.aiohttp.ClientSession',
-        autospec=True) as mock_client_session, mock.patch('ssl.SSLContext',
-        autospec=True) as mock_ssl_context:
+        with mock.patch(
+            'pypeman.contrib.http.aiohttp.ClientSession',
+            autospec=True) as mock_client_session, mock.patch(
+                'ssl.SSLContext',
+                autospec=True) as mock_ssl_context:
             mock_ctx_mgr = mock_client_session.return_value
             mock_session = mock_ctx_mgr.__enter__.return_value
             mg = mock.MagicMock()
@@ -452,7 +455,7 @@ class NodesTests(unittest.TestCase):
                 - headers from meta
                 - url construction
             """
-            result = self.loop.run_until_complete(http_node1.handle(msg1))
+            self.loop.run_until_complete(http_node1.handle(msg1))
             mock_session.request.assert_called_once_with(**req_kwargs1)
             mock_load_cert_chain.assert_not_called()
 
@@ -463,7 +466,7 @@ class NodesTests(unittest.TestCase):
                 - post in meta with data from content,
                 - list in dict params from meta,
             """
-            result = self.loop.run_until_complete(http_node1.handle(msg2))
+            self.loop.run_until_complete(http_node1.handle(msg2))
             mock_session.request.assert_called_once_with(**req_kwargs2)
             mock_load_cert_chain.assert_not_called()
 
@@ -477,10 +480,9 @@ class NodesTests(unittest.TestCase):
                 - headers from args
                 - client_cert
             """
-            result = self.loop.run_until_complete(http_node2.handle(msg3))
+            self.loop.run_until_complete(http_node2.handle(msg3))
             mock_session.request.assert_called_once_with(**req_kwargs3)
             mock_load_cert_chain.assert_called_once_with(client_cert[0], client_cert[1])
-
 
     def test_file_reader_node(self):
         """if FileReader are functionnal"""
@@ -508,7 +510,6 @@ class NodesTests(unittest.TestCase):
 
         mock_file.assert_called_once_with('/filepath2', 'r')
         self.assertEqual(result.payload, "data2", "FileReader not working with meta")
-
 
         reader3 = nodes.FileReader(filepath=tstfct, filename='badname')
         reader3.channel = channel
@@ -540,7 +541,7 @@ class NodesTests(unittest.TestCase):
         writer.channel = channel
         msg1 = generate_msg(message_content="message_content")
         with mock.patch("builtins.open", mock.mock_open()) as mock_file:
-            result = self.loop.run_until_complete(writer.handle(msg1))
+            self.loop.run_until_complete(writer.handle(msg1))
 
         mock_file.assert_called_once_with('/filepath', 'w')
         handle = mock_file()
@@ -551,7 +552,7 @@ class NodesTests(unittest.TestCase):
         msg2 = generate_msg(message_content="message_content2")
         msg2.meta['filepath'] = '/filepath2'
         with mock.patch("builtins.open", mock.mock_open()) as mock_file:
-            result = self.loop.run_until_complete(writer2.handle(msg2))
+            self.loop.run_until_complete(writer2.handle(msg2))
 
         mock_file.assert_called_once_with('/filepath2', 'w')
         handle = mock_file()

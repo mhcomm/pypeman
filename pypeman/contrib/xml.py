@@ -1,5 +1,5 @@
 
-from pypeman import endpoints, channels, nodes, message
+from pypeman import nodes
 
 import xmltodict
 
@@ -12,7 +12,8 @@ class XMLToPython(nodes.BaseNode):
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
-        msg.payload = xmltodict.parse(msg.payload, process_namespaces=self.process_namespaces)
+        msg.payload = xmltodict.parse(
+            msg.payload, process_namespaces=self.process_namespaces)
         msg.content_type = 'application/python'
         return msg
 

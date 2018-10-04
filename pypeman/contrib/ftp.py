@@ -1,8 +1,8 @@
 import asyncio
-from asyncio import ensure_future
-
-from ftplib import FTP
 import re
+
+from asyncio import ensure_future
+from ftplib import FTP
 from io import BytesIO
 
 from concurrent.futures import ThreadPoolExecutor
@@ -11,6 +11,7 @@ from pypeman import channels, nodes, message
 
 # Can be redefined
 default_thread_pool = ThreadPoolExecutor(max_workers=3)
+
 
 class FTPConnection():
     """
@@ -35,7 +36,7 @@ class FTPConnection():
     def __exit__(self, type, value, tb):
         try:
             self.ftp.quit()
-        except:
+        except Exception:
             self.ftp.close()
 
 
@@ -212,7 +213,9 @@ class FTPFileReader(nodes.ThreadNode):
 
     def process(self, msg):
 
-        filepath = nodes.choose_first_not_none(nodes.callable_or_value(self.filepath, msg), msg.meta.get('filepath'))
+        filepath = nodes.choose_first_not_none(
+            nodes.callable_or_value(self.filepath, msg),
+            msg.meta.get('filepath'))
 
         content = self.ftphelper.download_file(filepath)
 
@@ -236,11 +239,14 @@ class FTPFileDeleter(nodes.ThreadNode):
 
     def process(self, msg):
 
-        filepath = nodes.choose_first_not_none(nodes.callable_or_value(self.filepath, msg), msg.meta.get('filepath'))
+        filepath = nodes.choose_first_not_none(
+            nodes.callable_or_value(self.filepath, msg),
+            msg.meta.get('filepath'))
 
         self.ftphelper.delete(filepath)
 
         return msg
+
 
 class FTPFileWriter(nodes.ThreadNode):
     """
@@ -257,7 +263,9 @@ class FTPFileWriter(nodes.ThreadNode):
 
     def process(self, msg):
 
-        filepath = nodes.choose_first_not_none(nodes.callable_or_value(self.filepath, msg), msg.meta.get('filepath'))
+        filepath = nodes.choose_first_not_none(
+            nodes.callable_or_value(self.filepath, msg),
+            msg.meta.get('filepath'))
 
         self.ftphelper.upload_file(filepath + '.part', msg.payload)
         self.ftphelper.rename(filepath + '.part', filepath)

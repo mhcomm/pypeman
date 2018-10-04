@@ -12,6 +12,7 @@ default_logger = logging.getLogger(__name__)
 
 DATE_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
+
 class Message():
     """
         A message is the unity of informations exchanged between nodes of a
@@ -146,7 +147,6 @@ class Message():
         """
         msg = Message.from_dict(json.loads(data))
         return msg
-
 
     def log(self, logger=default_logger, log_level=logging.DEBUG, payload=True, meta=True, context=False):
         """

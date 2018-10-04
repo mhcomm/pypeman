@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 
 all = []
 
+
 class BaseEndpoint:
 
     def __init__(self):
@@ -19,7 +20,7 @@ class BaseEndpoint:
 class SocketEndpoint(BaseEndpoint):
     def __init__(self, loop=None, sock=None, default_port='8080', reuse_port=None):
         """
-            :param reuse_port: bool if true then the listening port specified in the url parameter) 
+            :param reuse_port: bool if true then the listening port specified in the url parameter)
                 will be shared with other processes on same port
                 no effect with bound socket object
             :param sock: string 'host:port'
@@ -54,7 +55,7 @@ class SocketEndpoint(BaseEndpoint):
                     if not host:
                         raise
                     bind_param = (host, port)
-                except:
+                except Exception:
                     logger.exception('error on sock params in socket endpoint')
                     raise
                 sock_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -71,7 +72,7 @@ class SocketEndpoint(BaseEndpoint):
         self.sock_obj = sock_obj
 
 
-from pypeman.helpers import lazyload
+from pypeman.helpers import lazyload  # noqa: E402
 
 wrap = lazyload.Wrapper(__name__)
 

@@ -1,7 +1,7 @@
+import logging
 import os
 import re
-import asyncio
-import logging
+
 from collections import OrderedDict
 
 from pypeman.message import Message
@@ -21,6 +21,7 @@ class MessageStoreFactory():
         :param store_id: identifier of corresponding message store.
         :return: A MessageStore corresponding to correct store_id.
         """
+
 
 class MessageStore():
     """ A MessageStore keep an history of processed messages. Mainly used in channels. """
@@ -106,7 +107,7 @@ class FakeMessageStore(MessageStore):
         return 'fake_id'
 
     async def get(self, id):
-        return {'id':id, 'state': 'processed', 'message': None}
+        return {'id': id, 'state': 'processed', 'message': None}
 
     async def search(self, **kwargs):
         return []
@@ -133,7 +134,9 @@ class MemoryMessageStore(MessageStore):
 
     async def store(self, msg):
         msg_id = msg.uuid
-        self.messages[msg_id] = {'id': msg_id, 'state': Message.PENDING, 'timestamp': msg.timestamp, 'message': msg.to_dict()}
+        self.messages[msg_id] = {
+            'id': msg_id, 'state': Message.PENDING,
+            'timestamp': msg.timestamp, 'message': msg.to_dict()}
         return msg_id
 
     async def change_message_state(self, id, new_state):
@@ -165,6 +168,7 @@ class MemoryMessageStore(MessageStore):
 
     async def total(self):
         return len(self.messages)
+
 
 class FileMessageStoreFactory(MessageStoreFactory):
     """
@@ -212,7 +216,9 @@ class FileMessageStore(MessageStore):
 
         # The filename is the file id
         filename = "{}_{}".format(msg.timestamp.strftime(DATE_FORMAT), msg.uuid)
-        dirs = os.path.join(str(msg.timestamp.year), "%02d" % msg.timestamp.month, "%02d" % msg.timestamp.day)
+        dirs = os.path.join(str(msg.timestamp.year),
+                            "%02d" % msg.timestamp.month,
+                            "%02d" % msg.timestamp.day)
 
         try:
             # Try to make dirs if necessary
@@ -268,28 +274,34 @@ class FileMessageStore(MessageStore):
                     for msg_name in sorted(os.listdir(os.path.join(self.base_path, year, month, day))):
                         found = self.msg_re.match(msg_name)
                         if found:
-                            count +=1
+                            count += 1
         return count
 
     async def search(self, start=0, count=10, order_by='timestamp'):
         # TODO better performance for slicing by counting file in dirs ?
         if order_by.startswith('-'):
             reverse = True
-            sort_key = order_by[1:]
+            # sort_key = order_by[1:]
         else:
             reverse = False
-            sort_key = order_by
+            # sort_key = order_by
 
-        # TODO handle sort_key
+        # TODO handle sort_key
 
         result = []
         end = start + count
 
         position = 0
-        for year in await self.sorted_list_directories(os.path.join(self.base_path), reverse=reverse):
-            for month in await self.sorted_list_directories(os.path.join(self.base_path, year), reverse=reverse):
-                for day in await self.sorted_list_directories(os.path.join(self.base_path, year, month), reverse=reverse):
-                    for msg_name in sorted(os.listdir(os.path.join(self.base_path, year, month, day)), reverse=reverse):
+        for year in await self.sorted_list_directories(
+                os.path.join(self.base_path), reverse=reverse):
+            for month in await self.sorted_list_directories(
+                    os.path.join(self.base_path, year), reverse=reverse):
+                for day in await self.sorted_list_directories(
+                        os.path.join(self.base_path, year, month), reverse=reverse):
+                    for msg_name in sorted(
+                            os.listdir(os.path.join(
+                                self.base_path, year, month, day)),
+                            reverse=reverse):
                         found = self.msg_re.match(msg_name)
                         if found:
                             if start <= position < end:

@@ -15,6 +15,7 @@ SENTINEL = object()
 
 _backend = None
 
+
 async def get_backend(loop):
     """
     Return the configured backend instance.
@@ -124,4 +125,3 @@ class SqliteBackend():
         :param default: Default value if key missing.
         """
         return await self.loop.run_in_executor(self.executor, self._sync_get, namespace, key, default)
-

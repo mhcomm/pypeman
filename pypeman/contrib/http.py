@@ -1,9 +1,9 @@
-import asyncio
+import logging
 import ssl
 import warnings
-import logging
 
 import aiohttp
+
 from aiohttp import web
 
 from pypeman import endpoints, channels, nodes, message
@@ -20,7 +20,7 @@ class HTTPEndpoint(endpoints.SocketEndpoint):
     """
     def __init__(
             self,
-            adress=None, address=None, port=None, # obsolete params
+            adress=None, address=None, port=None,  # obsolete params
             loop=None,
             http_args=None,
             host=None,
@@ -30,7 +30,7 @@ class HTTPEndpoint(endpoints.SocketEndpoint):
         """
             :param http_args: dict to pass as **kwargs** to aiohttp.Application for example for
                 `client_max_size`
-            :param reuse_port: bool if true then the listening port specified in the url parameter) 
+            :param reuse_port: bool if true then the listening port specified in the url parameter)
                 will be shared with other processes on same port
             :param host: string 'host:port' or ':port' or 'host'
             :param sock: host-string (same as host parameter)
@@ -41,16 +41,18 @@ class HTTPEndpoint(endpoints.SocketEndpoint):
         self.http_args = http_args or {}
         self.ssl_context = self.http_args.pop('ssl_context', None)
         self._app = None
- 
+
         address = address or adress
         if address or port:
-            warnings.warn("HTTPEndpoint 'address', 'adress' and 'port' params are deprecated. "
+            warnings.warn(
+                "HTTPEndpoint 'address', 'adress' and 'port' params are deprecated. "
                 "Replace it by 'host' or 'sock'", DeprecationWarning)
             if host or sock:
-                raise PypemanParamError("Obsolete params ('adress', 'address', 'port') "
-                    "can not be mixed with new params ('host', 'sock')") 
+                raise PypemanParamError(
+                    "Obsolete params ('adress', 'address', 'port') "
+                    "can not be mixed with new params ('host', 'sock')")
             sock = (address if address else '') + ':' + str(port if port else '')
- 
+
         if host and sock:
             raise PypemanParamError("There can only be one (parameter host or sock)")
         sock = sock or host or ''
@@ -130,11 +132,13 @@ class HttpRequest(nodes.BaseNode):
         :param headers: headers for request, use meta['headers'] if None.
         :param auth: tuple or aiohttp.BasicAuth object.
         :param verify: verify ssl. Default True.
-        :param params: get params in dict. List for multiple elements, ex : {'param1': 'omega', param2: ['alpha', 'beta']}
+        :param params: get params in dict. List for multiple elements, ex :
+                       {'param1': 'omega', param2: ['alpha', 'beta']}
         :param client_cert: tuple with .crt and .key path
     """
 
-    def __init__(self, url, *args, method=None, headers=None, auth=None, verify=True, params=None, client_cert=None, **kwargs):
+    def __init__(self, url, *args, method=None, headers=None, auth=None,
+                 verify=True, params=None, client_cert=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.url = url
         self.method = method
@@ -155,7 +159,10 @@ class HttpRequest(nodes.BaseNode):
                 for key, val in msg.payload.items():
                     url_dict['payload.' + key] = val
             except AttributeError:
-                self.channel.logger.exception("Payload must be a python dict if used to generate url. This can be fixed using JsonToPython node before your RequestNode")
+                self.channel.logger.exception(
+                    "Payload must be a python dict if used to generate url. "
+                    "This can be fixed using JsonToPython node before your "
+                    "RequestNode")
                 raise
         return self.url % url_dict
 
@@ -206,7 +213,7 @@ class HttpRequest(nodes.BaseNode):
                     params=get_params,
                     data=data
                     )
-            resp_text =  await resp.text()
+            resp_text = await resp.text()
             return str(resp_text)
 
     async def process(self, msg):

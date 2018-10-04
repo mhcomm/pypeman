@@ -5,6 +5,7 @@ from pypeman import channels
 # TODO implement settings override
 # TODO implement MessageStoreMock
 
+
 class PypeTestCase(TestCase):
     loop = None
 
@@ -32,7 +33,10 @@ class PypeTestCase(TestCase):
 
     @classmethod
     def cleanLoop(cls):
-        """ Replace current loop by a new one to avoid side effect on next test."""
+        """
+        Replace current loop by a new one to avoid side effect on
+        next test.
+        """
         for chan in channels.all:
             cls.loop.run_until_complete(chan.stop())
 
@@ -71,7 +75,7 @@ class PypeTestCase(TestCase):
         pending = asyncio.Task.all_tasks(loop=cls.loop)
 
         for task in pending:
-            if not task.done(): # Exclude already resolved exception
+            if not task.done():  # Exclude already resolved exception
                 try:
                     cls.loop.run_until_complete(task)
                 except Exception as exc: # noqa
@@ -98,5 +102,3 @@ class PypeTestCase(TestCase):
         :return:
         """
         self.loop.set_debug(True)
-
-

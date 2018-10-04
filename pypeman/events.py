@@ -1,5 +1,6 @@
 import asyncio
 
+
 class Event:
     """
     Asyncio Event class.
@@ -21,7 +22,7 @@ class Event:
         """
         try:
             self.handlers.remove(handler)
-        except:
+        except Exception:
             raise ValueError("Handler is not handling this event, so cannot unhandle it.")
         return self
 
@@ -51,8 +52,7 @@ class Event:
     __iadd__ = add_handler
     __isub__ = remove_handler
     __call__ = fire
-    __len__  = getHandlerCount
+    __len__ = getHandlerCount
 
 
 channel_change_state = Event()
-

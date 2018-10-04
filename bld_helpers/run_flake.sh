@@ -24,8 +24,8 @@ if [[ $RUN_NO_FLAKE8 = 1 ]]  ; then
 fi
 
 python -m flake8 pypeman | tee flake.log
-wcnt=$(cat flake.log | grep -Ee 'W[0-9]{3}' | wc -l) 
-ecnt=$(cat flake.log | grep -Ee 'E[0-9]{3}' | wc -l) 
+wcnt=$(cat flake.log | grep -Ee 'W[0-9]{3}' | wc -l)
+ecnt=$(cat flake.log | grep -Ee 'E[0-9]{3}' | wc -l)
 fcnt=$(cat flake.log | grep -Ee 'F[0-9]{3}' | wc -l)
 f821cnt=$(cat flake.log | grep -Ee 'F821' | wc -l)
 e999cnt=$(cat flake.log | grep -Ee 'E999' | wc -l)

@@ -2,17 +2,14 @@
 UnitTests checking, that debugging works as expected
 """
 
+import asyncio
+import logging
 import os
 import time
 import unittest
-import asyncio
-
-import logging
 
 from pypeman.channels import BaseChannel
-from pypeman import nodes
 
-from pypeman.tests.common import TestException
 from pypeman.tests.common import SimpleTestNode
 from pypeman.tests.common import generate_msg
 from pypeman.tests.common import setup_settings
@@ -21,6 +18,7 @@ from pypeman.tests.common import teardown_settings
 
 SETTINGS_MODULE = 'pypeman.tests.test_app.settings'
 SETTINGS_MODULE2 = 'pypeman.tests.test_app.settings2'
+
 
 class EvtLoopMixin:
     def setup_evt_loop(self, slow_cb_duration=0.1):
@@ -32,11 +30,12 @@ class EvtLoopMixin:
         # another event loop somewhere
         asyncio.set_event_loop(None)
 
+
 class LoggingTests(unittest.TestCase, EvtLoopMixin):
     def setUp(self):
-        setup_settings(SETTINGS_MODULE) # adapt config
+        setup_settings(SETTINGS_MODULE)  # adapt config
         from pypeman.conf import settings
-        _logging = settings.LOGGING # force loading of cfg
+        _logging = settings.LOGGING  # force loading of cfg
         # create logger and add custom handler
         self.logger = logging.getLogger()
         print("got logger")
@@ -50,15 +49,14 @@ class LoggingTests(unittest.TestCase, EvtLoopMixin):
         teardown_settings()
 
     def test_log(self):
-        """ can modify log config 
+        """ can modify log config
             changing log config may be important for other tests.
             thus let's try to change it and see its impact.
         """
 
         self.setup_evt_loop()
-        logger = self.logger # get default test logger
-        handler = self.loghandler # get test log handler
-
+        logger = self.logger  # get default test logger
+        handler = self.loghandler  # get test log handler
 
         cnt0 = handler.num_entries()
         # test second logger
@@ -72,9 +70,9 @@ class LoggingTests(unittest.TestCase, EvtLoopMixin):
 
         # now reconfigure logging
         from pypeman.helpers.logging import DebugLogHandler
-        setup_settings(SETTINGS_MODULE2) # adapt config
+        setup_settings(SETTINGS_MODULE2)  # adapt config
         from pypeman.conf import settings
-        _logging = settings.LOGGING # force loading of cfg
+        _logging = settings.LOGGING  # force loading of cfg
         # create logger and add custom handler
         logger = logging.getLogger()
         handler = DebugLogHandler()
@@ -90,21 +88,22 @@ class LoggingTests(unittest.TestCase, EvtLoopMixin):
     def test_no_log(self):
         pass
 
+
 class MainLoopTests(unittest.TestCase, EvtLoopMixin):
     def setUp(self):
         """ """
         self.prev_debug_flag = os.environ.get('PYTHONASYNCIODEBUG', None)
-        setup_settings(SETTINGS_MODULE) # adapt config
-        from pypeman.conf import settings
-        _logging = settings.LOGGING # force loading of cfg
+        setup_settings(SETTINGS_MODULE)  # adapt config
+        # from pypeman.conf import settings
+        # _logging = settings.LOGGING  # force loading of cfg
 
         # create logger and add custom handler
-        #self.logger = logging.getLogger()
-        #print("got logger")
-        #from pypeman.helpers.logging import DebugLogHandler
-        #self.loghandler = handler = DebugLogHandler()
-        #self.logger.handlers.append(handler)
-        #print("added handler")
+        # self.logger = logging.getLogger()
+        # print("got logger")
+        # from pypeman.helpers.logging import DebugLogHandler
+        # self.loghandler = handler = DebugLogHandler()
+        # self.logger.handlers.append(handler)
+        # print("added handler")
 
     def tearDown(self):
         if self.prev_debug_flag is not None:
@@ -121,8 +120,8 @@ class MainLoopTests(unittest.TestCase, EvtLoopMixin):
         stats = pypeman.debug.stats
         self.setup_evt_loop()
 
-        #logger = self.logger # get default test logger
-        #handler = self.loghandler # get test log handler
+        # logger = self.logger # get default test logger
+        # handler = self.loghandler # get test log handler
 
         tst_logger = logging.getLogger('tests.debug.main_loop.slow')
         print("HANDLERS", tst_logger.handlers)
@@ -139,14 +138,14 @@ class MainLoopTests(unittest.TestCase, EvtLoopMixin):
         msg = generate_msg()
         # Launch channel processing
         t0 = time.time()
-        print("start channel %.4f" %(time.time() - t0))
+        print("start channel %.4f" % (time.time() - t0))
 
         self.loop.run_until_complete(chan.start())
-        print("channel started %.4f" %(time.time() - t0))
+        print("channel started %.4f" % (time.time() - t0))
 
         self.loop.run_until_complete(chan.handle(msg))
-        print("msg handled %.4f" %(time.time() - t0))
-        #handler.show_entries()
+        print("msg handled %.4f" % (time.time() - t0))
+        # handler.show_entries()
 
         self.assertEqual(len(stats), 2, "should have 2 slow tasks, not %d" % len(stats))
         self.loop.close()
@@ -158,8 +157,8 @@ class MainLoopTests(unittest.TestCase, EvtLoopMixin):
         self.setup_evt_loop(slow_cb_duration=0.05)
         stats = pypeman.debug.stats
 
-        #logger = self.logger # get default test logger
-        #handler = self.loghandler # get test log handler
+        # logger = self.logger # get default test logger
+        # handler = self.loghandler # get test log handler
 
         tst_logger = logging.getLogger('tests.debug.main_loop.slow')
         print(tst_logger.handlers)
@@ -175,10 +174,7 @@ class MainLoopTests(unittest.TestCase, EvtLoopMixin):
         # Launch channel processing
         self.loop.run_until_complete(chan.start())
         self.loop.run_until_complete(chan.handle(msg))
-        #handler.show_entries()
+        # handler.show_entries()
         self.assertEqual(len(stats), 1, "should have 1 slow tasks, not %d" % len(stats))
         pypeman.debug.show_slow_log_stats()
         self.loop.close()
-
-
-#test_suite = MainLoopTests

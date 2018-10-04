@@ -9,14 +9,19 @@ from asyncio import ensure_future
 
 
 async def check_for_newerfile(future, lockfile, interval):
+
+    def mtime(p):
+        os.stat(p).st_mtime
+
     exists = os.path.exists
-    mtime = lambda p: os.stat(p).st_mtime
     files = dict()
 
     for module in list(sys.modules.values()):
         path = getattr(module, '__file__', '')
-        if path[-4:] in ('.pyo', '.pyc'): path = path[:-1]
-        if path and exists(path): files[path] = mtime(path)
+        if path[-4:] in ('.pyo', '.pyc'):
+            path = path[:-1]
+        if path and exists(path):
+            files[path] = mtime(path)
 
     async def reccur():
         status = None
@@ -56,7 +61,8 @@ def reloader_opt(to_call, reloader, interval):
                     os.utime(lockfile, None)  # I am alive!
                     time.sleep(interval)
                 if p.poll() != 3:
-                    if os.path.exists(lockfile): os.unlink(lockfile)
+                    if os.path.exists(lockfile):
+                        os.unlink(lockfile)
                     sys.exit(p.poll())
         except KeyboardInterrupt:
             pass
@@ -92,9 +98,9 @@ def reloader_opt(to_call, reloader, interval):
         pass
     except (SystemExit, MemoryError):
         raise
-    except:
-        if not reloader: raise
+    except Exception:
+        if not reloader:
+            raise
         traceback.print_exc()
         time.sleep(interval)
         sys.exit(3)
-

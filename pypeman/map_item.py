@@ -1,7 +1,7 @@
-import time
 import logging
 
 logger = logging.getLogger(__name__)
+
 
 class MapItem:
     def __init__(self, old=None, new=None, default=None, transform=None):
@@ -10,14 +10,14 @@ class MapItem:
         if callable(transform):
             self.transform = transform
         else:
-            self.transform = lambda x, y:x
+            self.transform = lambda x, y: x
         self.default = default
 
     def conv(self, oldDict, newDict, msg):
         value = oldDict
         if self.old:
             for part in self.old.split('.'):
-                if not value == None:
+                if value is not None:
                     value = value.get(part)
 
             value = self.transform(value, msg)
@@ -28,7 +28,7 @@ class MapItem:
         dest = newDict
         parts = self.new.split('.')
         for part in parts[:-1]:
-            if dest.get(part) == None:
+            if dest.get(part) is None:
                 dest[part] = {}
             dest = dest[part]
 
@@ -39,6 +39,7 @@ class JoinMapItem(MapItem):
     def __init__(self, old, new, sep=''):
         self.sep = sep
         super().__init__(old, new)
+
     def conv(self, oldDict, newDict, msg):
         values = []
         for value in self.old:

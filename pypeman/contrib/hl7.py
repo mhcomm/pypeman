@@ -1,12 +1,14 @@
-import sys
 import asyncio
+import sys
+
 from asyncio import ensure_future
 import warnings
+
+import hl7
 
 from pypeman import endpoints, channels, nodes, message
 from pypeman.errors import PypemanParamError
 
-import hl7
 
 class MLLPProtocol(asyncio.Protocol):
     """
@@ -59,12 +61,10 @@ class MLLPProtocol(asyncio.Protocol):
                 result = ensure_future(self.handler(raw_message), loop=self.loop)
                 result.add_done_callback(self.process_response)
 
-
     def writeMessage(self, message):
         # convert back to a byte string
         # wrap message in payload container
         self.transport.write(self.start_block + message + self.end_block + self.carriage_return)
-
 
     def connection_lost(self, exc):
         """
@@ -80,7 +80,7 @@ class MLLPEndpoint(endpoints.SocketEndpoint):
 
     def __init__(
             self,
-            address='127.0.0.1', port='2100', # obsolete params
+            address='127.0.0.1', port='2100',  # obsolete params
             encoding='utf-8',
             loop=None,
             host=None,
@@ -93,10 +93,12 @@ class MLLPEndpoint(endpoints.SocketEndpoint):
         self.port = port
         self.loop = loop or asyncio.get_event_loop()
         if address or port:
-            warnings.warn("HTTPEndpoint 'address', 'adress' and 'port' params are deprecated. "
+            warnings.warn(
+                "HTTPEndpoint 'address', 'adress' and 'port' params are deprecated. "
                 "Replace it by 'host' or 'sock'", DeprecationWarning)
             if host or sock:
-                raise PypemanParamError("Obsolete params ('adress', 'address', 'port') "
+                raise PypemanParamError(
+                    "Obsolete params ('adress', 'address', 'port') "
                     "can not be mixed with new params ('host', 'sock')")
             sock = address + ':' + str(port)
         if host and sock:
@@ -108,7 +110,6 @@ class MLLPEndpoint(endpoints.SocketEndpoint):
         self.encoding = encoding
 
         super().__init__(loop=loop, sock=sock, default_port='2100', reuse_port=reuse_port)
-
 
     def set_handler(self, handler):
         self.handler = handler

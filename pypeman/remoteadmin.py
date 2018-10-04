@@ -1,31 +1,31 @@
+import asyncio
+import cmd
+import functools
+import json
+import logging
 import os
 import sys
-import asyncio
-import logging
-import json
-import cmd
-import itertools
-import functools
-# TODO use readline for history ?
-#import readline
 
+# TODO use readline for history ?
+# import readline
+
+import contextlib
 import websockets
-from jsonrpcserver.aio import methods
-from jsonrpcserver.response import NotificationResponse
-from jsonrpcclient.websockets_client import WebSocketsClient
-from jsonrpcclient.exceptions import ReceivedErrorResponse
 
 from aiohttp import web
+from io import StringIO
+
+from jsonrpcserver.aio import methods
+from jsonrpcclient.websockets_client import WebSocketsClient
+
 
 from pypeman.conf import settings
 from pypeman import channels
 from pypeman import message
-from pypeman import msgstore
+
 
 logger = logging.getLogger(__name__)
 
-from io import StringIO
-import contextlib
 
 @contextlib.contextmanager
 def stdoutIO(stdout=None):
@@ -35,6 +35,7 @@ def stdoutIO(stdout=None):
     sys.stdout = stdout
     yield stdout
     sys.stdout = old
+
 
 class RemoteAdminServer():
     """
@@ -401,6 +402,7 @@ class PypemanShell(cmd.Cmd):
     def do_exit(self, arg):
         "Exit program"
         sys.exit()
+
 
 class WebAdmin():
     def __init__(self, loop, host, port, ssl):

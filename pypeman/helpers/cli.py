@@ -5,19 +5,17 @@
 """
   Summary    :  simple ipython debug CLI with basic fallback
 
+__author__    = "Klaus Foerster"
 """
 # #############################################################################
 from __future__ import absolute_import
 
-__author__    = "Klaus Foerster"
 
 # -----------------------------------------------------------------------------
 #   Imports
 # -----------------------------------------------------------------------------
-import threading
 import logging
-
-import readline
+import threading
 
 
 # -----------------------------------------------------------------------------
@@ -27,13 +25,12 @@ logger = logging.getLogger(__name__)
 
 
 class CLI(object):
-    """ simplistic CLI (ipython based or fallback), that can be run in a thread 
+    """ simplistic CLI (ipython based or fallback), that can be run in a thread
         or in the main thread.
     """
     input_func = input
 
     def __init__(self, options=None, namespace=None, quit_func=None):
-        cls = self.__class__
         self._cli_thread = None
         self._options = options
 
@@ -50,7 +47,6 @@ class CLI(object):
     def set_quit_function(self, func):
         self._quit_function = func
 
-
     def run(self):
         """ allows to run an ipython shell with the CLI's context vars """
         namespace = self.namespace
@@ -61,7 +57,7 @@ class CLI(object):
         except ImportError:
             use_ipython = False
             logger.debug("CLI using basic fallback")
-            
+
         if use_ipython:
             shell = InteractiveShellEmbed(user_ns=namespace)
             shell()
@@ -83,8 +79,8 @@ class CLI(object):
             if shall_quit:
                 break
             try:
-                eval(compile(cmd_line, '<string>', 'single'), namespace) # pylint: disable=W0122,C0301
-            except Exception as exc: # pylint: disable=W0703
+                eval(compile(cmd_line, '<string>', 'single'), namespace)  # pylint: disable=W0122,C0301
+            except Exception as exc:  # pylint: disable=W0703
                 logger.error('ERROR: %r' % exc)
 
         print("END OF CLI")
@@ -95,6 +91,5 @@ class CLI(object):
             (e.g. PyQT applications)
         """
         self._cli_thread = cli_thread = threading.Thread(target=self.run, name=name)
-        cli_thread.daemon = daemon 
+        cli_thread.daemon = daemon
         cli_thread.start()
-

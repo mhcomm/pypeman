@@ -1,6 +1,7 @@
 from pypeman.test import PypeTestCase
 from pypeman import message
 
+
 class Tests(PypeTestCase):
 
     def test_simple(self):

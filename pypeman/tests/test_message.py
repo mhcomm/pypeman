@@ -20,8 +20,12 @@ class MessageTests(unittest.TestCase):
         self.assertEqual(m.uuid, compare_to.uuid, "Bad uuid")
         self.assertEqual(m.meta['question'], compare_to.meta['question'], "Bad meta")
 
-        self.assertEqual(m.ctx['test']['payload']['question'], compare_to.ctx['test']['payload']['question'], "Bad ctx")
-        self.assertEqual(m.ctx['test']['meta']['answer'], compare_to.ctx['test']['meta']['answer'], "Bad ctx")
+        self.assertEqual(
+            m.ctx['test']['payload']['question'],
+            compare_to.ctx['test']['payload']['question'], "Bad ctx")
+        self.assertEqual(
+            m.ctx['test']['meta']['answer'],
+            compare_to.ctx['test']['meta']['answer'], "Bad ctx")
 
     def test_message_json_conversion(self):
         m = generate_msg(message_content={'answer': 42}, with_context=True)
@@ -34,8 +38,12 @@ class MessageTests(unittest.TestCase):
         self.assertEqual(m.uuid, compare_to.uuid, "Bad uuid")
         self.assertEqual(m.meta['question'], compare_to.meta['question'], "Bad meta")
 
-        self.assertEqual(m.ctx['test']['payload']['question'], compare_to.ctx['test']['payload']['question'], "Bad ctx")
-        self.assertEqual(m.ctx['test']['meta']['answer'], compare_to.ctx['test']['meta']['answer'], "Bad ctx")
+        self.assertEqual(
+            m.ctx['test']['payload']['question'],
+            compare_to.ctx['test']['payload']['question'], "Bad ctx")
+        self.assertEqual(
+            m.ctx['test']['meta']['answer'],
+            compare_to.ctx['test']['meta']['answer'], "Bad ctx")
 
     def test_message_copy(self):
         m = generate_msg(message_content={'answer': 42}, with_context=True)
@@ -46,8 +54,12 @@ class MessageTests(unittest.TestCase):
         self.assertEqual(m.uuid, compare_to.uuid, "Bad uuid copy")
         self.assertEqual(m.meta['question'], compare_to.meta['question'], "Bad meta copy")
 
-        self.assertEqual(m.ctx['test']['payload']['question'], compare_to.ctx['test']['payload']['question'], "Bad ctx copy")
-        self.assertEqual(m.ctx['test']['meta']['answer'], compare_to.ctx['test']['meta']['answer'], "Bad ctx")
+        self.assertEqual(
+            m.ctx['test']['payload']['question'],
+            compare_to.ctx['test']['payload']['question'], "Bad ctx copy")
+        self.assertEqual(
+            m.ctx['test']['meta']['answer'],
+            compare_to.ctx['test']['meta']['answer'], "Bad ctx")
 
     def test_message_renew(self):
         m = generate_msg(message_content={'answer': 42}, with_context=True)
@@ -57,10 +69,14 @@ class MessageTests(unittest.TestCase):
         self.assertEqual(m.payload['answer'], compare_to.payload['answer'], "Payload not well copied")
         self.assertNotEqual(m.uuid, compare_to.uuid, "Uuid should not be copied")
         self.assertNotEqual(m.timestamp, compare_to.timestamp, "Timestamp should not be copied")
-        self.assertEqual(m.meta['question'], compare_to.meta['question'], "Bad meta copy")
+        self.assertEqual(m.meta['question'],
+                         compare_to.meta['question'], "Bad meta copy")
 
-        self.assertEqual(m.ctx['test']['payload']['question'], compare_to.ctx['test']['payload']['question'], "Bad ctx copy")
-        self.assertEqual(m.ctx['test']['meta']['answer'], compare_to.ctx['test']['meta']['answer'], "Bad ctx")
+        self.assertEqual(
+            m.ctx['test']['payload']['question'],
+            compare_to.ctx['test']['payload']['question'], "Bad ctx copy")
+        self.assertEqual(m.ctx['test']['meta']['answer'],
+                         compare_to.ctx['test']['meta']['answer'], "Bad ctx")
 
     def test_message_logging(self):
         """

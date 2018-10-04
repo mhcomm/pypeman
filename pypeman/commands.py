@@ -7,6 +7,7 @@
 # by calling 'pypeman' from the command line
 # ############################################################################
 
+
 import os
 import sys
 
@@ -21,22 +22,24 @@ CURRENT_DIR = os.getcwd()
 # Keep this import
 sys.path.insert(0, CURRENT_DIR)
 
-import asyncio
-import traceback
-import importlib
-import begin
-import warnings
-from functools import partial
+# TODO: check whether there's a way to NOT add noqa for each import
+import asyncio  # noqa
+import traceback  # noqa
+import importlib  # noqa
+import begin  # noqa
+import warnings  # noqa
+from functools import partial  # noqa
 
-from DaemonLite import DaemonLite
+from DaemonLite import DaemonLite  # noqa
 
-import pypeman
-from pypeman.helpers.reloader import reloader_opt
-from pypeman import channels
-from pypeman import nodes
-from pypeman import endpoints
-from pypeman.conf import settings
-from pypeman import remoteadmin
+import pypeman  # noqa
+from pypeman.helpers.reloader import reloader_opt  # noqa
+from pypeman import channels  # noqa
+from pypeman import nodes  # noqa
+from pypeman import endpoints  # noqa
+from pypeman.conf import settings  # noqa
+from pypeman import remoteadmin  # noqa
+
 
 def load_project():
     settings.init_settings()
@@ -44,15 +47,15 @@ def load_project():
         importlib.import_module('project')
     except ImportError as exc:
         msg = str(exc)
-        if not 'No module' in msg:
+        if 'No module' not in msg:
             print("IMPORT ERROR project")
             raise
-        if not 'project' in msg:
+        if 'project' not in msg:
             print("IMPORT ERROR project")
             raise
         print("Missing 'project.py' file !")
         sys.exit(-1)
-    except:
+    except Exception:
         traceback.print_exc()
         raise
 
@@ -148,10 +151,10 @@ def mk_daemon(mainfunc=lambda: None, pidfile="pypeman.pid"):
 @begin.subcommand
 def start(reload: 'Make server autoreload (Dev only)'=False,
           debug_asyncio: 'Enable asyncio debug'=False,
-          cli : "enables an IPython CLI for debugging (not operational)"=False,
+          cli: "enables an IPython CLI for debugging (not operational)"=False,
           remote_admin: 'Enable remote admin server'=False,
-          profile : "enables profiling / run stats (not operational)"=False,
-          daemon : "if true pypeman will be started as daemon "=True):
+          profile: "enables profiling / run stats (not operational)"=False,
+          daemon: "if true pypeman will be started as daemon "=True):
     """ Start pypeman as daemon (or foreground process) """
 
     main_func = partial(
@@ -191,11 +194,11 @@ def graph(dot: "Make dot compatible output (Can be viewed with http://ushiroad.c
     if dot:
         print("digraph testgraph{")
 
-        # Handle channel node shape
+        # Handle channel node shape
         for channel in channels.all:
             print('{node[shape=box]; "%s"; }' % channel.name)
 
-        # Draw each graph
+        # Draw each graph
         for channel in channels.all:
             if not channel.parent:
                 channel.graph_dot()
@@ -214,11 +217,12 @@ def graph(dot: "Make dot compatible output (Can be viewed with http://ushiroad.c
 def pyshell():
     """ Start ipython shell to send command to remote instance """
     client = remoteadmin.RemoteAdminClient(url='ws://%s:%s' % (settings.REMOTE_ADMIN_WEBSOCKET_CONFIG['host'],
-                                               settings.REMOTE_ADMIN_WEBSOCKET_CONFIG['port']))
+                                           settings.REMOTE_ADMIN_WEBSOCKET_CONFIG['port']))
     client.init()
 
     from IPython import embed
     embed()
+
 
 @begin.subcommand
 def shell():
@@ -226,13 +230,13 @@ def shell():
     settings.init_settings()
     try:
         remoteadmin.PypemanShell(url='ws://%s:%s' % (settings.REMOTE_ADMIN_WEBSOCKET_CONFIG['host'],
-                                               settings.REMOTE_ADMIN_WEBSOCKET_CONFIG['port'])).cmdloop()
+                                 settings.REMOTE_ADMIN_WEBSOCKET_CONFIG['port'])).cmdloop()
     except KeyboardInterrupt:
         print('\nQuitting...')
 
 
 @begin.subcommand
-def startproject(dirname : "name of dir to install project to"):
+def startproject(dirname: "name of dir to install project to"):
     """ Creates a pypeman project from scrach """
     from pypeman.pjt_templates import new_project
     new_project(dirname)

@@ -20,10 +20,12 @@ import pypeman.default_settings as default_settings
 import logging
 import logging.config
 
-NOT_FOUND = object() # sentinel object
+NOT_FOUND = object()  # sentinel object
+
 
 class ConfigError(ImportError):
     """ custom exception """
+
 
 class Settings():
     """ pypeman projects settings. Rather similar implementations to django.conf.settings """
@@ -39,19 +41,19 @@ class Settings():
         try:
             settings_module = self.__dict__['SETTINGS_MODULE']
             settings_mod = self.__dict__['_settings_mod'] = importlib.import_module(settings_module)
-        except:
+        except Exception:
             msg = "Can't import '%s' module !" % self.__dict__['SETTINGS_MODULE']
             print(msg, file=sys.stderr)
             print(traceback.format_exc(), file=sys.stderr)
             raise ConfigError(msg)
 
         # populate entire dict with values. helpful e.g. for ipython tab completion
-        default_vals = [ (key, val) for (key, val) in default_settings.__dict__.items()
-                if 'A' <= key[0] <= 'Z']
+        default_vals = [(key, val) for (key, val) in default_settings.__dict__.items()
+                        if 'A' <= key[0] <= 'Z']
         self.__dict__.update(default_vals)
 
-        mod_vals = [ (key, val) for (key, val) in settings_mod.__dict__.items()
-                if 'A' <= key[0] <= 'Z']
+        mod_vals = [(key, val) for (key, val) in settings_mod.__dict__.items()
+                    if 'A' <= key[0] <= 'Z']
         self.__dict__.update(mod_vals)
 
         logging.config.dictConfig(self.__dict__['LOGGING'])
@@ -69,10 +71,10 @@ class Settings():
     def __setattr__(self, name, value):
         """ make sure nobody tries to modify settings manually """
         if name in self.__dict__:
-             self.__dict__[name] = value
+            self.__dict__[name] = value
         else:
-             print(name,value)
-             raise Exception("Settings are not editable !")
+            print(name, value)
+            raise Exception("Settings are not editable !")
 
 
 settings = Settings()

@@ -3,10 +3,11 @@ import logging
 import re
 import asyncio.log
 
-stats = None # global var / singleton for slow asyncio stats
+stats = None  # global var / singleton for slow asyncio stats
+
 
 class SlowLogHandler(logging.Handler):
-    """ a small debug logger that shall capture 
+    """ a small debug logger that shall capture
         slow asyncio processes.
         and allow to create reports
     """
@@ -18,7 +19,7 @@ class SlowLogHandler(logging.Handler):
     def emit(self, record):
         msg = record.msg
         if self.slow_rex.match(msg):
-            self.log_trace.append((record.msg % record.args, record.args[1])) 
+            self.log_trace.append((record.msg % record.args, record.args[1]))
 
     def num_entries(self):
         return len(self.log_trace)
@@ -39,7 +40,7 @@ class SlowAsyncIOStats:
         """
         # set env var in order to allow reporting of slow tasks
         self.enable_slow_logs()
-        
+
         # create a custom logger and attach it to the asyncio logging
         self.logger = logging.getLogger(asyncio.log.__package__)
         self.slow_handler = SlowLogHandler()
@@ -59,15 +60,17 @@ class SlowAsyncIOStats:
         return len(self.slow_handler)
 
     def get_stats(self):
-        rslt = []
-        slow_handler = self.slow_handler
+        pass
+        # TO BE IMPLEMENTED
+        # rslt = []
+        # slow_handler = self.slow_handler
 
     def show_entries(self):
         self.slow_handler.show_entries()
 
 
 def enable_slow_log_stats():
-    """ enables asyncio stats for slow execution 
+    """ enables asyncio stats for slow execution
     """
 
     global stats
@@ -77,6 +80,3 @@ def enable_slow_log_stats():
 def show_slow_log_stats():
     if stats:
         stats.show_entries()
-
-
-

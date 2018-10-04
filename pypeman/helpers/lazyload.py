@@ -1,6 +1,7 @@
 import importlib
-import traceback
 import sys
+import traceback
+
 
 def load_class(module, class_, deps):
     """

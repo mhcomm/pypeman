@@ -1,8 +1,10 @@
 import os
 
+
 def new_project(dirname):
     os.makedirs(dirname)
     mk_pjt_files(dirname)
+
 
 def mk_pjt_files(dirname):
 
@@ -54,7 +56,8 @@ from pypeman.conf import settings
 """
 
 # TODO Unused but should be done
-"""# HTTP channel example (Remember to install required dependency before running it. Use "$pypeman requirements" command.
+"""# HTTP channel example (Remember to install required dependency
+# before running it. Use "$pypeman requirements" command.
 
 # If you use Http channel, at least one end point MUST be specified
 # http = endpoints.HTTPEndpoint(address='0.0.0.0', port='8080')"""

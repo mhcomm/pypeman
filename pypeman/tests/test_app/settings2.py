@@ -1,7 +1,8 @@
-from pypeman.default_settings import *
+from pypeman.default_settings import *  # noqa F403
 
-handlers = LOGGING['handlers']
-loggers = LOGGING['loggers']
+
+handlers = LOGGING['handlers']  # noqa F405
+loggers = LOGGING['loggers']  # noqa F405
 
 handlers['debug'] = {
     'class': 'pypeman.helpers.logging.DebugLogHandler',

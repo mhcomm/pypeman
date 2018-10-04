@@ -252,16 +252,19 @@ class BaseChannel:
     def case(self, *conditions, names=None, message_store_factory=None):
         """
         Case between multiple conditions. For each condition specified, a
-        channel is returned by this method in same order as condition are given.
+        channel is returned by this method in same order as condition are
+        given.
         When processing a message, conditions are evaluated successively and
-        first returning true trigger the corresponding channel processing for the message.
-        When channel processing is finished, next node is called.
+        the first returning true triggers the corresponding channel processing
+        the message.
+        When channel processing is finished, the next node is called.
 
-        :param conditions: Multiple conditions, one for each returned channel. Should be boolean
-            or function that takes a ``msg`` argument and should return a boolean.
+        :param conditions: Multiple conditions, one for each returned channel.
+            Should be a boolean or a function that takes a ``msg`` argument
+            and should return a boolean.
 
-        :param message_store_factory: Allow you to specify a message store factory for
-            all channel of this `case`.
+        :param message_store_factory: Allows you to specify a message store
+            factory for all channel of this `case`.
 
         :return: one channel by condition parameter.
         """
@@ -282,8 +285,8 @@ class BaseChannel:
         return self.loop.run_until_complete(self.handle(msg))
 
     async def handle(self, msg):
-        """ Overload this method only if you know what you are doing but call it from
-        child class to add behaviour.
+        """ Overload this method only if you know what you are doing but
+        call it from child class to add behaviour.
 
         :param msg: To be processed msg.
         :return: Processed message

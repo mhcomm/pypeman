@@ -10,7 +10,7 @@ Channels
 --------
 
 Channels are chains of processing, the nodes, which use or
-transform message content. A channel is specialised for a type
+transform message contents. A channel is specialised for a type
 of input and can be linked to an endpoint for incoming messages.
 
 A channel receives a message, processes it and returns the response.
@@ -92,7 +92,7 @@ The message payload may be: Json, Xml, Soap, Hl7, text, Python object...
 
 Useful attributes:
 
-* payload: the message content.
+* payload: the message contents.
 * meta: message metadata, should be used to add extra information about the payload.
 * context: previous messages can be saved in the context dict for further access.
 

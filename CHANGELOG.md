@@ -37,7 +37,7 @@
 * Code organization refactoring
 * Add some action in channel
 * Add Message Store
-* Better lazyloading of optionnal contrib
+* Better lazyloading of optional contrib
 * Better documentation
 * Better naming consistency
 

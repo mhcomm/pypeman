@@ -137,5 +137,3 @@ class RemoteAdminTests(unittest.TestCase):
         msg_list = client.list_msg(channel='test_remote050', start=0, count=5, order_by='-timestamp')
         self.assertEqual(msg_list['total'], 6, 'Push message broken')
         self.assertEqual(msg_list['messages'][0]['id'], result.uuid, 'Push message broken')
-
-

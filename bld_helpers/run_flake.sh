@@ -24,6 +24,7 @@ if [[ $RUN_NO_FLAKE8 = 1 ]]  ; then
 fi
 
 python -m flake8 pypeman | tee flake.log
+echo done
 wcnt=$(cat flake.log | grep -Ee 'W[0-9]{3}' | wc -l)
 ecnt=$(cat flake.log | grep -Ee 'E[0-9]{3}' | wc -l)
 fcnt=$(cat flake.log | grep -Ee 'F[0-9]{3}' | wc -l)
@@ -52,7 +53,6 @@ if [ $f821cnt -gt 0 ] ; then
 fi
 if [ $e999cnt -gt 0 ] ; then
     echo "===== all syntax errors ====="
-    bld_helpers/run_flake.sh
     cat flake.log | grep -Ee 'E999'
     echo
 fi
@@ -63,9 +63,9 @@ echo "level ...F $fcnt"
 echo "level F821 $f821cnt"
 echo "syntax err $e999cnt"
 
-test $wcnt -le 35 || exit 1
-test $ecnt -le 283 || exit 1
-test $fcnt -le 80 || exit 1
+test $wcnt -le 0 || exit 1
+test $ecnt -le 14 || exit 1
+test $fcnt -le 16 || exit 1
 test $f821cnt -le 0 || exit 1
 test $e999cnt -le 0 || exit 1
 

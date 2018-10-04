@@ -20,4 +20,3 @@ class DefaultSettingsTests(unittest.TestCase):
         logger.warning("warning")
         logger.error("error")
         logger.critical("critical")
-

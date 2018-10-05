@@ -64,8 +64,8 @@ echo "level F821 $f821cnt"
 echo "syntax err $e999cnt"
 
 test $wcnt -le 0 || exit 1
-test $ecnt -le 14 || exit 1
-test $fcnt -le 16 || exit 1
+test $ecnt -le 0 || exit 1
+test $fcnt -le 0 || exit 1
 test $f821cnt -le 0 || exit 1
 test $e999cnt -le 0 || exit 1
 

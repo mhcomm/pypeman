@@ -1,10 +1,5 @@
-import os
 import unittest
 import asyncio
-import datetime
-import shutil
-import tempfile
-from unittest import mock
 
 from pypeman import channels
 from pypeman.channels import BaseChannel

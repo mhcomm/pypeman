@@ -264,7 +264,8 @@ class MsgstoreTests(unittest.TestCase):
         self.assertEqual(ids1, ids2, "Should be 5 messages in store!")
 
         # Test processed message
-        dict_msg = self.loop.run_until_complete(chan.message_store.get('1982/11/28/19821128_1235_%s' % msg3.uuid))
+        dict_msg = self.loop.run_until_complete(
+            chan.message_store.get('1982/11/28/19821128_1235_%s' % msg3.uuid))
         self.assertEqual(dict_msg['state'], 'processed', "Message %s should be in processed state!" % msg3)
 
         # Test failed message

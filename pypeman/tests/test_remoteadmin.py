@@ -1,16 +1,9 @@
-import os
 import unittest
 import asyncio
-import datetime
-import shutil
-import tempfile
-from unittest import mock
-
-import pytest
 
 from pypeman.channels import BaseChannel
 from pypeman import nodes, msgstore, channels
-from pypeman.tests.common import TestException, generate_msg
+from pypeman.tests.common import generate_msg
 from pypeman.remoteadmin import RemoteAdminClient, RemoteAdminServer
 
 
@@ -100,11 +93,14 @@ class RemoteAdminTests(unittest.TestCase):
         # List channels
         chans = client.channels()
 
-        print (chans)
+        print(chans)
 
-        self.assertEqual(chans[0]['name'], 'test_remote050' , "Channel listing not working")
+        self.assertEqual(chans[0]['name'], 'test_remote050', "Channel listing not working")
 
-        self.assertEqual(chans[0]['subchannels'][0]['name'], 'test_remote050.subchannel' , "Subchannel listing not working")
+        self.assertEqual(
+            chans[0]['subchannels'][0]['name'],
+            'test_remote050.subchannel',
+            "Subchannel listing not working")
 
         # Stop channel
         result = client.stop('test_remote050')

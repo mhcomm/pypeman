@@ -7,8 +7,6 @@ import unittest
 import subprocess
 import logging
 
-import nose.tools
-
 from pypeman.helpers.tempfile import mktempfname
 
 logger = logging.getLogger(__name__)
@@ -22,7 +20,7 @@ class BinPypemanTestCase(unittest.TestCase):
     def setUp(self):
         """ prep a test """
         pypeman = os.path.join(os.path.dirname(__file__), '..', '..', 'pypeman', 'commands.py')
-        self.cmd = [ sys.executable, pypeman ]
+        self.cmd = [sys.executable, pypeman]
         os.environ['PYTHONPATH'] = os.path.join(os.path.dirname(__file__), '..', '..')
         self.tempfiles = []
 
@@ -57,7 +55,7 @@ class BinPypemanTestCase(unittest.TestCase):
                 data = fin.read()
 
         self.assertEqual(ret_code, 0, "exit code %d when calling %r in %s: %s" %
-            (ret_code, cmd, cwd, data))
+                         (ret_code, cmd, cwd, data))
 
         return ret_code, data
 
@@ -72,7 +70,7 @@ class BinPypemanTestCase(unittest.TestCase):
         """ option -h is working """
         logger.info("FILE = %r / NAME = %r", __file__, __name__)
 
-        cmd = self.cmd + [ '-h' ]
+        cmd = self.cmd + ['-h']
         self.run_pypeman(cmd)
         self.run_pypeman(cmd, cwd=CWD)
 
@@ -82,11 +80,10 @@ class BinPypemanTestCase(unittest.TestCase):
         cmd = self.cmd + ['graph']
         self.run_pypeman(cmd, cwd=CWD)
 
-
     def test_04_can_call_test(self):
         """ subcommand test is working """
 
         cmd = self.cmd + ['test']
         self.run_pypeman(cmd, cwd=os.path.join('pypeman', 'tests', 'test_app_testing'))
 
-#test_suite =  BinPypemanTestCase
+# test_suite =  BinPypemanTestCase

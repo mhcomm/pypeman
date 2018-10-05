@@ -5,10 +5,11 @@ import unittest
 import logging
 from logging.config import dictConfig
 
+
 class DefaultSettingsTests(unittest.TestCase):
     def test_01_default_settings(self):
         """ default settings exists """
-        import pypeman.default_settings as dflt_settings
+        import pypeman.default_settings as dflt_settings  # noqa: F401
 
     def test_02_default_logging(self):
         """ default_logging is valid """

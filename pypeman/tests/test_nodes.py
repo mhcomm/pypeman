@@ -21,6 +21,7 @@ class FakeChannel():
 
         self.loop = loop
 
+
 class LongNode(nodes.ThreadNode):
     def process(self, msg):
         time.sleep(1)

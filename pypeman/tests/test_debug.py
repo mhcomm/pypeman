@@ -35,7 +35,7 @@ class LoggingTests(unittest.TestCase, EvtLoopMixin):
     def setUp(self):
         setup_settings(SETTINGS_MODULE)  # adapt config
         from pypeman.conf import settings
-        _logging = settings.LOGGING  # force loading of cfg
+        settings.LOGGING  # force loading of cfg
         # create logger and add custom handler
         self.logger = logging.getLogger()
         print("got logger")
@@ -72,7 +72,7 @@ class LoggingTests(unittest.TestCase, EvtLoopMixin):
         from pypeman.helpers.logging import DebugLogHandler
         setup_settings(SETTINGS_MODULE2)  # adapt config
         from pypeman.conf import settings
-        _logging = settings.LOGGING  # force loading of cfg
+        settings.LOGGING  # force loading of cfg
         # create logger and add custom handler
         logger = logging.getLogger()
         handler = DebugLogHandler()

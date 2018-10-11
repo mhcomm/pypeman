@@ -11,7 +11,7 @@ from asyncio import ensure_future
 async def check_for_newerfile(future, lockfile, interval):
 
     def mtime(p):
-        os.stat(p).st_mtime
+        return os.stat(p).st_mtime
 
     exists = os.path.exists
     files = dict()

@@ -276,10 +276,19 @@ def test(module: "the module parameter for unittest.main()" = "tests",
     main(module=module, argv=['pypeman test --'] + list(args))
 
 
-# @begin.subcommand
-# def pytest(*args):
-#     """ Starting point for running tests with pytest
-#     """
+@begin.subcommand
+def pytest(*args):
+    """ start tests with pytest.
+        Params can be passed through with -- [args...].
+        Pytest help with:
+        pypeman pytest -- -h
+    """
+    import pytest
+
+    load_project()
+    if not args:
+        args = ["tests.py"]
+    pytest.main(list(args))
 
 
 @begin.start

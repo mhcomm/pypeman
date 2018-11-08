@@ -14,6 +14,7 @@ import sys
 # TODO: remove below if statement asap. This is a workaround for a bug in begins
 # TODO: which provokes an exception when calling pypeman without parameters.
 # TODO: more info at https://github.com/aliles/begins/issues/48
+
 if len(sys.argv) == 1:
     sys.argv.append('-h')
 
@@ -148,13 +149,15 @@ def mk_daemon(mainfunc=lambda: None, pidfile="pypeman.pid"):
     return app
 
 
-@begin.subcommand
-def start(reload: 'Make server autoreload (Dev only)'=False,
-          debug_asyncio: 'Enable asyncio debug'=False,
-          cli: "enables an IPython CLI for debugging (not operational)"=False,
-          remote_admin: 'Enable remote admin server'=False,
-          profile: "enables profiling / run stats (not operational)"=False,
-          daemon: "if true pypeman will be started as daemon "=True):
+# some weird issue with new flake8 linters obliges us to add spaces before and after
+# the '=' characters as soon as we add annotation strings
+@begin.subcommand  # noqa: F722
+def start(reload: 'Make server autoreload (Dev only)' = False,
+          debug_asyncio: 'Enable asyncio debug' = False,
+          cli: "enables an IPython CLI for debugging (not operational)" = False,
+          remote_admin: 'Enable remote admin server' = False,
+          profile: "enables profiling / run stats (not operational)" = False,
+          daemon: "if true pypeman will be started as daemon " = True):
     """ Start pypeman as daemon (or foreground process) """
 
     main_func = partial(
@@ -185,8 +188,10 @@ def stop():
     daemon.stop()
 
 
-@begin.subcommand
-def graph(dot: "Make dot compatible output (Can be viewed with http://ushiroad.com/jsviz/)"=False):
+# some weird issue with new flake8 linters obliges us to add spaces before and after
+# the '=' characters as soon as we add annotation strings
+@begin.subcommand  # noqa: F722
+def graph(dot: "Make dot compatible output (Can be viewed with http://ushiroad.com/jsviz/)" = False):
     """ Show channel graph"""
 
     load_project()
@@ -235,7 +240,7 @@ def shell():
         print('\nQuitting...')
 
 
-@begin.subcommand
+@begin.subcommand  # noqa: F722
 def startproject(dirname: "name of dir to install project to"):
     """ Creates a pypeman project from scrach """
     from pypeman.pjt_templates import new_project

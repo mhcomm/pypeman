@@ -1,10 +1,11 @@
 # Mandatory
 begins
 daemonlite
-websockets
+websockets<7
 jsonrpcserver<4
 jsonrpcclient[websockets]<=2.5.2
 
 requests # For jsonrpcclient
 ipython
 sqlitedict
+

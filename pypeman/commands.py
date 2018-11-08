@@ -149,7 +149,7 @@ def mk_daemon(mainfunc=lambda: None, pidfile="pypeman.pid"):
     return app
 
 
-# some weird issue with new flake8 linters obilges us to add spaces before and after
+# some weird issue with new flake8 linters obliges us to add spaces before and after
 # the '=' characters as soon as we add annotation strings
 @begin.subcommand  # noqa: F722
 def start(reload: 'Make server autoreload (Dev only)' = False,
@@ -188,7 +188,7 @@ def stop():
     daemon.stop()
 
 
-# some weird issue with new flake8 linters obilges us to add spaces before and after
+# some weird issue with new flake8 linters obliges us to add spaces before and after
 # the '=' characters as soon as we add annotation strings
 @begin.subcommand  # noqa: F722
 def graph(dot: "Make dot compatible output (Can be viewed with http://ushiroad.com/jsviz/)" = False):

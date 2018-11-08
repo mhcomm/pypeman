@@ -2,7 +2,7 @@
 begins
 daemonlite
 websockets
-jsonrpcserver
+jsonrpcserver<4
 jsonrpcclient[websockets]<=2.5.2
 
 requests # For jsonrpcclient

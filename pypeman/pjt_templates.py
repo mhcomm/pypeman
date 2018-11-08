@@ -23,7 +23,7 @@ def mk_pjt_files(dirname):
             fout.write(template % ctx)
 
 
-PJT_TEMPLATE = """\
+PJT_TEMPLATE = r"""\
 # Here you can add any special system path for your project
 # import sys
 # sys.path.insert(your_path)

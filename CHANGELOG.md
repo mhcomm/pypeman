@@ -1,5 +1,18 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
 
+## [0.3.2](https://github.com/mhcomm/pypeman/compare/0.3.1...0.3.2)
+
+* Socket endpoint (use for HTTP and MLLP)
+* Reuse port option
+* Fix filewatcher, dont silence all exceptions
+* Allows remote admin via reverse proxy
+* Fix http enpoint setup route
+* Redirect / to index.html for web admin
+* Pytest
+* Testing uses free tcp port
+* Freeze version of jsonrpcclient, jsonrpcserver, websocket
+* Flake8
+
 ## [0.3.1](https://github.com/mhcomm/pypeman/compare/0.3.0...0.3.1)
 
 * Fix HTTPchannel fail without http_args

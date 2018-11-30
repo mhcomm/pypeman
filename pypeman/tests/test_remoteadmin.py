@@ -1,6 +1,9 @@
 import unittest
 import asyncio
 
+import pytest
+import pytest_asyncio.plugin  # noqa F401
+
 from pypeman.channels import BaseChannel
 from pypeman import nodes, msgstore, channels
 from pypeman.tests.common import generate_msg
@@ -18,6 +21,12 @@ class TestNode(nodes.BaseNode):
 
 
 class RemoteAdminTests(unittest.TestCase):
+
+    @pytest.fixture(autouse=True)
+    def initfixture(self, unused_tcp_port):
+        print("TCP PORT FUNC =", unused_tcp_port)
+        self.tcp_port = unused_tcp_port
+
     def clean_loop(self):
         # Useful to execute future callbacks
         pending = asyncio.Task.all_tasks(loop=self.loop)
@@ -47,13 +56,8 @@ class RemoteAdminTests(unittest.TestCase):
 
     def test_remote_admin_list(self):
         """ Channel remote listing working """
-        import pytest_asyncio.plugin
 
-        # Unfortunately this test is within a Unittest class. Therefore
-        # we have to do things slightly more clumsy than in a pytest test class
-        # if this were not a subclass of unittest we would just have added
-        # the parameter 'unused_tcp_port' to the test function.
-        port = pytest_asyncio.plugin.unused_tcp_port()  # port used for rmt admin
+        port = self.tcp_port  # port used for rmt admin
 
         store_factory = msgstore.MemoryMessageStoreFactory()
 

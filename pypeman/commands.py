@@ -262,8 +262,8 @@ def debug():
     pass
 
 
-@begin.subcommand
-def test(module: "the module parameter for unittest.main()"="tests",
+@begin.subcommand  # noqa: F722
+def test(module: "the module parameter for unittest.main()" = "tests",
          *args: "further args for unittest.main(). "
                 "To get more help type: pypeman test -- -h"):
     """ Launch project's tests with unittest.main().

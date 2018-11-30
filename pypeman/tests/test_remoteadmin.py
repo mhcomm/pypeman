@@ -24,7 +24,6 @@ class RemoteAdminTests(unittest.TestCase):
 
     @pytest.fixture(autouse=True)
     def initfixture(self, unused_tcp_port):
-        print("TCP PORT FUNC =", unused_tcp_port)
         self.tcp_port = unused_tcp_port
 
     def clean_loop(self):

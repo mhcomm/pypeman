@@ -188,6 +188,20 @@ def stop():
     daemon.stop()
 
 
+def show_ascii_graph(title=None):
+    """ Show pypeman graph as ascii output.
+        Better reuse for debugging or new code
+    """
+    if title:
+        print(title)
+    for channel in channels.all:
+        if not channel.parent:
+            print(channel.__class__.__name__)
+            channel.graph()
+            print('|-> out')
+            print()
+
+
 # some weird issue with new flake8 linters obliges us to add spaces before and after
 # the '=' characters as soon as we add annotation strings
 @begin.subcommand  # noqa: F722
@@ -210,12 +224,7 @@ def graph(dot: "Make dot compatible output (Can be viewed with http://ushiroad.c
 
         print("}")
     else:
-        for channel in channels.all:
-            if not channel.parent:
-                print(channel.__class__.__name__)
-                channel.graph()
-                print('|-> out')
-                print()
+        show_ascii_graph()
 
 
 @begin.subcommand
@@ -253,14 +262,24 @@ def debug():
     pass
 
 
-@begin.subcommand
-def test():
-    """ Launch project tests """
+@begin.subcommand  # noqa: F722
+def test(module: "the module parameter for unittest.main()" = "tests",
+         *args: "further args for unittest.main(). "
+                "To get more help type: pypeman test -- -h"):
+    """ Launch project's tests with unittest.main().
+        All tests from one module (default 'tests') will be executed.
+    """
     from unittest import main
 
     load_project()
 
-    main(module='tests', argv=['pypeman'])
+    main(module=module, argv=['pypeman test --'] + list(args))
+
+
+# @begin.subcommand
+# def pytest(*args):
+#     """ Starting point for running tests with pytest
+#     """
 
 
 @begin.start

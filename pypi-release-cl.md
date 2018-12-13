@@ -1,7 +1,7 @@
 
 # First time requirements: #
 ```
-pip install twine
+pip install twine wheel
 ```
 Create account on pypi and pypitest by going on websites.
 

@@ -80,7 +80,7 @@ class MLLPEndpoint(endpoints.SocketEndpoint):
 
     def __init__(
             self,
-            address='127.0.0.1', port='2100',  # obsolete params
+            address=None, port=None,  # obsolete params
             encoding='utf-8',
             loop=None,
             host=None,

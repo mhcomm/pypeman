@@ -46,10 +46,10 @@ setup(
     install_requires=[
         'begins',
         'daemonlite',
-        'websockets',
+        'websockets<7',
         'aiohttp',
-        'jsonrpcclient[websockets]',
-        'jsonrpcserver',
+        'jsonrpcclient[websockets]<=2.5.2',
+        'jsonrpcserver<4',
         'sqlitedict',
         # TODO Remove next dependency as soon as jsonrpcclient is removed
         'requests'

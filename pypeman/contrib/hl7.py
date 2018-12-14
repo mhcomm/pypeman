@@ -115,6 +115,7 @@ class MLLPEndpoint(endpoints.SocketEndpoint):
         self.handler = handler
 
     async def start(self):
+        self.make_socket()
         if self.handler:
             srv = await self.loop.create_server(
                 protocol_factory=lambda: MLLPProtocol(self.handler, loop=self.loop),

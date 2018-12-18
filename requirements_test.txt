@@ -6,3 +6,4 @@ aiocron
 coverage
 codecov
 pytest-asyncio
+pytest-cov

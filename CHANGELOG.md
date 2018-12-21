@@ -1,5 +1,15 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
 
+## [0.3.3](https://github.com/mhcomm/pypeman/compare/0.3.2...0.3.3)
+
+* fix unit tests
+* satisfy new flake version
+* can add params for test
+* pytest for pypeman tests
+* version in setup.py
+* fix mllp_endpoint
+* switch to pytest coverage
+
 ## [0.3.2](https://github.com/mhcomm/pypeman/compare/0.3.1...0.3.2)
 
 * Socket endpoint (use for HTTP and MLLP)

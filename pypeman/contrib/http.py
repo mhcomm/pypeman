@@ -112,7 +112,19 @@ class HttpChannel(channels.BaseChannel):
 
     async def handle_request(self, request):
         content = await request.text()
-        msg = message.Message(content_type='http_request', payload=content, meta={'method': request.method})
+
+        # extract match info from iohttp request
+        meta = dict(request.match_info)
+
+        # match infos will be overwritten if coinciding with known keywords like
+        # 'url', 'method', . . .
+        meta.update({
+            'method': request.method,
+            'url': str(request.url),
+            'get_params': dict(request.query),
+            })
+
+        msg = message.Message(content_type='http_request', payload=content, meta=meta)
         try:
             result = await self.handle(msg)
             encoding = self.encoding or 'utf-8'

@@ -44,17 +44,18 @@ from pypeman import remoteadmin  # noqa
 
 def load_project():
     settings.init_settings()
+    project_module = settings.PROJECT_MODULE
     try:
-        importlib.import_module('project')
+        importlib.import_module(project_module)
     except ImportError as exc:
         msg = str(exc)
         if 'No module' not in msg:
-            print("IMPORT ERROR project")
+            print("IMPORT ERROR %s" % project_module)
             raise
-        if 'project' not in msg:
-            print("IMPORT ERROR project")
+        if project_module not in msg:
+            print("IMPORT ERROR %s" % project_module)
             raise
-        print("Missing 'project.py' file !")
+        print("Missing '%s' module !" % project_module)
         sys.exit(-1)
     except Exception:
         traceback.print_exc()

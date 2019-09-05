@@ -274,6 +274,10 @@ def test(module: "the module parameter for unittest.main()" = "tests",
 
     load_project()
 
+    # unittest.main should call sys.exit(). So no need to return status code
+    # to caller level.
+    # we could pass exit=False if we wanted to not call exit and do a custom
+    # treatment
     main(module=module, argv=['pypeman test --'] + list(args))
 
 
@@ -289,7 +293,8 @@ def pytest(*args):
     load_project()
     if not args:
         args = ["tests.py"]
-    pytest.main(list(args))
+    rslt = pytest.main(list(args))
+    return rslt  # required to return the error code of pytest
 
 
 @begin.start

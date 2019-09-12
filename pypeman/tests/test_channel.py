@@ -22,17 +22,6 @@ class TestNode(nodes.BaseNode):
         return msg
 
 
-class TestConditionalErrorNode(nodes.BaseNode):
-
-    def process(self, msg):
-        print("Process %s" % self.name)
-
-        if msg.timestamp.day == 12:
-            raise TestException()
-
-        return msg
-
-
 class ExceptNode(TestNode):
     # This node raises an exception
     def process(self, msg):

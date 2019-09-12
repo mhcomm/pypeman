@@ -4,23 +4,12 @@ import asyncio
 from pypeman import channels
 from pypeman.channels import BaseChannel
 from pypeman import nodes
-from pypeman.tests.common import TestException, generate_msg
+from pypeman.tests.common import generate_msg
 
 
 class TestNode(nodes.BaseNode):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-
-class TestConditionalErrorNode(nodes.BaseNode):
-
-    def process(self, msg):
-        print("Process %s" % self.name)
-
-        if msg.timestamp.day == 12:
-            raise TestException()
-
-        return msg
 
 
 class ChannelsTests(unittest.TestCase):

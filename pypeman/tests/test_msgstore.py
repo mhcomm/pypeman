@@ -26,7 +26,7 @@ class TestConditionalErrorNode(nodes.BaseNode):
     def process(self, msg):
         print("Process %s" % self.name)
 
-        if msg.timestamp.day == 12:
+        if "shall_fail" in msg.payload:
             raise TestException()
 
         return msg
@@ -100,7 +100,8 @@ class MsgstoreTests(unittest.TestCase):
         msg4 = generate_msg(timestamp=(1982, 11, 28, 14, 35))
 
         # This message should be in error
-        msg5 = generate_msg(timestamp=(1982, 11, 12, 14, 35))
+        msg5 = generate_msg(timestamp=(1982, 11, 12, 14, 35),
+                            message_content='{"test1": "shall_fail"}')
 
         chan.add(n)
         chan.add(n_error)
@@ -222,7 +223,8 @@ class MsgstoreTests(unittest.TestCase):
         msg4 = generate_msg(timestamp=(1982, 11, 28, 14, 35))
 
         # This message should be in error
-        msg5 = generate_msg(timestamp=(1982, 11, 12, 14, 35))
+        msg5 = generate_msg(timestamp=(1982, 11, 12, 14, 35),
+                            message_content='{"test1": "shall_fail"}')
 
         chan.add(n)
         chan.add(n_error)

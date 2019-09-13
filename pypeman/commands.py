@@ -44,10 +44,10 @@ from pypeman.helpers.reloader import reloader_opt
 # TODO: remove below if statement asap. This is a workaround for a bug in begins
 # TODO: which provokes an exception when calling pypeman without parameters.
 # TODO: more info at https://github.com/aliles/begins/issues/48
-
 if len(sys.argv) == 1:
     sys.argv.append('-h')
 
+<<<<<<< 540cbeaa6d0020bc28ef1f6c6daf56033cc830f2
 
 async def sig_handler_coro(loop, signal, ctx):
     """
@@ -101,6 +101,18 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
 
     logger = logging.getLogger(__name__)
     loop = asyncio.get_event_loop()
+
+    ctx = dict(
+        logger=logger,
+        loop=loop,
+        )
+
+    signal_handler = partial(sig_handler_func, ctx=ctx)
+
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGHUP, signal_handler)
+
 
     if debug_asyncio:
         loop.slow_callback_duration = settings.DEBUG_PARAMS['slow_callback_duration']

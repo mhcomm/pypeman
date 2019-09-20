@@ -8,8 +8,33 @@
 # ############################################################################
 
 
+import asyncio
+import importlib
+import logging
 import os
+import traceback
+import signal
 import sys
+import warnings
+
+from functools import partial
+
+import begin
+
+from DaemonLite import DaemonLite
+
+# Keep this change of the python path
+CURRENT_DIR = os.getcwd()  # noqa: E402
+sys.path.insert(0, CURRENT_DIR)  # noqa: E402
+
+import pypeman
+from pypeman import channels
+from pypeman import endpoints
+from pypeman import nodes
+from pypeman import remoteadmin
+from pypeman.conf import settings
+from pypeman.helpers.reloader import reloader_opt
+
 
 # TODO: remove below if statement asap. This is a workaround for a bug in begins
 # TODO: which provokes an exception when calling pypeman without parameters.
@@ -18,28 +43,37 @@ import sys
 if len(sys.argv) == 1:
     sys.argv.append('-h')
 
-CURRENT_DIR = os.getcwd()
 
-# Keep this import
-sys.path.insert(0, CURRENT_DIR)
+async def sig_handler_coro(signal, frame, ctx):
+    """
+    asyncio code handling the reception of signals
+    """
+    print("coro", ctx)
+    loop = ctx["loop"]
+    for channel in channels.all:
+        print("stop channel", channel.name)
+        await channel.stop()
+    await asyncio.sleep(3)
+    print("waited")
+    loop.stop()
 
-# TODO: check whether there's a way to NOT add noqa for each import
-import asyncio  # noqa
-import traceback  # noqa
-import importlib  # noqa
-import begin  # noqa
-import warnings  # noqa
-from functools import partial  # noqa
 
-from DaemonLite import DaemonLite  # noqa
+def sig_handler_func(signal, frame, ctx):
+    """
+    Signal handlers with one additional ctx variable
+    ctx is a dict pointing to vars, that might be required
+    """
+    print("SIG HANDLER", ctx, signal)
+    loop = ctx["loop"]
 
-import pypeman  # noqa
-from pypeman.helpers.reloader import reloader_opt  # noqa
-from pypeman import channels  # noqa
-from pypeman import nodes  # noqa
-from pypeman import endpoints  # noqa
-from pypeman.conf import settings  # noqa
-from pypeman import remoteadmin  # noqa
+    def create_sig_handler_coro():
+        """
+        helper to start async signal handler as soon as possible
+        """
+        loop.create_task(sig_handler_coro(signal, frame, ctx))
+
+    loop.call_soon_threadsafe(create_sig_handler_coro)
+    print("end of handler")
 
 
 def load_project():
@@ -71,7 +105,22 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
     load_project()
     print('\nStarting...')
 
+    logger = logging.getLogger(__name__)
     loop = asyncio.get_event_loop()
+
+    ctx = dict(
+        logger=logger,
+        loop=loop,
+        )
+
+    signal_handler = partial(sig_handler_func, ctx=ctx)
+
+    signal.signal(signal.SIGINT, signal_handler)  # CTRL-C
+    signal.signal(signal.SIGTERM, signal_handler)  # Termination
+    # SIGHUP unused could use to reread / conf / reload nicely
+    # signal.signal(signal.SIGHUP, signal_handler)
+    # SUGUSR1 unused, could be used to print / dump debug info
+    # signal.signal(signal.SIGUSR1, signal_handler)
 
     if debug_asyncio:
         loop.slow_callback_duration = settings.DEBUG_PARAMS['slow_callback_duration']
@@ -88,15 +137,20 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
 
     # At the moment mixing the asyncio and ipython
     # event loop is not working properly.
-    # Thus ipython
+    # Thus ipython is executed in a separate thread
     if cli:
         from pypeman.helpers.cli import CLI
         namespace = dict(
+            fake_signal_int=partial(signal_handler, signal.SIGINT, None),
+            asyncio=asyncio,
+            logger=logger,
             loop=loop,
             nodes=nodes,
             endpoints=endpoints,
             channels=channels,
             )
+        ctx["cli"] = cli
+        ctx.update(namespace)
         cli = CLI(namespace=namespace)
         cli.run_as_thread()
 

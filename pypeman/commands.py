@@ -48,14 +48,16 @@ async def sig_handler_coro(signal, frame, ctx):
     """
     asyncio code handling the reception of signals
     """
-    print("coro", ctx)
+    logger = logging.getLogger(__name__)
+    logger.debug("signal handler called for signale %s", signal)
     loop = ctx["loop"]
     for channel in channels.all:
-        print("stop channel", channel.name)
+        logger.debug("stop channel %s", channel.name)
         await channel.stop()
+    # sleep for a grace period of 3 seconds. Might be able to remove lateron
     await asyncio.sleep(3)
-    print("waited")
     loop.stop()
+    logger.debug("loop stopped")
 
 
 def sig_handler_func(signal, frame, ctx):
@@ -63,7 +65,6 @@ def sig_handler_func(signal, frame, ctx):
     Signal handlers with one additional ctx variable
     ctx is a dict pointing to vars, that might be required
     """
-    print("SIG HANDLER", ctx, signal)
     loop = ctx["loop"]
 
     def create_sig_handler_coro():
@@ -73,7 +74,6 @@ def sig_handler_func(signal, frame, ctx):
         loop.create_task(sig_handler_coro(signal, frame, ctx))
 
     loop.call_soon_threadsafe(create_sig_handler_coro)
-    print("end of handler")
 
 
 def load_project():

@@ -44,36 +44,25 @@ if len(sys.argv) == 1:
     sys.argv.append('-h')
 
 
-async def sig_handler_coro(signal, frame, ctx):
+async def sig_handler_coro(loop, signal, ctx):
     """
     asyncio code handling the reception of signals
     """
-    logger = logging.getLogger(__name__)
-    logger.debug("signal handler called for signale %s", signal)
-    loop = ctx["loop"]
+    logger = ctx["logger"]
+    logger.debug("signal handler coro called for signal %s", signal)
     for channel in channels.all:
         logger.debug("stop channel %s", channel.name)
         await channel.stop()
     # sleep for a grace period of 3 seconds. Might be able to remove lateron
-    await asyncio.sleep(3)
+    grace_period = 3
+    logger.debug("waiting for %ds to let channels stop", grace_period)
+    await asyncio.sleep(grace_period)
     loop.stop()
     logger.debug("loop stopped")
 
 
-def sig_handler_func(signal, frame, ctx):
-    """
-    Signal handlers with one additional ctx variable
-    ctx is a dict pointing to vars, that might be required
-    """
-    loop = ctx["loop"]
-
-    def create_sig_handler_coro():
-        """
-        helper to start async signal handler as soon as possible
-        """
-        loop.create_task(sig_handler_coro(signal, frame, ctx))
-
-    loop.call_soon_threadsafe(create_sig_handler_coro)
+def sig_handler_func(loop, signal, ctx):
+    loop.create_task(sig_handler_coro(loop, signal, ctx))
 
 
 def load_project():
@@ -108,20 +97,6 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
     logger = logging.getLogger(__name__)
     loop = asyncio.get_event_loop()
 
-    ctx = dict(
-        logger=logger,
-        loop=loop,
-        )
-
-    signal_handler = partial(sig_handler_func, ctx=ctx)
-
-    signal.signal(signal.SIGINT, signal_handler)  # CTRL-C
-    signal.signal(signal.SIGTERM, signal_handler)  # Termination
-    # SIGHUP unused could use to reread / conf / reload nicely
-    # signal.signal(signal.SIGHUP, signal_handler)
-    # SUGUSR1 unused, could be used to print / dump debug info
-    # signal.signal(signal.SIGUSR1, signal_handler)
-
     if debug_asyncio:
         loop.slow_callback_duration = settings.DEBUG_PARAMS['slow_callback_duration']
         loop.set_debug(True)
@@ -130,6 +105,19 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
     # Start channels
     for chan in channels.all:
         loop.run_until_complete(chan.start())
+
+    # add signal handlers
+    ctx = dict(  # a context dict to easily add more params if needed
+        logger=logger,
+        )
+
+    for sig in (
+            signal.SIGINT,  # CTRL-C
+            signal.SIGTERM,  # Termination (kill w/o params)
+            # SIGHUP,  # unused could use to reread / conf / reload nicely
+            # SUGUSR1,  # could be used to print / dump debug info
+            ):
+        loop.add_signal_handler(sig, partial(sig_handler_func, loop, sig, ctx))
 
     # And endpoints
     for end in endpoints.all:
@@ -141,7 +129,7 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
     if cli:
         from pypeman.helpers.cli import CLI
         namespace = dict(
-            fake_signal_int=partial(signal_handler, signal.SIGINT, None),
+            fake_signal_int=partial(sig_handler_func, signal.SIGINT, None),
             asyncio=asyncio,
             logger=logger,
             loop=loop,

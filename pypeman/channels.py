@@ -12,7 +12,6 @@ from pypeman import message, msgstore, events
 from pypeman.helpers.sleeper import Sleeper
 
 
-
 logger = logging.getLogger(__name__)
 
 # List all channel registered

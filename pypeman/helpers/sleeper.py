@@ -3,7 +3,7 @@ import asyncio
 
 class Sleeper:
     """
-    Group sleep calls allowing instant cancellation of all
+    Group of sleep calls allowing instant cancellation of all
 
     found at: https://stackoverflow.com/questions/37209864/interrupt-all-asyncio-sleep-currently-executing
     """
@@ -13,6 +13,9 @@ class Sleeper:
         self.tasks = set()
 
     async def sleep(self, delay, result=None):
+        """
+        a sleep function, that can be interrupted
+        """
         coro = asyncio.sleep(delay, result=result, loop=self.loop)
         task = asyncio.ensure_future(coro)
         self.tasks.add(task)
@@ -24,7 +27,9 @@ class Sleeper:
             self.tasks.remove(task)
 
     def cancel_all_helper(self):
-        "Cancel all pending sleep tasks"
+        """
+        Cancel all pending sleep tasks
+        """
         cancelled = set()
         for task in self.tasks:
             if task.cancel():
@@ -32,7 +37,9 @@ class Sleeper:
         return cancelled
 
     async def cancel_all(self):
-        "Coroutine cancelling tasks"
+        """
+        Coroutine cancelling tasks
+        """
         cancelled = self.cancel_all_helper()
         await asyncio.wait(self.tasks)
         self.tasks -= cancelled

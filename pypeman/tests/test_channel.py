@@ -5,10 +5,11 @@ from socket import SOL_SOCKET
 from unittest import mock
 
 from pypeman import channels, endpoints
-from pypeman.channels import BaseChannel
 from pypeman import nodes
 from pypeman import events
+from pypeman.channels import BaseChannel
 from pypeman.errors import PypemanParamError
+from pypeman.test import TearDownProjectTestCase
 from pypeman.tests.common import TestException, generate_msg
 
 
@@ -29,7 +30,7 @@ class ExceptNode(TestNode):
         raise TestException()
 
 
-class ChannelsTests(unittest.TestCase):
+class ChannelsTests(TearDownProjectTestCase):
     def clean_loop(self):
         # Useful to execute future callbacks
         pending = asyncio.Task.all_tasks(loop=self.loop)
@@ -55,6 +56,7 @@ class ChannelsTests(unittest.TestCase):
         channels.all.clear()
 
     def tearDown(self):
+        super().tearDown()
         self.clean_loop()
 
     def test_base_channel(self):
@@ -251,8 +253,8 @@ class ChannelsTests(unittest.TestCase):
         final_node = nodes.Log()
         mid_node = nodes.Log()
 
-        chan.add(TestIter(name="testiterr"), nodes.Log(), TestIter(name="testiterr"), final_node)
-        chan2.add(TestIter(name="testiterr"), mid_node, nodes.Drop())
+        chan.add(TestIter(name="testiterr1"), nodes.Log(), TestIter(name="testiterr2"), final_node)
+        chan2.add(TestIter(name="testiterr3"), mid_node, nodes.Drop())
 
         # Launch channel processing
         self.start_channels()

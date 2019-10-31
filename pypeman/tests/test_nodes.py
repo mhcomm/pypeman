@@ -6,6 +6,8 @@ import unittest
 from unittest import mock
 
 import aiohttp
+import pytest
+
 from pypeman import nodes, message, conf, persistence
 
 from pypeman.tests.common import generate_msg
@@ -67,6 +69,18 @@ class NodesTests(unittest.TestCase):
         self.assertTrue(isinstance(ret, message.Message))
         self.assertEqual(ret.payload, 'test', "Base node not working !")
         self.assertEqual(n.processed, 1, "Processed msg count broken")
+
+    def test_unique_node_names(self):
+        """ node names must be unique
+
+            check that pypeman detects uniqeness violations
+        """
+        n = nodes.BaseNode(name="mynode")
+        assert n is not None
+        with pytest.raises(nodes.NodeException) as exc:
+            m = nodes.BaseNode(name="mynode")
+            assert m is not None
+        assert "exists already" in str(exc._excinfo)
 
     def test_base_logging(self):
         """ whether BaseNode() node logging works"""

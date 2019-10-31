@@ -1,7 +1,7 @@
-import unittest
+from pypeman.test import TearDownProjectTestCase as TestCase
 
 
-class ImportTests(unittest.TestCase):
+class ImportTests(TestCase):
     def test_ftp_import(self):
         import pypeman.contrib.ftp  # noqa: F401
 

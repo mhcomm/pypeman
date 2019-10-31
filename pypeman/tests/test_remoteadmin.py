@@ -1,13 +1,13 @@
-import unittest
 import asyncio
 
 import pytest
 import pytest_asyncio.plugin  # noqa F401
 
-from pypeman.channels import BaseChannel
 from pypeman import nodes, msgstore, channels
-from pypeman.tests.common import generate_msg
+from pypeman.channels import BaseChannel
 from pypeman.remoteadmin import RemoteAdminClient, RemoteAdminServer
+from pypeman.test import TearDownProjectTestCase as TestCase
+from pypeman.tests.common import generate_msg
 
 
 class TestNode(nodes.BaseNode):
@@ -20,7 +20,7 @@ class TestNode(nodes.BaseNode):
         return msg
 
 
-class RemoteAdminTests(unittest.TestCase):
+class RemoteAdminTests(TestCase):
 
     @pytest.fixture(autouse=True)
     def initfixture(self, unused_tcp_port):
@@ -51,6 +51,7 @@ class RemoteAdminTests(unittest.TestCase):
         channels.all.clear()
 
     def tearDown(self):
+        super().tearDown()
         self.clean_loop()
 
     def test_remote_admin_list(self):

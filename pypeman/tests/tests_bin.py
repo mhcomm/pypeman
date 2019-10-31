@@ -33,7 +33,7 @@ class BinPypemanTestCase(unittest.TestCase):
     def run_pypeman(self, cmd, cwd=None):
         """
         Runs a command, gathers output and captures exit code
-        :return: return_code and data (bytestring of stdout / stderr )
+        :return: return_code and data (bytestring of stdout / stderr)
         """
         out_fname = mktempfname()
         self.tempfiles.append(out_fname)

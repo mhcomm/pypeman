@@ -1,5 +1,4 @@
 import asyncio
-import unittest
 
 from socket import SOL_SOCKET
 from unittest import mock
@@ -9,7 +8,7 @@ from pypeman import nodes
 from pypeman import events
 from pypeman.channels import BaseChannel
 from pypeman.errors import PypemanParamError
-from pypeman.test import TearDownProjectTestCase
+from pypeman.test import TearDownProjectTestCase as TestCase
 from pypeman.tests.common import TestException, generate_msg
 
 
@@ -30,7 +29,7 @@ class ExceptNode(TestNode):
         raise TestException()
 
 
-class ChannelsTests(TearDownProjectTestCase):
+class ChannelsTests(TestCase):
     def clean_loop(self):
         # Useful to execute future callbacks
         pending = asyncio.Task.all_tasks(loop=self.loop)

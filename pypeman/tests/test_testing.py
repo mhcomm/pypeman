@@ -1,10 +1,9 @@
-import unittest
 import asyncio
 
 from pypeman import channels
 from pypeman.channels import BaseChannel
 from pypeman import nodes
-from pypeman.test import TearDownProjectTestCase
+from pypeman.test import TearDownProjectTestCase as TestCase
 from pypeman.tests.common import generate_msg
 
 
@@ -13,7 +12,7 @@ class TestNode(nodes.BaseNode):
         super().__init__(*args, **kwargs)
 
 
-class TestingTests(TearDownProjectTestCase):
+class TestingTests(TestCase):
     def clean_loop(self):
         # Useful to execute future callbacks
         pending = asyncio.Task.all_tasks(loop=self.loop)

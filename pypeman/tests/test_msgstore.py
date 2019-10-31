@@ -1,13 +1,13 @@
 import os
-import unittest
 import asyncio
 import shutil
 import tempfile
 
 from pypeman import channels
-from pypeman.channels import BaseChannel
-from pypeman import nodes
 from pypeman import msgstore
+from pypeman import nodes
+from pypeman.channels import BaseChannel
+from pypeman.test import TearDownProjectTestCase as TestCase
 from pypeman.tests.common import TestException, generate_msg
 
 
@@ -39,7 +39,7 @@ class ExceptNode(TestNode):
         raise TestException()
 
 
-class MsgstoreTests(unittest.TestCase):
+class MsgstoreTests(TestCase):
     def clean_loop(self):
         # Useful to execute future callbacks
         pending = asyncio.Task.all_tasks(loop=self.loop)
@@ -65,6 +65,7 @@ class MsgstoreTests(unittest.TestCase):
         channels.all.clear()
 
     def tearDown(self):
+        super().tearDown()
         self.clean_loop()
 
     def test_null_message_store(self):

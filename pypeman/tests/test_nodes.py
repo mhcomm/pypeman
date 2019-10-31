@@ -10,6 +10,7 @@ import pytest
 
 from pypeman import nodes, message, conf, persistence
 
+from pypeman.test import TearDownProjectTestCase as TestCase
 from pypeman.tests.common import generate_msg
 
 
@@ -46,7 +47,7 @@ def get_mock_coro(return_value):
     return mock.Mock(wraps=mock_coro)
 
 
-class NodesTests(unittest.TestCase):
+class NodesTests(TestCase):
     def setUp(self):
         # Create class event loop used for tests to avoid failing
         # previous tests to impact next test ? (Not sure)

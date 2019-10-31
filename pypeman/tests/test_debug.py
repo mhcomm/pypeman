@@ -6,10 +6,10 @@ import asyncio
 import logging
 import os
 import time
-import unittest
 
 from pypeman.channels import BaseChannel
 
+from pypeman.test import TearDownProjectTestCase as TestCase
 from pypeman.tests.common import SimpleTestNode
 from pypeman.tests.common import generate_msg
 from pypeman.tests.common import setup_settings
@@ -31,7 +31,7 @@ class EvtLoopMixin:
         asyncio.set_event_loop(None)
 
 
-class LoggingTests(unittest.TestCase, EvtLoopMixin):
+class LoggingTests(TestCase, EvtLoopMixin):
     def setUp(self):
         setup_settings(SETTINGS_MODULE)  # adapt config
         from pypeman.conf import settings
@@ -45,6 +45,7 @@ class LoggingTests(unittest.TestCase, EvtLoopMixin):
         print("added handler")
 
     def tearDown(self):
+        super().tearDown()
         setup_settings(SETTINGS_MODULE)
         teardown_settings()
 
@@ -89,7 +90,7 @@ class LoggingTests(unittest.TestCase, EvtLoopMixin):
         pass
 
 
-class MainLoopTests(unittest.TestCase, EvtLoopMixin):
+class MainLoopTests(TestCase, EvtLoopMixin):
     def setUp(self):
         """ """
         self.prev_debug_flag = os.environ.get('PYTHONASYNCIODEBUG', None)
@@ -106,6 +107,7 @@ class MainLoopTests(unittest.TestCase, EvtLoopMixin):
         # print("added handler")
 
     def tearDown(self):
+        super().tearDown()
         if self.prev_debug_flag is not None:
             os.environ['PYTHONASYNCIODEBUG'] = self.prev_debug_flag
         else:

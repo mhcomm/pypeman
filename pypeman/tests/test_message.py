@@ -1,11 +1,14 @@
-import unittest
-from pypeman.message import Message
-from .common import generate_msg
 import logging
+
 from unittest import mock
 
+from .common import generate_msg
 
-class MessageTests(unittest.TestCase):
+from pypeman.message import Message
+from pypeman.test import TearDownProjectTestCase as TestCase
+
+
+class MessageTests(TestCase):
 
     def test_message_dict_conversion(self):
         m = generate_msg(message_content={'answer': 42}, with_context=True)

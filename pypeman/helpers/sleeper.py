@@ -41,6 +41,7 @@ class Sleeper:
         Coroutine cancelling tasks
         """
         cancelled = self.cancel_all_helper()
-        await asyncio.wait(self.tasks)
+        if self.tasks:
+            await asyncio.wait(self.tasks)
         self.tasks -= cancelled
         return len(cancelled)

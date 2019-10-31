@@ -84,6 +84,6 @@ class BinPypemanTestCase(unittest.TestCase):
         """ subcommand test is working """
 
         cmd = self.cmd + ['test']
-        self.run_pypeman(cmd, cwd=os.path.join('pypeman', 'tests', 'test_app_testing'))
+        self.run_pypeman(cmd, cwd=os.path.join(os.path.dirname(CWD), 'test_app_testing'))
 
 # test_suite =  BinPypemanTestCase

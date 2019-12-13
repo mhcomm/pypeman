@@ -189,7 +189,11 @@ class HttpRequest(nodes.BaseNode):
                 ssl_context = ssl.create_default_context()
             else:
                 ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
-            ssl_context.load_cert_chain(self.client_cert[0], self.client_cert[1])
+            try:
+                ssl_context.load_cert_chain(self.client_cert[0], self.client_cert[1])
+            except FileNotFoundError:
+                logger.error("loading certs %s failed", self.client_cert)
+                raise
             conn = aiohttp.TCPConnector(ssl_context=ssl_context, loop=loop)
         else:
             conn = aiohttp.TCPConnector(verify_ssl=self.verify, loop=loop)

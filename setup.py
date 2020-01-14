@@ -41,13 +41,13 @@ setup(
 
     entry_points={
         'console_scripts': [
-            'pypeman = pypeman.commands:run.start',
+            'pypeman = pypeman.commands:cli',
         ]
     },
 
     test_suite='nose.collector',
     install_requires=[
-        'begins',
+        'click',
         'daemonlite',
         'websockets<7',
         'aiohttp',

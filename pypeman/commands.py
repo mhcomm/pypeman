@@ -19,7 +19,7 @@ import warnings
 
 from functools import partial
 
-import begin
+import click
 
 from DaemonLite import DaemonLite
 
@@ -39,13 +39,6 @@ from pypeman import nodes
 from pypeman import remoteadmin
 from pypeman.conf import settings
 from pypeman.helpers.reloader import reloader_opt
-
-
-# TODO: remove below if statement asap. This is a workaround for a bug in begins
-# TODO: which provokes an exception when calling pypeman without parameters.
-# TODO: more info at https://github.com/aliles/begins/issues/48
-if len(sys.argv) == 1:
-    sys.argv.append('-h')
 
 
 async def sig_handler_coro(loop, signal, ctx):
@@ -207,15 +200,48 @@ def mk_daemon(mainfunc=lambda: None, pidfile="pypeman.pid"):
     return app
 
 
+@click.group()
+@click.version_option(pypeman.__version__)
+@click.help_option("--help", "-h")
+def cli(version=False):
+    """ Pypeman is a minimalistic but pragmatic ESB/ETL in python """
+
+
 # some weird issue with new flake8 linters obliges us to add spaces before and after
 # the '=' characters as soon as we add annotation strings
-@begin.subcommand  # noqa: F722
-def start(reload: 'Make server autoreload (Dev only)' = False,
-          debug_asyncio: 'Enable asyncio debug' = False,
-          cli: "enables an IPython CLI for debugging (not operational)" = False,
-          remote_admin: 'Enable remote admin server' = False,
-          profile: "enables profiling / run stats (not operational)" = False,
-          daemon: "if true pypeman will be started as daemon " = True):
+@cli.command()
+@click.help_option("--help", "-h")
+@click.option(
+    "--reload",
+    is_flag=True,
+    help="Make server autoreload (Dev only)",
+    )
+@click.option(
+    "--debug-asyncio",
+    is_flag=True,
+    help="Enable asyncio debug",
+    )
+@click.option(
+    "--cli",
+    is_flag=True,
+    help="enables an IPython CLI for debugging (not operational)",
+    )
+@click.option(
+    "--remote-admin",
+    is_flag=True,
+    help="Enable remote admin server",
+    )
+@click.option(
+    "--profile",
+    is_flag=True,
+    help="enables profiling / run stats (not operational)",
+    )
+@click.option(
+    "--daemon/--no-daemon",
+    default=True,
+    help="started pypeman as daemon (default=True)",
+    )
+def start(reload, debug_asyncio, cli, remote_admin, profile, daemon):
     """ Start pypeman as daemon (or foreground process) """
 
     main_func = partial(
@@ -239,7 +265,8 @@ def start(reload: 'Make server autoreload (Dev only)' = False,
             main_func()
 
 
-@begin.subcommand
+@cli.command()
+@click.help_option("--help", "-h")
 def stop():
     """ stops an already running pypeman instance """
     daemon = mk_daemon()
@@ -260,10 +287,13 @@ def show_ascii_graph(title=None):
             print()
 
 
-# some weird issue with new flake8 linters obliges us to add spaces before and after
-# the '=' characters as soon as we add annotation strings
-@begin.subcommand  # noqa: F722
-def graph(dot: "Make dot compatible output (Can be viewed with http://ushiroad.com/jsviz/)" = False):
+@cli.command()
+@click.help_option("--help", "-h")
+@click.option(
+    "--dot", is_flag=True,
+    help="Make dot compatible output (Can be viewed with http://ushiroad.com/jsviz/)",
+    )
+def graph(dot):
     """ Show channel graph"""
 
     load_project()
@@ -285,18 +315,22 @@ def graph(dot: "Make dot compatible output (Can be viewed with http://ushiroad.c
         show_ascii_graph()
 
 
-@begin.subcommand
+@cli.command()
+@click.help_option("--help", "-h")
 def pyshell():
     """ Start ipython shell to send command to remote instance """
-    client = remoteadmin.RemoteAdminClient(url='ws://%s:%s' % (settings.REMOTE_ADMIN_WEBSOCKET_CONFIG['host'],
-                                           settings.REMOTE_ADMIN_WEBSOCKET_CONFIG['port']))
+    client = remoteadmin.RemoteAdminClient(
+        url='ws://%s:%s' % (
+            settings.REMOTE_ADMIN_WEBSOCKET_CONFIG['host'],
+            settings.REMOTE_ADMIN_WEBSOCKET_CONFIG['port']))
     client.init()
 
     from IPython import embed
     embed()
 
 
-@begin.subcommand
+@cli.command()
+@click.help_option("--help", "-h")
 def shell():
     """ Start a custom shell to administrate remote pypeman instance """
     settings.init_settings()
@@ -307,26 +341,46 @@ def shell():
         print('\nQuitting...')
 
 
-@begin.subcommand  # noqa: F722
-def startproject(dirname: "name of dir to install project to"):
-    """ Creates a pypeman project from scrach """
+@cli.command()
+@click.help_option("--help", "-h")
+@click.argument("dirname")
+def startproject(dirname):
+    """ Creates a pypeman project from scratch
+
+    DIRNAME: name of dir to install project to
+    """
     from pypeman.pjt_templates import new_project
     new_project(dirname)
 
 
-@begin.subcommand
+@cli.command()
+@click.help_option("--help", "-h")
 def debug():
     """ Used for development purpose """
     pass
 
 
-@begin.subcommand  # noqa: F722
-def test(module: "the module parameter for unittest.main()" = "tests",
-         *args: "further args for unittest.main(). "
-                "To get more help type: pypeman test -- -h"):
+@cli.command(context_settings=dict(
+    ignore_unknown_options=True,
+    ))
+@click.help_option("--help", "-h")
+@click.option(
+    "--module", "-m",
+    default="tests",
+    help="the module parameter for unittest.main() (default: tests)",
+    )
+@click.argument("args", nargs=-1)
+@click.pass_context
+def test(ctx, module, args):
     """ Launch project's tests with unittest.main().
         All tests from one module (default 'tests') will be executed.
+
+        MODULE: name of module (and its submodules) to test default=(tests)
+
+        ARGS:   further args for unittest.main().
+                To get more help type: pypeman test -- -h
     """
+    args = [arg for arg in args if arg != "--"]
     from unittest import main
 
     load_project()
@@ -338,7 +392,7 @@ def test(module: "the module parameter for unittest.main()" = "tests",
     main(module=module, argv=['pypeman test --'] + list(args))
 
 
-@begin.subcommand
+@cli.command()
 def pytest(*args):
     """ start tests with pytest.
         Params can be passed through with -- [args...].
@@ -354,9 +408,5 @@ def pytest(*args):
     return rslt  # required to return the error code of pytest
 
 
-@begin.start
-def run(version=False):
-    """ Pypeman is a minimalistic but pragmatic ESB/ETL in python """
-    if version:
-        print(pypeman.__version__)
-        sys.exit(0)
+if __name__ == "__main__":
+    cli()

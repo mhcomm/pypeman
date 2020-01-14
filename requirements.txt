@@ -1,5 +1,5 @@
 # Mandatory
-begins
+click
 daemonlite
 websockets<7
 jsonrpcserver<4

@@ -41,6 +41,9 @@ from pypeman.conf import settings
 from pypeman.helpers.reloader import reloader_opt
 
 
+CLI_CTX_SETTINGS = dict(help_option_names=['-h', '--help'])
+
+
 async def sig_handler_coro(loop, signal, ctx):
     """
     asyncio code handling the reception of signals
@@ -209,8 +212,7 @@ def cli(version=False):
 
 # some weird issue with new flake8 linters obliges us to add spaces before and after
 # the '=' characters as soon as we add annotation strings
-@cli.command()
-@click.help_option("--help", "-h")
+@cli.command(context_settings=CLI_CTX_SETTINGS)
 @click.option(
     "--reload",
     is_flag=True,
@@ -265,8 +267,7 @@ def start(reload, debug_asyncio, cli, remote_admin, profile, daemon):
             main_func()
 
 
-@cli.command()
-@click.help_option("--help", "-h")
+@cli.command(context_settings=CLI_CTX_SETTINGS)
 def stop():
     """ stops an already running pypeman instance """
     daemon = mk_daemon()
@@ -287,8 +288,7 @@ def show_ascii_graph(title=None):
             print()
 
 
-@cli.command()
-@click.help_option("--help", "-h")
+@cli.command(context_settings=CLI_CTX_SETTINGS)
 @click.option(
     "--dot", is_flag=True,
     help="Make dot compatible output (Can be viewed with http://ushiroad.com/jsviz/)",
@@ -315,8 +315,7 @@ def graph(dot):
         show_ascii_graph()
 
 
-@cli.command()
-@click.help_option("--help", "-h")
+@cli.command(context_settings=CLI_CTX_SETTINGS)
 def pyshell():
     """ Start ipython shell to send command to remote instance """
     client = remoteadmin.RemoteAdminClient(
@@ -329,8 +328,7 @@ def pyshell():
     embed()
 
 
-@cli.command()
-@click.help_option("--help", "-h")
+@cli.command(context_settings=CLI_CTX_SETTINGS)
 def shell():
     """ Start a custom shell to administrate remote pypeman instance """
     settings.init_settings()
@@ -341,8 +339,7 @@ def shell():
         print('\nQuitting...')
 
 
-@cli.command()
-@click.help_option("--help", "-h")
+@cli.command(context_settings=CLI_CTX_SETTINGS)
 @click.argument("dirname")
 def startproject(dirname):
     """ Creates a pypeman project from scratch
@@ -353,17 +350,14 @@ def startproject(dirname):
     new_project(dirname)
 
 
-@cli.command()
-@click.help_option("--help", "-h")
+@cli.command(context_settings=CLI_CTX_SETTINGS)
 def debug():
     """ Used for development purpose """
     pass
 
 
-@cli.command(context_settings=dict(
-    ignore_unknown_options=True,
-    ))
-@click.help_option("--help", "-h")
+@cli.command(context_settings={
+    "ignore_unknown_options": True, **CLI_CTX_SETTINGS})
 @click.option(
     "--module", "-m",
     default="tests",
@@ -392,7 +386,7 @@ def test(ctx, module, args):
     main(module=module, argv=['pypeman test --'] + list(args))
 
 
-@cli.command()
+@cli.command(context_settings=CLI_CTX_SETTINGS)
 def pytest(*args):
     """ start tests with pytest.
         Params can be passed through with -- [args...].

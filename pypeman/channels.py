@@ -9,6 +9,8 @@ import warnings
 from asyncio import ensure_future
 
 from pypeman import message, msgstore, events
+from pypeman.helpers.sleeper import Sleeper
+
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +67,7 @@ class BaseChannel:
         self._node_map = {}
         self._status = BaseChannel.STOPPED
         self.processed_msgs = 0
+        self.interruptable_sleeper = Sleeper(loop)  # for interruptable sleeps
 
         if name:
             self.name = name
@@ -163,13 +166,17 @@ class BaseChannel:
 
     async def stop(self):
         """
-        Stop the channel. Called when pypeman shutdown.
-
+        Stop the channel.
+        Called when
+        - pypeman shuts down.
+        - a channel is stopped (e.g. via the admin interface)
         """
         self.status = BaseChannel.STOPPING
         # Verify that all messages are processed
         with (await self.lock):
             self.status = BaseChannel.STOPPED
+        # stop all pending sleeps
+        await self.interruptable_sleeper.cancel_all()
 
     def _reset_test(self):
         """ Enable test mode and reset node data.
@@ -612,8 +619,10 @@ class FileWatcherChannel(BaseChannel):
             pass
 
     async def watch_for_file(self):
-        # TODO cancel sleep on channel stopping
-        await asyncio.sleep(self.interval, loop=self.loop)
+        self.logger.warning("Will sleep")
+        await self.interruptable_sleeper.sleep(self.interval)
+        # await asyncio.sleep(self.interval, loop=self.loop)
+        self.logger.warning("sleep done")
         try:
             if os.path.exists(self.basedir):
                 listfile = os.listdir(self.basedir)
@@ -646,6 +655,8 @@ class FileWatcherChannel(BaseChannel):
         finally:
             if self.status not in (BaseChannel.STOPPING, BaseChannel.STOPPED,):
                 ensure_future(self.watch_for_file(), loop=self.loop)
+            else:
+                logger.warning("Won't watch anymore")
 
 
 from pypeman.helpers import lazyload  # noqa: E402

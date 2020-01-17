@@ -1,12 +1,13 @@
 # pypeman -- A command-line argument parser for Python
 # Copyright (C) 2015-2016 by MHComm. See LICENSE for details
 
-import unittest
 import logging
 from logging.config import dictConfig
 
+from pypeman.test import TearDownProjectTestCase as TestCase
 
-class DefaultSettingsTests(unittest.TestCase):
+
+class DefaultSettingsTests(TestCase):
     def test_01_default_settings(self):
         """ default settings exists """
         import pypeman.default_settings as dflt_settings  # noqa: F401

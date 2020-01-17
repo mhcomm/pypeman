@@ -23,8 +23,8 @@ from pypeman.persistence import get_backend
 logger = logging.getLogger(__name__)
 loop = asyncio.get_event_loop()
 
-# All declared nodes register here
-all = []
+# All declared nodes registered here
+all = []  # TODO: might consider renaming. all is a default python function
 
 # Can be redefined
 default_thread_pool = ThreadPoolExecutor(max_workers=3)
@@ -73,6 +73,10 @@ def get_context(msg, date=None, counter=None):
     return context
 
 
+class NodeException(Exception):
+    """ custom exception """
+
+
 class BaseNode:
     """
     Base of all Nodes.
@@ -89,11 +93,20 @@ class BaseNode:
 
     """
 
+    _used_names = set()  # already used node names to ensure uniqueness
+
     def __init__(self, *args, name=None, log_output=False, **kwargs):
+        cls = self.__class__
         self.channel = None
+
         all.append(self)
 
-        self.name = name or self.__class__.__name__ + "_" + str(len(all))
+        name = name or cls.__name__ + "_" + str(len(all))
+        if name in cls._used_names:
+            raise NodeException(
+                "can't create Node with name %s. It exists already" % name)
+        cls._used_names.add(name)
+        self.name = name
 
         self.store_output_as = kwargs.pop('store_output_as', None)
         self.store_input_as = kwargs.pop('store_input_as', None)
@@ -764,9 +777,15 @@ class Email(ThreadNode):
         return msg
 
 
-# Contrib nodes
-# TODO: can we move this line to top of file?
+def reset_pypeman_nodes():
+    logger.info("clearing all and _used-names for nodes.")
+    all.clear()
+    BaseNode._used_names.clear()
 
+# Contrib nodes
+
+
+# TODO: can we move this line to top of file?
 from pypeman.helpers import lazyload  # noqa: E402
 
 wrap = lazyload.Wrapper(__name__)

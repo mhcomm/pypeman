@@ -6,8 +6,11 @@ import unittest
 from unittest import mock
 
 import aiohttp
+import pytest
+
 from pypeman import nodes, message, conf, persistence
 
+from pypeman.test import TearDownProjectTestCase as TestCase
 from pypeman.tests.common import generate_msg
 
 
@@ -44,7 +47,7 @@ def get_mock_coro(return_value):
     return mock.Mock(wraps=mock_coro)
 
 
-class NodesTests(unittest.TestCase):
+class NodesTests(TestCase):
     def setUp(self):
         # Create class event loop used for tests to avoid failing
         # previous tests to impact next test ? (Not sure)
@@ -67,6 +70,18 @@ class NodesTests(unittest.TestCase):
         self.assertTrue(isinstance(ret, message.Message))
         self.assertEqual(ret.payload, 'test', "Base node not working !")
         self.assertEqual(n.processed, 1, "Processed msg count broken")
+
+    def test_unique_node_names(self):
+        """ node names must be unique
+
+            check that pypeman detects uniqeness violations
+        """
+        n = nodes.BaseNode(name="mynode")
+        assert n is not None
+        with pytest.raises(nodes.NodeException) as exc:
+            m = nodes.BaseNode(name="mynode")
+            assert m is not None
+        assert "exists already" in str(exc._excinfo)
 
     def test_base_logging(self):
         """ whether BaseNode() node logging works"""

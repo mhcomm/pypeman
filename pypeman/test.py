@@ -1,12 +1,39 @@
+#!/usr/bin/env python
+
+""" Helpers for testing
+- helpers for testing pypeman itself
+- helpers for testing pypeman projects
+"""
+
 from unittest import TestCase
+
 import asyncio
+
+from pypeman import nodes
 from pypeman import channels
+
 
 # TODO implement settings override
 # TODO implement MessageStoreMock
 
 
 class PypeTestCase(TestCase):
+    """ Test Case to be used for testing pypeman projects
+
+        This test case ensures, that
+        event loops and other asyncio and pypeman specifics
+        are correctly cleaned up / set up between unit test
+        runs.
+
+        This class is necessary as asyncio and pypeman have
+        some global persistent objects like
+        asyncio default loop
+        pypeman.nodes.all / pypeman.channles.all, ...
+
+        Anybody using unittest.TestCase based tests for a pypeman
+        project should use this class instead.
+    """
+
     loop = None
 
     def __init__(self, *args, **kwargs):
@@ -102,3 +129,24 @@ class PypeTestCase(TestCase):
         :return:
         """
         self.loop.set_debug(True)
+
+
+class TearDownProjectTestCase(TestCase):
+    """ unittest for tests creating a project
+
+    this testcase ensures, that at the end of the test the project is
+    removed
+    """
+
+    def tearDown(self):
+        clear_pypeman_project()
+
+
+def clear_pypeman_project():
+    """ clear a pypeman project. should be used whenever tests don't need
+
+        a certain pypeman graph anymore and one wants to be sure that
+        residuals are cleaned away
+    """
+
+    nodes.reset_pypeman_nodes()

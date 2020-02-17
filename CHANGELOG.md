@@ -1,5 +1,21 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
 
+## [0.3.4](https://github.com/mhcomm/pypeman/compare/0.3.2...0.3.4)
+* http channels have now get params and match info from the urls in their meta
+* new settings.PROJECT_MODULE var (allows to override default mod name if desired)
+* add signal handlers + minor cleanup
+* ensure, that pytest errors result in an exitcode, so that CI aborts
+* unit tests pass now also on 12th of each month
+* got rid of prints (or converted to logs)
+* signal handlers upadted for newer asyncio versions
+* helper addeds for asyncio BW compatibility
+* fix bug #55 (pytest issues) filewatcher sleeps can be interrupted
+* fix bug #72 (node name uniqeness)
+* tests running now with newer python versions
+* replace begins with click
+* improve https client cert errors
+* enforce nodename uniqueness
+
 ## [0.3.3](https://github.com/mhcomm/pypeman/compare/0.3.2...0.3.3)
 
 * fix unit tests

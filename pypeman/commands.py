@@ -289,6 +289,20 @@ def show_ascii_graph(title=None):
 
 
 @cli.command(context_settings=CLI_CTX_SETTINGS)
+def printsettings():
+    """
+    print the project's settings
+
+    """
+    # TODO: This command could be enhanced further to be more simniliar to
+    #       django_extensions' print_settings
+    load_project()
+    svars = sorted([val for val in dir(settings) if "A" <= val[0] <= "Z"])
+    for name in svars:
+        print(name, "=", repr(getattr(settings, name)))
+
+
+@cli.command(context_settings=CLI_CTX_SETTINGS)
 @click.option(
     "--dot", is_flag=True,
     help="Make dot compatible output (Can be viewed with http://ushiroad.com/jsviz/)",

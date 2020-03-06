@@ -402,7 +402,7 @@ def pytest(ctx, args):
     if not args:
         args = ["tests.py"]
     rslt = pytest.main(list(args))
-    return rslt  # required to return the error code of pytest
+    sys.exit(rslt)
 
 
 if __name__ == "__main__":

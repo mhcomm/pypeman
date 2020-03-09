@@ -386,8 +386,11 @@ def test(ctx, module, args):
     main(module=module, argv=['pypeman test --'] + list(args))
 
 
-@cli.command(context_settings=CLI_CTX_SETTINGS)
-def pytest(*args):
+@cli.command(context_settings={
+    "ignore_unknown_options": True, **CLI_CTX_SETTINGS})
+@click.argument("args", nargs=-1)
+@click.pass_context
+def pytest(ctx, args):
     """ start tests with pytest.
         Params can be passed through with -- [args...].
         Pytest help with:

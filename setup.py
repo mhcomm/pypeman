@@ -18,8 +18,7 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
-        # must get rid of begins annotations to make 3.8 work
-        # 'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3 :: Only',
         'Intended Audience :: Developers',
         'Intended Audience :: Information Technology',

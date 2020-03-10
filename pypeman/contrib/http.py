@@ -220,7 +220,7 @@ class HttpRequest(nodes.BaseNode):
         data = None
         if method in ['put', 'post']:
             data = msg.payload
-        async with aiohttp.ClientSession(connector=conn) as session:
+        with aiohttp.ClientSession(connector=conn) as session:
             resp = await session.request(
                     method=method,
                     url=url,

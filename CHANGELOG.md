@@ -1,5 +1,11 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
 
+## [0.3.5](https://github.com/mhcomm/pypeman/compare/0.3.4...0.3.5)
+* fix regression #133 (pypeman pytest regression for additional args)
+* fix issue with aiohttp (with -> async with)
+* fix #135 (pypeman pytest has exitcode !=0 on errors)
+* first implementation of #129 (printsettings)
+
 ## [0.3.4](https://github.com/mhcomm/pypeman/compare/0.3.3...0.3.4)
 * http channels have now get params and match info from the urls in their meta
 * new settings.PROJECT_MODULE var (allows to override default mod name if desired)
@@ -29,10 +35,10 @@
 
 * Socket endpoint (use for HTTP and MLLP)
 * Reuse port option
-* Fix filewatcher, dont silence all exceptions
+* Fix filewatcher, don't silence all exceptions
 * Allows remote admin via reverse proxy
-* Fix http enpoint setup route
-* Redirect / to index.html for web admin
+* Fix http endpoint setup route
+* Redirect '/' to 'index.html' for web admin
 * Pytest
 * Testing uses free tcp port
 * Freeze version of jsonrpcclient, jsonrpcserver, websocket
@@ -48,7 +54,7 @@
 * Add shell and pyshell remote admin client
 * Add alpha version of webclient
 * Enhance HTTP request node to allow POST
-* Node have now persistent context between executions
+* Nodes have now persistent context between executions
 * Fix loop cleaning between each test
 * Fix error on drop node with generator
 * Fix broken HTTP endpoints with more than one channel
@@ -75,7 +81,7 @@
 * Code organization refactoring
 * Add some action in channel
 * Add Message Store
-* Better lazyloading of optional contrib
+* Better lazyloading of optional contribs
 * Better documentation
 * Better naming consistency
 

@@ -1,5 +1,8 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
 
+* remove python 3.5 from supported versions. do nothing to actively destroy
+  compatibility though
+
 ## [0.3.5](https://github.com/mhcomm/pypeman/compare/0.3.4...0.3.5)
 * fix regression #133 (pypeman pytest regression for additional args)
 * fix issue with aiohttp (with -> async with)

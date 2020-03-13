@@ -790,6 +790,7 @@ from pypeman.helpers import lazyload  # noqa: E402
 
 wrap = lazyload.Wrapper(__name__)
 
+wrap.add_lazy('pypeman.contrib.ctx', "CombineCtx", [])
 wrap.add_lazy('pypeman.contrib.xml', "XMLToPython", ["xmltodict"])
 wrap.add_lazy('pypeman.contrib.xml', "PythonToXML", ["xmltodict"])
 wrap.add_lazy('pypeman.contrib.hl7', "HL7ToPython", ["hl7"])
@@ -798,4 +799,5 @@ wrap.add_lazy('pypeman.contrib.http', "HttpRequest", ["aiohttp"])
 wrap.add_lazy('pypeman.contrib.http', "RequestNode", ["aiohttp"])
 wrap.add_lazy('pypeman.contrib.ftp', "FTPFileWriter", [])
 wrap.add_lazy('pypeman.contrib.ftp', "FTPFileReader", [])
+wrap.add_lazy('pypeman.contrib.ftp', "FTPFileDeleter", [])
 wrap.add_lazy('pypeman.contrib.ftp', "FTPFileDeleter", [])

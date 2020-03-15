@@ -35,7 +35,7 @@ class RemoteAdminTests(TestCase):
 
     def start_channels(self):
         # Start channels
-        for chan in channels.all:
+        for chan in channels.all_channels:
             self.loop.run_until_complete(chan.start())
 
     def setUp(self):
@@ -48,7 +48,7 @@ class RemoteAdminTests(TestCase):
         asyncio.set_event_loop(None)
 
         # Avoid calling already tested channels
-        channels.all.clear()
+        channels.all_channels.clear()
 
     def tearDown(self):
         super().tearDown()

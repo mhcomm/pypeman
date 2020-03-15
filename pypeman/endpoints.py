@@ -5,13 +5,22 @@ import socket
 logger = logging.getLogger(__name__)
 
 
-all = []
+all_endpoints = []
+
+
+def reset_pypeman_endpoints():
+    """
+    clears book keeping of all endpoints
+
+    Can be useful for unit testing.
+    """
+    all_endpoints.clear()
 
 
 class BaseEndpoint:
 
     def __init__(self):
-        all.append(self)
+        all_endpoints.append(self)
 
     async def start(self):
         pass

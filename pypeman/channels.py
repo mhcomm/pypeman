@@ -15,9 +15,9 @@ from pypeman.helpers.sleeper import Sleeper
 logger = logging.getLogger(__name__)
 
 # List all channel registered
-all = []
+all_channels = []
 
-_channels_names = set()
+_channel_names = set()
 
 
 class Dropped(Exception):
@@ -62,7 +62,7 @@ class BaseChannel:
 
         self.uuid = uuid.uuid4()
 
-        all.append(self)
+        all_channels.append(self)
         self._nodes = []
         self._node_map = {}
         self._status = BaseChannel.STOPPED
@@ -73,7 +73,7 @@ class BaseChannel:
             self.name = name
         else:
             warnings.warn("Channels without names are deprecated", DeprecationWarning)
-            self.name = self.__class__.__name__ + "_" + str(len(all))
+            self.name = self.__class__.__name__ + "_" + str(len(all_channels))
 
         self.parent = None
         if parent_channel:
@@ -91,13 +91,13 @@ class BaseChannel:
         else:
             self.parent_uids = None
 
-        if self.name in _channels_names:
+        if self.name in _channel_names:
             raise NameError(
                 "Duplicate channel name %r . "
                 "Channel names must be unique !" % self.name
             )
 
-        _channels_names.add(self.name)
+        _channel_names.add(self.name)
 
         if loop is None:
             self.loop = asyncio.get_event_loop()
@@ -471,6 +471,17 @@ class BaseChannel:
 
     def __str__(self):
         return "<chan: %s>" % self.name
+
+
+def reset_pypeman_channels():
+    """
+    clears book keeping of all channels
+
+    Can be useful for unit testing.
+    """
+    logger.info("clearing all_channels and _channel-names.")
+    all_channels.clear()
+    _channel_names.clear()
 
 
 class SubChannel(BaseChannel):

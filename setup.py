@@ -48,7 +48,7 @@ setup(
         "click",
         "daemonlite",
         "websockets<7",
-        "aiohttp",
+        "aiohttp>3.0",
         "jsonrpcclient[websockets]<=2.5.2",
         "jsonrpcserver<4",
         "sqlitedict",

@@ -1,7 +1,7 @@
 tox
 hl7
 xmltodict
-aiohttp
+aiohttp>3.0
 aiocron
 coverage
 codecov

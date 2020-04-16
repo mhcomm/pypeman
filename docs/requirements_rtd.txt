@@ -5,6 +5,6 @@ recommonmark
 sphinx_rtd_theme
 hl7
 xmltodict
-aiohttp
+aiohttp>3.0
 aiocron
 

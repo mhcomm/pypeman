@@ -36,7 +36,6 @@ def mk_msgs_w_ctx(*ctx_ids):
     return msg, ctx_msgs
 
 
-#    def __init__(self, ctx_names, meta_from=None, flatten=False,  *args, **kwargs):
 @pytest.mark.usefixtures("clear_graph")
 def test_combine_ctx_not_two_names(event_loop):
     with pytest.raises(NodeException):

@@ -28,7 +28,7 @@ class PypeTestCase(TestCase):
         This class is necessary as asyncio and pypeman have
         some global persistent objects like
         asyncio default loop
-        pypeman.nodes.all / pypeman.channles.all, ...
+        pypeman.nodes.all_nodes / pypeman.channels.all_channels, ...
 
         Anybody using unittest.TestCase based tests for a pypeman
         project should use this class instead.
@@ -53,7 +53,7 @@ class PypeTestCase(TestCase):
         asyncio.set_event_loop(None)
 
         # Start channels
-        for chan in channels.all:
+        for chan in channels.all_channels:
             chan.loop = cls.loop
             cls.loop.run_until_complete(chan.start())
             chan._reset_test()
@@ -64,7 +64,7 @@ class PypeTestCase(TestCase):
         Replace current loop by a new one to avoid side effect on
         next test.
         """
-        for chan in channels.all:
+        for chan in channels.all_channels:
             cls.loop.run_until_complete(chan.stop())
 
         pending = asyncio.Task.all_tasks(loop=cls.loop)
@@ -74,7 +74,7 @@ class PypeTestCase(TestCase):
         cls.loop = asyncio.new_event_loop()
 
         # Start channels
-        for chan in channels.all:
+        for chan in channels.all_channels:
             chan.loop = cls.loop
             cls.loop.run_until_complete(chan.start())
             chan._reset_test()
@@ -84,7 +84,7 @@ class PypeTestCase(TestCase):
         super().tearDownClass()
 
         # Stop channels
-        for chan in channels.all:
+        for chan in channels.all_channels:
             cls.loop.run_until_complete(chan.stop())
 
         cls.finish_all_tasks()
@@ -118,7 +118,7 @@ class PypeTestCase(TestCase):
         :return: Channel instance corresponding to `name`
             or None if channel not found.
         """
-        for chan in channels.all:
+        for chan in channels.all_channels:
             if chan.name == name:
                 chan._reset_test()
                 return chan

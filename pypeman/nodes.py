@@ -24,7 +24,8 @@ logger = logging.getLogger(__name__)
 loop = asyncio.get_event_loop()
 
 # All declared nodes registered here
-all = []  # TODO: might consider renaming. all is a default python function
+all_nodes = []
+node_by_name = {}
 
 # Can be redefined
 default_thread_pool = ThreadPoolExecutor(max_workers=3)
@@ -99,13 +100,14 @@ class BaseNode:
         cls = self.__class__
         self.channel = None
 
-        all.append(self)
+        all_nodes.append(self)
 
-        name = name or cls.__name__ + "_" + str(len(all))
+        name = name or cls.__name__ + "_" + str(len(all_nodes))
         if name in cls._used_names:
             raise NodeException(
                 "can't create Node with name %s. It exists already" % name)
         cls._used_names.add(name)
+        node_by_name[name] = self
         self.name = name
 
         self.store_output_as = kwargs.pop('store_output_as', None)
@@ -778,8 +780,13 @@ class Email(ThreadNode):
 
 
 def reset_pypeman_nodes():
-    logger.info("clearing all and _used-names for nodes.")
-    all.clear()
+    """
+    clears book keeping of all channels
+
+    Can be useful for unit testing.
+    """
+    logger.info("clearing all_nodes and BaseNode._used-names.")
+    all_nodes.clear()
     BaseNode._used_names.clear()
 
 # Contrib nodes
@@ -790,6 +797,7 @@ from pypeman.helpers import lazyload  # noqa: E402
 
 wrap = lazyload.Wrapper(__name__)
 
+wrap.add_lazy('pypeman.contrib.ctx', "CombineCtx", [])
 wrap.add_lazy('pypeman.contrib.xml', "XMLToPython", ["xmltodict"])
 wrap.add_lazy('pypeman.contrib.xml', "PythonToXML", ["xmltodict"])
 wrap.add_lazy('pypeman.contrib.hl7', "HL7ToPython", ["hl7"])
@@ -798,4 +806,5 @@ wrap.add_lazy('pypeman.contrib.http', "HttpRequest", ["aiohttp"])
 wrap.add_lazy('pypeman.contrib.http', "RequestNode", ["aiohttp"])
 wrap.add_lazy('pypeman.contrib.ftp', "FTPFileWriter", [])
 wrap.add_lazy('pypeman.contrib.ftp', "FTPFileReader", [])
+wrap.add_lazy('pypeman.contrib.ftp', "FTPFileDeleter", [])
 wrap.add_lazy('pypeman.contrib.ftp', "FTPFileDeleter", [])

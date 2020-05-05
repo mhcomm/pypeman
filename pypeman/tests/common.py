@@ -63,7 +63,7 @@ def generate_msg(timestamp=None, message_content=default_message_content,
     m.payload = message_content
 
     if message_meta is None:
-        m.meta = default_message_meta
+        m.meta = dict(default_message_meta)
     else:
         m.meta = message_meta
 

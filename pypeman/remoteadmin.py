@@ -51,9 +51,9 @@ class RemoteAdminServer():
 
     def get_channel(self, name):
         """
-        return channel by is name.all
+        return channel by is name.all_channels
         """
-        for chan in channels.all:
+        for chan in channels.all_channels:
             if chan.name == name:
                 return chan
         return None
@@ -106,7 +106,7 @@ class RemoteAdminServer():
         Return a list of available channels.
         """
         chans = []
-        for chan in channels.all:
+        for chan in channels.all_channels:
             if not chan.parent:
                 chan_dict = chan.to_dict()
                 chan_dict['subchannels'] = chan.subchannels()

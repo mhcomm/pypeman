@@ -50,7 +50,7 @@ async def sig_handler_coro(loop, signal, ctx):
     """
     logger = ctx["logger"]
     logger.debug("signal handler coro called for signal %s", signal)
-    for channel in channels.all:
+    for channel in channels.all_channels:
         logger.debug("stop channel %s", channel.name)
         await channel.stop()
     # sleep for a grace period of 3 seconds. Might be able to remove lateron
@@ -114,7 +114,7 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
         warnings.simplefilter('default')
 
     # Start channels
-    for chan in channels.all:
+    for chan in channels.all_channels:
         loop.run_until_complete(chan.start())
 
     # add signal handlers
@@ -131,7 +131,7 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
         loop.add_signal_handler(sig, partial(sig_handler_func, loop, sig, ctx))
 
     # And endpoints
-    for end in endpoints.all:
+    for end in endpoints.all_channels:
         loop.run_until_complete(end.start())
 
     # At the moment mixing the asyncio and ipython
@@ -177,7 +177,7 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
 
     print("End started tasks...")
 
-    for chan in channels.all:
+    for chan in channels.all_channels:
         loop.run_until_complete(chan.stop())
 
     pending = asyncio.Task.all_tasks()
@@ -280,7 +280,7 @@ def show_ascii_graph(title=None):
     """
     if title:
         print(title)
-    for channel in channels.all:
+    for channel in channels.all_channels:
         if not channel.parent:
             print(channel.__class__.__name__)
             channel.graph()
@@ -316,11 +316,11 @@ def graph(dot):
         print("digraph testgraph{")
 
         # Handle channel node shape
-        for channel in channels.all:
+        for channel in channels.all_channels:
             print('{node[shape=box]; "%s"; }' % channel.name)
 
         # Draw each graph
-        for channel in channels.all:
+        for channel in channels.all_channels:
             if not channel.parent:
                 channel.graph_dot()
 

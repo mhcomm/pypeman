@@ -133,7 +133,7 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
         loop.add_signal_handler(sig, partial(sig_handler_func, loop, sig, ctx))
 
     # And endpoints
-    for end in endpoints.all_channels:
+    for end in endpoints.all_endpoints:
         loop.run_until_complete(end.start())
 
     # At the moment mixing the asyncio and ipython

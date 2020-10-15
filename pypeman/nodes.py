@@ -364,6 +364,11 @@ class Log(BaseNode):
     Node to show some information about node, channel and message. Use for debug.
     """
     def __init__(self, *args, **kwargs):
+        """
+            Node specific params
+            :param level: log level of node
+            :param show_ctx: whether to log the context
+        """
         self.lvl = kwargs.pop('level', logging.INFO)
         self.show_ctx = kwargs.pop('show_ctx', False)
 

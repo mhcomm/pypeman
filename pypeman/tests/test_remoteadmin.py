@@ -3,21 +3,14 @@ import asyncio
 import pytest
 import pytest_asyncio.plugin  # noqa F401
 
-from pypeman import nodes, msgstore, channels
+from pypeman import msgstore
+from pypeman import channels
 from pypeman.channels import BaseChannel
-from pypeman.remoteadmin import RemoteAdminClient, RemoteAdminServer
+from pypeman.remoteadmin import RemoteAdminClient
+from pypeman.remoteadmin import RemoteAdminServer
 from pypeman.test import TearDownProjectTestCase as TestCase
 from pypeman.tests.common import generate_msg
-
-
-class TestNode(nodes.BaseNode):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Used to test if node is processed during test
-
-    def process(self, msg):
-        print("Process %s" % self.name)
-        return msg
+from pypeman.tests.common import TestNode
 
 
 class RemoteAdminTests(TestCase):

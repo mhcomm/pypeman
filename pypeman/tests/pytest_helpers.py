@@ -11,6 +11,10 @@ import pypeman.nodes
 
 @pytest.fixture(scope="function")
 def clear_graph():
+    """
+    ensure, that before and after a pypeman test
+    the pypeman graph is entirely cleared
+    """
     n_nodes = len(pypeman.nodes.all_nodes)
     n_channels = len(pypeman.channels.all_channels)
     n_endpoints = len(pypeman.endpoints.all_endpoints)

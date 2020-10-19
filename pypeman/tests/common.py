@@ -6,6 +6,7 @@ import asyncio
 import datetime
 import logging
 import os
+import threading
 import time
 
 from importlib import reload
@@ -79,6 +80,28 @@ class TestException(Exception):
     """ custom Exception """
 
 
+class LongNode(nodes.ThreadNode):
+    def process(self, msg):
+        time.sleep(1)
+        return msg
+
+
+class StoreNode(nodes.BaseNode):
+    """
+    just store each payload in a buffer
+    uses a threading lock to allow tests from another thread
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(args, **kwargs)
+        self.lock = kwargs.pop("lock", None) or threading.Lock()
+        self.payloads = []
+
+    def process(self, msg):
+        with self.lock:
+            self.payloads.append(msg.payload)
+        return msg
+
+
 class SimpleTestNode(nodes.BaseNode):
     """ simple node, that can be used for unit testing
     """
@@ -104,3 +127,20 @@ class SimpleTestNode(nodes.BaseNode):
         self.logger.info("Process done: %s", msg)
         self.processed = True
         return msg
+
+
+class TestNode(nodes.BaseNode):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Used to test if node is processed during test
+
+    def process(self, msg):
+        print("Process %s" % self.name)
+        return msg
+
+
+class ExceptNode(TestNode):
+    # This node raises an exception
+    def process(self, msg):
+        super().process(msg)
+        raise TestException()

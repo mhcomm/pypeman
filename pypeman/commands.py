@@ -24,12 +24,14 @@ import click
 from DaemonLite import DaemonLite
 
 # Keep this change of the python path
-CURRENT_DIR = os.getcwd()  # noqa: E402
-sys.path.insert(0, CURRENT_DIR)  # noqa: E402
+if True:
+    CURRENT_DIR = os.getcwd()  # noqa: E402
+    sys.path.insert(0, CURRENT_DIR)  # noqa: E402
 
 # To be imported prior to any other pypeman imports
 import pypeman.helpers.aio_compat
-pypeman.helpers.aio_compat.patch()  # noqa: E402
+if True:
+    pypeman.helpers.aio_compat.patch()  # noqa: E402
 
 import pypeman
 

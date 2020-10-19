@@ -12,7 +12,7 @@ from pypeman import channels
 from pypeman.errors import PypemanError
 
 
-def wait_for_loop():
+def wait_for_loop(tmax=5.0):
     """
     wait until the loop variable of a pypeman graph
     has been initialized
@@ -21,9 +21,12 @@ def wait_for_loop():
     """
     # TODO: might factor out this function to a helper module
     loop = None
-    for i in range(50, -1, -1):
+    steps = int(tmax / 0.1)
+    for i in range(steps, -1, -1):
         try:
-            loop = channels.all_channels[0].loop
+            channel = channels.all_channels[0]
+            # print("channel =", channel)
+            loop = channel.loop
             break
         except Exception:
             if i == 0:

@@ -9,24 +9,10 @@ from pypeman import events
 from pypeman.channels import BaseChannel
 from pypeman.errors import PypemanParamError
 from pypeman.test import TearDownProjectTestCase as TestCase
-from pypeman.tests.common import TestException, generate_msg
-
-
-class TestNode(nodes.BaseNode):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Used to test if node is processed during test
-
-    def process(self, msg):
-        print("Process %s" % self.name)
-        return msg
-
-
-class ExceptNode(TestNode):
-    # This node raises an exception
-    def process(self, msg):
-        super().process(msg)
-        raise TestException()
+from pypeman.tests.common import ExceptNode
+from pypeman.tests.common import generate_msg
+from pypeman.tests.common import TestException
+from pypeman.tests.common import TestNode
 
 
 class ChannelsTests(TestCase):

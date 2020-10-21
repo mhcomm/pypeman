@@ -7,10 +7,12 @@ import smtplib
 import types
 import warnings
 
-from email.mime.text import MIMEText
-
 from datetime import datetime
 from collections import OrderedDict
+from fnmatch import fnmatch
+
+from email.mime.text import MIMEText
+
 
 from urllib import parse
 
@@ -76,6 +78,22 @@ def get_context(msg, date=None, counter=None):
 
 class NodeException(Exception):
     """ custom exception """
+
+
+def find_node(name="", match=None):
+    """
+    find nodes in a pypeman graph
+
+    :param name:  name of node to search
+                  name can contain * ? as specified in fnmatch.fnmatch
+    """
+
+    if name:
+        return next(
+            filter(lambda node: fnmatch(node.name, name), all_nodes),
+            None,
+            )
+    return next(filter(match, all_nodes, None))
 
 
 class BaseNode:
@@ -364,6 +382,11 @@ class Log(BaseNode):
     Node to show some information about node, channel and message. Use for debug.
     """
     def __init__(self, *args, **kwargs):
+        """
+            Node specific params
+            :param level: log level of node
+            :param show_ctx: whether to log the context
+        """
         self.lvl = kwargs.pop('level', logging.INFO)
         self.show_ctx = kwargs.pop('show_ctx', False)
 

@@ -1,6 +1,5 @@
 import asyncio
 import os
-import time
 import unittest
 
 from unittest import mock
@@ -12,6 +11,7 @@ from pypeman import nodes, message, conf, persistence
 
 from pypeman.test import TearDownProjectTestCase as TestCase
 from pypeman.tests.common import generate_msg
+from pypeman.tests.common import LongNode
 
 
 class FakeChannel():
@@ -23,12 +23,6 @@ class FakeChannel():
         self.parent_names = ["parent_names"]
 
         self.loop = loop
-
-
-class LongNode(nodes.ThreadNode):
-    def process(self, msg):
-        time.sleep(1)
-        return msg
 
 
 def tstfct(msg):

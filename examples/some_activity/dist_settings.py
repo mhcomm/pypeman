@@ -7,5 +7,9 @@
 
 import os
 
+# next line required, such, that settings variables (like LOGGING)
+# can be imported **and** enhanced
+from pypeman.default_settings import *  # noqa: F401, F403
+
 # settings var pointing to project's directory
 PJT_DIR = os.path.realpath(os.path.dirname(__file__))

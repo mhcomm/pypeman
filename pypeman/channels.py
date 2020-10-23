@@ -23,19 +23,16 @@ _channel_names = set()
 class Dropped(Exception):
     """ Used to stop process as message is processed. Default success should be returned.
     """
-    pass
 
 
 class Rejected(Exception):
     """ Used to tell caller the message is invalid with a error return.
     """
-    pass
 
 
 class ChannelStopped(Exception):
     """ The channel is stopped and can't process message.
     """
-    pass
 
 
 class BaseChannel:

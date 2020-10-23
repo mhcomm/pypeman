@@ -2,6 +2,7 @@
 # import sys
 # sys.path.insert(your_path)
 import logging
+import os
 
 from pypeman import channels
 from pypeman import nodes
@@ -13,7 +14,8 @@ from pypeman.tests.common import StoreNode
 
 pchan = channels.CronChannel(
         name="periodic",
-        cron="* * * * * */2",
+        cron="* * * * * */10",
+        # cron="* * * * * 0",
         )
 
 pchan.add(
@@ -22,6 +24,23 @@ pchan.add(
         level=logging.DEBUG,
         ),
     StoreNode(
-        name="store",
+        name="store1",
+        ),
+    )
+
+
+watch_chan = channels.FileWatcherChannel(
+    path=os.path.realpath("."),
+    regex=r'.*\.txt$',
+    name="watch_txt",
+    )
+
+watch_chan.add(
+    nodes.Log(
+        name="log2",
+        level=logging.DEBUG,
+        ),
+    StoreNode(
+        name="store2",
         ),
     )

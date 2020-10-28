@@ -40,6 +40,10 @@ class SocketEndpoint(BaseEndpoint):
         self.loop = loop or asyncio.get_event_loop()
         self.reuse_port = reuse_port
 
+        self.sock = self.normalize_socket(sock, default_port=default_port)
+
+    @staticmethod
+    def normalize_socket(sock, default_port="8080"):
         if isinstance(sock, str):
             if not sock.startswith('unix:'):
                 if ':' not in sock:
@@ -48,14 +52,14 @@ class SocketEndpoint(BaseEndpoint):
                 host = host or '127.0.0.1'
                 port = port or default_port
                 sock = host + ':' + port
+        return sock
 
-        self.sock = sock
-
-    def make_socket(self):
+    @staticmethod
+    def mk_socket(sock, reuse_port):
         """
-            make and bind socket if string object is passed
+            make, bind and return socket if string object is passed
+            if not return sock as is
         """
-        sock = self.sock
         if isinstance(sock, str):
             if not sock.startswith('unix:'):
                 try:
@@ -71,14 +75,20 @@ class SocketEndpoint(BaseEndpoint):
             else:
                 bind_param = sock.split(":", 1)[1]
                 sock_obj = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            if self.reuse_port:
+            if reuse_port:
                 SO_REUSEPORT = 15
                 sock_obj.setsockopt(socket.SOL_SOCKET, SO_REUSEPORT, 1)
             sock_obj.bind(bind_param)
         else:
             sock_obj = sock
 
-        self.sock_obj = sock_obj
+        return sock_obj
+
+    def make_socket(self):
+        """
+            make and bind socket if string object is passed
+        """
+        self.sock_obj = self.mk_socket(self.sock, self.reuse_port)
 
 
 from pypeman.helpers import lazyload  # noqa: E402

@@ -22,7 +22,7 @@ LOGGING = {
     },
     'handlers': {
         'console': {
-            'level': 'INFO',
+            'level': 'DEBUG',
             'class': 'logging.StreamHandler',
             'formatter': 'basic',
         },
@@ -35,11 +35,11 @@ LOGGING = {
     },
     'loggers': {
         '': {  # The root logger
-            'level': 'INFO',
+            'level': 'DEBUG',
             'handlers': ['console'],
         },
         'asyncio': {
-            'level': 'DEBUG',
+            'level': 'INFO',
             'handlers': ['console', 'asyncio_file'],
         },
         'pypeman.channels': {

@@ -18,6 +18,8 @@ from pypeman.errors import PypemanError
 
 def load_project():
     settings.init_settings()
+    from pypeman.plugin_mgr import manager as plugin_manager
+    plugin_manager.import_plugins()
     project_module = settings.PROJECT_MODULE
     try:
         importlib.import_module(project_module)
@@ -34,6 +36,8 @@ def load_project():
     except Exception:
         traceback.print_exc()
         raise
+    plugin_manager.init_plugins()
+    plugin_manager.ready_plugins()
 
 
 def wait_for_loop(tmax=5.0):

@@ -4,10 +4,15 @@
 # This file should contain settings like log settings, urls, usernames, passwords
 
 from dist_settings import *  # noqa: F401, F403
+from dist_settings import PLUGINS
 
 
 # Here you can configure the logging for Pypeman
 # the framework will call logging.config.dictConfig(settings.LOGGING)
+PLUGINS.extend([
+    "pypeman.plugins.base.BasePlugin",
+    ])
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,

@@ -81,6 +81,9 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
     logger = logging.getLogger(__name__)
     loop = asyncio.get_event_loop()
 
+    from pypeman.plugin_mgr import manager as plugin_manager
+    plugin_manager.set_loop(loop)
+
     ctx = dict(
         logger=logger,
         loop=loop,
@@ -96,6 +99,9 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
         loop.slow_callback_duration = settings.DEBUG_PARAMS['slow_callback_duration']
         loop.set_debug(True)
         warnings.simplefilter('default')
+
+    # Start plugins
+    plugin_manager.start_plugins()
 
     # Start channels
     for chan in channels.all_channels:
@@ -137,6 +143,7 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
         cli = CLI(namespace=namespace)
         cli.run_as_thread()
 
+    # TODO: might transform remote_admin into a plugin
     if remote_admin:
         remote = remoteadmin.RemoteAdminServer(loop=loop, **settings.REMOTE_ADMIN_WEBSOCKET_CONFIG)
         loop.run_until_complete(remote.start())
@@ -172,6 +179,9 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
     # Stop all channels
     for chan in channels.all_channels:
         loop.run_until_complete(chan.stop())
+
+    # Stop all plugins
+    plugin_manager.stop_plugins()
 
     pending = asyncio.Task.all_tasks()
     loop.run_until_complete(asyncio.gather(*pending))

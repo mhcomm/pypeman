@@ -167,7 +167,7 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
     # the endpoints before te channels
 
     # for end in endpoints.all_endpoints:
-    #     loop.run_until_complete(end.start())
+    #     loop.run_until_complete(end.stop())
 
     # Stop all channels
     for chan in channels.all_channels:

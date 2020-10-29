@@ -411,19 +411,19 @@ class BaseChannel:
         """
         for node in self._nodes:
             if isinstance(node, SubChannel):
-                print(prefix + '|—\\ (%s)' % node.name)
+                yield prefix + '|—\\ (%s)' % node.name
                 node.graph(prefix='|  ' + prefix)
             elif isinstance(node, ConditionSubChannel):
-                print(prefix + '|?\\ (%s)' % node.name)
+                yield prefix + '|?\\ (%s)' % node.name
                 node.graph(prefix='|  ' + prefix)
-                print(prefix + '|  -> Out')
+                yield prefix + '|  -> Out'
             elif isinstance(node, Case):
                 for i, c in enumerate(node.cases):
-                    print(prefix + '|c%s\\' % i)
+                    yield prefix + '|c%s\\' % i
                     c[1].graph(prefix='|  ' + prefix)
-                    print(prefix + '|<--')
+                    yield prefix + '|<--'
             else:
-                print(prefix + '|-' + node.name)
+                yield prefix + '|-' + node.name
 
     def graph_dot(self, end=''):
         """
@@ -432,7 +432,7 @@ class BaseChannel:
         after = []
         cases = None
 
-        print('#---')
+        yield '#---'
 
         previous = self.name
 
@@ -441,11 +441,11 @@ class BaseChannel:
 
         for node in self._nodes:
             if isinstance(node, SubChannel):
-                print('"%s"->"%s";' % (previous, node.name))
+                yield '"%s"->"%s";' % (previous, node.name)
                 after.append((None, node))
 
             elif isinstance(node, ConditionSubChannel):
-                print('"%s"->"%s" [style=dotted];' % (previous, node.name))
+                yield '"%s"->"%s" [style=dotted];' % (previous, node.name)
                 after.append((end, node))
 
             elif isinstance(node, Case):
@@ -454,17 +454,17 @@ class BaseChannel:
             else:
                 if cases:
                     for c in cases:
-                        print('"%s"->"%s" [style=dotted];' % (previous, c.name))
+                        yield '"%s"->"%s" [style=dotted];' % (previous, c.name)
                         after.append((node.name, c))
                     cases = None
 
                 else:
-                    print('"%s"->"%s";' % (previous, node.name))
+                    yield '"%s"->"%s";' % (previous, node.name)
 
                 previous = node.name
 
         if end:
-            print('"%s"->"%s";' % (previous, end))
+            yield '"%s"->"%s";' % (previous, end)
 
         for end, sub in after:
             sub.graph_dot(end=end)

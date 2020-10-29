@@ -57,3 +57,37 @@ def wait_for_loop(tmax=5.0):
                 raise PypemanError("couldn't obtain graph's loop")
         time.sleep(0.1)
     return loop
+
+
+def mk_ascii_graph(title=None):
+    """ Show pypeman graph as ascii output.
+        Better reuse for debugging or new code
+    """
+    if title:
+        yield title
+    for channel in channels.all_channels:
+        if not channel.parent:
+            yield channel.__class__.__name__
+            channel.graph()
+            yield "|-> out"
+            yield ""
+
+
+def mk_graph(dot=False):
+    if dot:
+        yield "digraph testgraph{"
+
+        # Handle channel node shape
+        for channel in channels.all_channels:
+            yield '{node[shape=box]; "%s"; }' % channel.name
+
+        # Draw each graph
+        for channel in channels.all_channels:
+            if not channel.parent:
+                for line in channel.graph_dot():
+                    yield line
+
+        yield "}"
+    else:
+        for line in mk_ascii_graph():
+            yield line

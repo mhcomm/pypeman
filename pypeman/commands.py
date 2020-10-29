@@ -39,6 +39,7 @@ from pypeman import nodes
 from pypeman import remoteadmin
 from pypeman.conf import settings
 from pypeman.graph import load_project
+from pypeman.graph import mk_graph
 from pypeman.helpers.reloader import reloader_opt
 
 
@@ -266,20 +267,6 @@ def stop():
     daemon.stop()
 
 
-def show_ascii_graph(title=None):
-    """ Show pypeman graph as ascii output.
-        Better reuse for debugging or new code
-    """
-    if title:
-        print(title)
-    for channel in channels.all_channels:
-        if not channel.parent:
-            print(channel.__class__.__name__)
-            channel.graph()
-            print('|-> out')
-            print()
-
-
 @cli.command(context_settings=CLI_CTX_SETTINGS)
 def printsettings():
     """
@@ -303,22 +290,8 @@ def graph(dot):
     """ Show channel graph"""
 
     load_project()
-
-    if dot:
-        print("digraph testgraph{")
-
-        # Handle channel node shape
-        for channel in channels.all_channels:
-            print('{node[shape=box]; "%s"; }' % channel.name)
-
-        # Draw each graph
-        for channel in channels.all_channels:
-            if not channel.parent:
-                channel.graph_dot()
-
-        print("}")
-    else:
-        show_ascii_graph()
+    for line in mk_graph(dot):
+        print(line)
 
 
 @cli.command(context_settings=CLI_CTX_SETTINGS)

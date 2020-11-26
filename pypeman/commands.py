@@ -166,8 +166,8 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
     # Intuitively, as we start endpoints after the channels we should probably stop
     # the endpoints before te channels
 
-    # for end in endpoints.all_endpoints:
-    #     loop.run_until_complete(end.stop())
+    for end in endpoints.all_endpoints:
+        loop.run_until_complete(end.stop())
 
     # Stop all channels
     for chan in channels.all_channels:

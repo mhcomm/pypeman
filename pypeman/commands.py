@@ -158,7 +158,7 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
         cli = CLI(namespace=namespace)
         cli.run_as_thread()
 
-    # TODO: might transform remote_admin into a plugin
+    # https://github.com/mhcomm/pypeman/issues/149 (convert rmt admin to plugin)
     if remote_admin:
         remote = remoteadmin.RemoteAdminServer(loop=loop, **settings.REMOTE_ADMIN_WEBSOCKET_CONFIG)
         loop.run_until_complete(remote.start())

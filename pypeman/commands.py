@@ -9,10 +9,8 @@
 
 
 import asyncio
-import importlib
 import logging
 import os
-import traceback
 import signal
 import sys
 import warnings
@@ -40,6 +38,8 @@ from pypeman import endpoints
 from pypeman import nodes
 from pypeman import remoteadmin
 from pypeman.conf import settings
+from pypeman.graph import load_project
+from pypeman.graph import mk_graph
 from pypeman.helpers.reloader import reloader_opt
 
 
@@ -67,26 +67,8 @@ def sig_handler_func(loop, signal, ctx):
     loop.create_task(sig_handler_coro(loop, signal, ctx))
 
 
-def load_project():
-    settings.init_settings()
-    project_module = settings.PROJECT_MODULE
-    try:
-        importlib.import_module(project_module)
-    except ImportError as exc:
-        msg = str(exc)
-        if 'No module' not in msg:
-            print("IMPORT ERROR %s" % project_module)
-            raise
-        if project_module not in msg:
-            print("IMPORT ERROR %s" % project_module)
-            raise
-        print("Missing '%s' module !" % project_module)
-        sys.exit(-1)
-    except Exception:
-        traceback.print_exc()
-        raise
-
-
+# TODO: might rename main and refactor into pypman.graph
+# could call it perhaps. run_graph() or load_and_run_graph()
 def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
 
     if debug_asyncio:
@@ -179,6 +161,15 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
 
     print("End started tasks...")
 
+    # TODO: Shouldn't we also stop all endpoints?
+    # TODO: and if yes, before or after stopping the channels
+    # Intuitively, as we start endpoints after the channels we should probably stop
+    # the endpoints before te channels
+
+    for end in endpoints.all_endpoints:
+        loop.run_until_complete(end.stop())
+
+    # Stop all channels
     for chan in channels.all_channels:
         loop.run_until_complete(chan.stop())
 
@@ -276,20 +267,6 @@ def stop():
     daemon.stop()
 
 
-def show_ascii_graph(title=None):
-    """ Show pypeman graph as ascii output.
-        Better reuse for debugging or new code
-    """
-    if title:
-        print(title)
-    for channel in channels.all_channels:
-        if not channel.parent:
-            print(channel.__class__.__name__)
-            channel.graph()
-            print('|-> out')
-            print()
-
-
 @cli.command(context_settings=CLI_CTX_SETTINGS)
 def printsettings():
     """
@@ -313,22 +290,8 @@ def graph(dot):
     """ Show channel graph"""
 
     load_project()
-
-    if dot:
-        print("digraph testgraph{")
-
-        # Handle channel node shape
-        for channel in channels.all_channels:
-            print('{node[shape=box]; "%s"; }' % channel.name)
-
-        # Draw each graph
-        for channel in channels.all_channels:
-            if not channel.parent:
-                channel.graph_dot()
-
-        print("}")
-    else:
-        show_ascii_graph()
+    for line in mk_graph(dot):
+        print(line)
 
 
 @cli.command(context_settings=CLI_CTX_SETTINGS)

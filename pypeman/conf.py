@@ -6,8 +6,6 @@
 """
    Summary    :  TBD...
 """
-from __future__ import absolute_import
-
 __author__ = "jeremie"
 __copyright__ = "(C) 2016 by MHComm. All rights reserved"
 __email__ = "info@mhcomm.fr"

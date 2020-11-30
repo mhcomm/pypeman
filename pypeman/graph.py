@@ -6,10 +6,34 @@ to be moved into this module
 """
 
 
+import importlib
+import sys
 import time
+import traceback
 
+from pypeman.conf import settings
 from pypeman import channels
 from pypeman.errors import PypemanError
+
+
+def load_project():
+    settings.init_settings()
+    project_module = settings.PROJECT_MODULE
+    try:
+        importlib.import_module(project_module)
+    except ImportError as exc:
+        msg = str(exc)
+        if 'No module' not in msg:
+            print("IMPORT ERROR %s" % project_module)
+            raise
+        if project_module not in msg:
+            print("IMPORT ERROR %s" % project_module)
+            raise
+        print("Missing '%s' module !" % project_module)
+        sys.exit(-1)
+    except Exception:
+        traceback.print_exc()
+        raise
 
 
 def wait_for_loop(tmax=5.0):
@@ -33,3 +57,37 @@ def wait_for_loop(tmax=5.0):
                 raise PypemanError("couldn't obtain graph's loop")
         time.sleep(0.1)
     return loop
+
+
+def mk_ascii_graph(title=None):
+    """ Show pypeman graph as ascii output.
+        Better reuse for debugging or new code
+    """
+    if title:
+        yield title
+    for channel in channels.all_channels:
+        if not channel.parent:
+            yield channel.__class__.__name__
+            channel.graph()
+            yield "|-> out"
+            yield ""
+
+
+def mk_graph(dot=False):
+    if dot:
+        yield "digraph testgraph{"
+
+        # Handle channel node shape
+        for channel in channels.all_channels:
+            yield '{node[shape=box]; "%s"; }' % channel.name
+
+        # Draw each graph
+        for channel in channels.all_channels:
+            if not channel.parent:
+                for line in channel.graph_dot():
+                    yield line
+
+        yield "}"
+    else:
+        for line in mk_ascii_graph():
+            yield line

@@ -183,14 +183,7 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
 
     logger.debug("loop was stopped.")
     logger.debug("stop pypeman graph as nicely as possible")
-    # TODO: might have to:
-    #   - stop all interruptable sleeps
-    #   - tell endpoints to refuse new connections,
-    #       BUT to finish current ones
-    #   - stop channels (whatever this meams)
-    #   - stop plugins
-    #   - provide a grace period in case some code doesn't
-    #     want to finish nicely
+    # https://github.com/mhcomm/pypeman/issues/150 ( ensure clean shutdown)
 
     for end in endpoints.all_endpoints:
         logger.debug("stop endpoint %s", repr(end))

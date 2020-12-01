@@ -25,16 +25,12 @@ class BasePlugin:
         """
         Early initialisation before any pypeman endpoints and channels are created
         """
-        self.name = __name__ + str(self.__class__)
-        logger.debug("Initialized plugin %s", self.name)
-        self.do_init()
+        self.name = f"{__name__}.{self.__class__}"
+        logger.debug("Initialing plugin %s", self.name)
         self.status = self.INITIALIZED
         self.loop = None
         self.to_start = []
         self.start_results = []
-
-    def do_init(self):
-        pass
 
     def ready(self):
         """
@@ -74,20 +70,19 @@ class BasePlugin:
             start_rslt = self.do_start()
             logger.debug("do_start rslt = %s", repr(start_rslt))
             if isinstance(start_rslt, (list, tuple)):
-                logger.debug("isnocoro")
+                logger.debug("start_rslt is no coro")
                 for coro in start_rslt:
                     rslt = await coro
                     self.start_results.append(rslt)
             elif start_rslt is None:
-                pass
-                logger.debug("None")
+                logger.debug("start_rslt is None")
             elif iscoroutinefunction(start_rslt):
-                logger.debug("iscoro")
+                logger.debug("start_rslt is a coro")
                 rslt = await start_rslt()
                 logger.debug("rslt: %s", repr(rslt))
                 self.start_results.append(rslt)
             else:
-                logger.debug("awaitable")
+                logger.debug("start_rslt is awaitable")
                 rslt = await start_rslt
                 logger.debug("rslt: %s", repr(rslt))
                 self.start_results.append(rslt)
@@ -117,7 +112,7 @@ class BasePlugin:
                 await self.do_stop()
             else:
                 coro = self.do_stop()
-                assert iscoroutinefunction(self.do_stop)
+                assert iscoroutinefunction(coro)
                 await coro
             self.status = self.STOPPED
 

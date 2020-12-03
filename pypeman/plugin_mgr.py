@@ -50,11 +50,11 @@ class PluginManager():
         # shutdown previous plugins if existing
         if self.plugins:
             for plugin in self.plugins:
-                if plugin.state == "started":
-                    self.plugin.stop()
+                if plugin.status == plugin.STARTED:
+                    self.plugin.do_stop()
             for plugin in self.plugins:
-                if plugin.state == "stopped":
-                    self.plugin.destroy()
+                if plugin.status == plugin.STOPPED:
+                    self.plugin.do_destroy()
 
         # instantiate plugins
         self.plugins = []
@@ -69,7 +69,7 @@ class PluginManager():
         """
         for plugin, plugin_cls in zip(self.plugins, self.plugin_classes):
             logger.info("calling ready for plugin %s", repr(plugin_cls))
-            plugin.ready()
+            plugin.do_ready()
 
     def start_plugins(self):
         """
@@ -78,7 +78,7 @@ class PluginManager():
         loop = self.loop
         for plugin, plugin_cls in zip(self.plugins, self.plugin_classes):
             logger.info("starting plugin %s", repr(plugin_cls))
-            loop.run_until_complete(plugin.start())
+            loop.run_until_complete(plugin.do_start())
             # start whatever the plugin wants to start
             for to_start in plugin.to_start:
                 loop.run_until_complete(to_start)
@@ -90,7 +90,7 @@ class PluginManager():
         loop = self.loop
         for plugin, plugin_cls in zip(self.plugins, self.plugin_classes):
             logger.info("stopping plugin %s", repr(plugin_cls))
-            loop.run_until_complete(plugin.stop())
+            loop.run_until_complete(plugin.do_stop())
 
 
 manager = PluginManager()

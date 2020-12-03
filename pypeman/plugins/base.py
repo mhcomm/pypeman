@@ -32,17 +32,17 @@ class BasePlugin:
         self.to_start = []
         self.start_results = []
 
-    def ready(self):
+    def do_ready(self):
         """
         Code to be executed after the whole pypeman graph has been generated.
         ready() functions of all plugins are executed before the loop is generated
         """
         logger.debug("called ready for plugin %s", self.name)
         assert self.status == self.INITIALIZED
-        self.do_ready()
+        self.ready()
         self.status = self.READY
 
-    def do_ready(self):
+    def ready(self):
         pass
 
     def set_loop(self, loop):
@@ -56,19 +56,19 @@ class BasePlugin:
     def set_started(self):
         self.status = self.STARTED
 
-    async def start(self):
+    async def do_start(self):
         """
         Code to be executed after the creation of the event loop
         """
         self.set_starting()
-        if iscoroutinefunction(self.do_start):
-            logger.debug("awaiting coro do_start()")
-            future = await self.do_start()
+        if iscoroutinefunction(self.start):
+            logger.debug("awaiting coro start()")
+            future = await self.start()
             logger.debug("started => %s", repr(future))
             self.start_results.append(future)
         else:
-            start_rslt = self.do_start()
-            logger.debug("do_start rslt = %s", repr(start_rslt))
+            start_rslt = self.start()
+            logger.debug("start rslt = %s", repr(start_rslt))
             if isinstance(start_rslt, (list, tuple)):
                 logger.debug("start_rslt is no coro")
                 for coro in start_rslt:
@@ -89,16 +89,16 @@ class BasePlugin:
         self.set_started()
         logger.debug("end of start")
 
-    async def do_start(self):
+    async def start(self):
         pass
 
     def start_coro_list(self):
         """
         alternative start implementation returning a list of coros to be executed.
         """
-        return [self.start()]
+        return [self.do_start()]
 
-    async def stop(self):
+    async def do_stop(self):
         """
         Code to be executed before mainloop shall be stopped
         """
@@ -107,26 +107,26 @@ class BasePlugin:
         if self.status == self.STARTING:
             raise NotImplementedError("had to wait till started before stopping")
         elif self.status == self.STARTED:
-            if iscoroutinefunction(self.do_stop):
-                logger.debug("awaiting coro do_stop()")
-                await self.do_stop()
+            if iscoroutinefunction(self.stop):
+                logger.debug("awaiting coro stop()")
+                await self.stop()
             else:
-                coro = self.do_stop()
+                coro = self.stop()
                 assert iscoroutinefunction(coro)
                 await coro
             self.status = self.STOPPED
 
-    async def do_stop(self):
+    async def stop(self):
         pass
 
-    def destroy(self):
+    def do_destroy(self):
         """
         Code to be executed after all plugins are stopped
         """
         logger.debug("destroying plugin %s", self.name)
         assert self.status == self.STOPPED
-        self.do_destroy()
+        self.destroy()
 
-    def do_destroy(self):
+    def destroy(self):
         assert self.status in (self.INITIAL, self.STOPPED)
         self.status = self.DESTROYED

@@ -50,17 +50,31 @@ async def sig_handler_coro(loop, signal, ctx):
     """
     asyncio code handling the reception of signals
     """
+    # TODO: is this really the right way to stop pypeman.
+    # TODO: should'nt we just stop the loop and let the main() function do the rest.
     logger = ctx["logger"]
     logger.debug("signal handler coro called for signal %s", signal)
-    for channel in channels.all_channels:
-        logger.debug("stop channel %s", channel.name)
-        await channel.stop()
-    # sleep for a grace period of 3 seconds. Might be able to remove lateron
-    grace_period = 3
-    logger.debug("waiting for %ds to let channels stop", grace_period)
-    await asyncio.sleep(grace_period)
+    # TODO: Check probably this strange magic was intended to allow stopping
+    #   file watchers or any other tasks with a sleep.
+    #   Let's debug with a file watcher (currently using a sleep)
+    #   and a channel with a sleep
+    #
+    # probably interrupting sleepers and implementing a grace period should not be done
+    # here, but in "main()"
+    #
+    # logger.debug("wait for a grace periond")
+    # grace_period = 3
+    # await asyncio.sleep(grace_period)
+    logger.debug("now stop the loop")
     loop.stop()
-    logger.debug("loop stopped")
+
+    # I really hope we can remove this code. and handle everything in main
+    # for channel in channels.all_channels:
+    #     logger.debug("stop channel %s", channel.name)
+    #     await channel.stop()
+    # # sleep for a grace period of 3 seconds. Might be able to remove lateron
+    # logger.debug("waiting for %ds to let channels stop", grace_period)
+    # logger.debug("loop stopped")
 
 
 def sig_handler_func(loop, signal, ctx):
@@ -81,6 +95,9 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
     logger = logging.getLogger(__name__)
     loop = asyncio.get_event_loop()
 
+    from pypeman.plugin_mgr import manager as plugin_manager
+    plugin_manager.set_loop(loop)
+
     ctx = dict(
         logger=logger,
         loop=loop,
@@ -96,6 +113,9 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
         loop.slow_callback_duration = settings.DEBUG_PARAMS['slow_callback_duration']
         loop.set_debug(True)
         warnings.simplefilter('default')
+
+    # Start plugins
+    plugin_manager.start_plugins()
 
     # Start channels
     for chan in channels.all_channels:
@@ -131,12 +151,14 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
             nodes=nodes,
             endpoints=endpoints,
             channels=channels,
+            plugin_manager=plugin_manager,
             )
         ctx["cli"] = cli
         ctx.update(namespace)
         cli = CLI(namespace=namespace)
         cli.run_as_thread()
 
+    # https://github.com/mhcomm/pypeman/issues/149 (convert rmt admin to plugin)
     if remote_admin:
         remote = remoteadmin.RemoteAdminServer(loop=loop, **settings.REMOTE_ADMIN_WEBSOCKET_CONFIG)
         loop.run_until_complete(remote.start())
@@ -159,21 +181,28 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
     except KeyboardInterrupt:
         pass
 
-    print("End started tasks...")
-
-    # TODO: Shouldn't we also stop all endpoints?
-    # TODO: and if yes, before or after stopping the channels
-    # Intuitively, as we start endpoints after the channels we should probably stop
-    # the endpoints before te channels
+    logger.debug("loop was stopped.")
+    logger.debug("stop pypeman graph as nicely as possible")
+    # https://github.com/mhcomm/pypeman/issues/150 ( ensure clean shutdown)
 
     for end in endpoints.all_endpoints:
+        logger.debug("stop endpoint %s", repr(end))
         loop.run_until_complete(end.stop())
 
     # Stop all channels
     for chan in channels.all_channels:
+        logger.debug("stop channel %s", repr(chan))
         loop.run_until_complete(chan.stop())
 
+    # Stop all plugins
+    plugin_manager.stop_plugins()
+
+    print("End started tasks...")
     pending = asyncio.Task.all_tasks()
+    logger.debug("%d pending tasks to wait for", len(pending))
+    for task in pending:
+        logger.debug("shall wait for task %s", repr(task))
+    # TODO: This is where we might have to add a grace period.
     loop.run_until_complete(asyncio.gather(*pending))
 
     loop.close()

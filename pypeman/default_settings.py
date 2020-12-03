@@ -30,6 +30,8 @@ HTTP_ENDPOINT_CONFIG = ['0.0.0.0', '8080']
 PERSISTENCE_BACKEND = None
 PERSISTENCE_CONFIG = {}
 
+PLUGINS = []
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,

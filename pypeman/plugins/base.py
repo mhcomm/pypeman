@@ -105,7 +105,9 @@ class BasePlugin:
         logger.debug("stopping plugin %s", self.name)
         assert self.status in (self.INITIALIZED, self.STARTING, self.STARTED)
         if self.status == self.STARTING:
-            raise NotImplementedError("had to wait till started before stopping")
+            # TODO: should change lateron, that a starting plugin can also
+            #       be stopped
+            raise RuntimeError("had to wait till started before stopping")
         elif self.status == self.STARTED:
             if iscoroutinefunction(self.stop):
                 logger.debug("awaiting coro stop()")

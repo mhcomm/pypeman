@@ -1,7 +1,11 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
 
-* remove python 3.5 from supported versions. do nothing to actively destroy
-  compatibility though
+## [0.4.0](https://github.com/mhcomm/pypeman/compare/0.3.5...0.4.0)
+* remove python 3.5 from supported versions.
+* create a node to combine contexts
+* some refactoring for better reuse and a sample project
+* some more refactoring and cleanup mv code out of commands, comments, rmv py2 code
+* add a first version of a plugin manager. (requires py3.6)
 
 ## [0.3.5](https://github.com/mhcomm/pypeman/compare/0.3.4...0.3.5)
 * fix regression #133 (pypeman pytest regression for additional args)

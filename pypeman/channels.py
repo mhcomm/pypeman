@@ -627,10 +627,10 @@ class FileWatcherChannel(BaseChannel):
             pass
 
     async def watch_for_file(self):
-        self.logger.warning("Will sleep")
+        # self.logger.debug("Will sleep")
         await self.interruptable_sleeper.sleep(self.interval)
         # await asyncio.sleep(self.interval, loop=self.loop)
-        self.logger.warning("sleep done")
+        # self.logger.debug("sleep done")
         try:
             if os.path.exists(self.basedir):
                 listfile = os.listdir(self.basedir)

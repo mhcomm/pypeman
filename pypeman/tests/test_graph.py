@@ -1,9 +1,14 @@
+import asyncio
 from unittest import mock
 
 import pytest
 
+from pypeman import channels
+from pypeman import nodes
 from pypeman.errors import PypemanError
+from pypeman.graph import mk_graph
 from pypeman.graph import wait_for_loop
+from pypeman.tests.pytest_helpers import clear_graph  # noqa: F401
 
 
 class FakeChannel:
@@ -44,3 +49,24 @@ def test_have_loop():
     loop = wait_for_loop(tmax=0.1)
     print("loop =", loop)
     assert loop, "loop should be set, but is %s" % loop
+
+
+@pytest.mark.usefixtures("clear_graph")
+def test_show_graph():
+    """ is a graph generated """
+    loop = asyncio.new_event_loop()
+    print("loop =", loop)
+    names = (f"n{cnt}" for cnt in range(10))
+    chan1 = channels.BaseChannel(name=next(names), loop=loop)
+    chan1.add(nodes.BaseNode(name=next(names)))
+    chan1.add(nodes.BaseNode(name=next(names)))
+    subchan = chan1.when(lambda v: True, name=next(names))
+    subchan.add(nodes.BaseNode(name=next(names)))
+    rslt = list(mk_graph())
+    as_str = "\n".join(rslt)
+    print("RSLT:", as_str)
+    print(repr(as_str))
+    assert len(rslt) == 8
+    assert as_str == (
+        "BaseChannel\n|-n1\n|-n2\n|?\\ (n0.n3)\n|"
+        "  |-n4\n|  -> Out\n|-> out\n")

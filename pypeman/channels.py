@@ -469,6 +469,10 @@ class BaseChannel:
     def __str__(self):
         return "<chan: %s>" % self.name
 
+    def __repr__(self):
+        typ = type(self)
+        return "<%s.%s:(\"%s\")>" % (typ.__module__, typ.__name__, self.name)
+
 
 def reset_pypeman_channels():
     """

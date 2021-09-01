@@ -72,7 +72,8 @@ def mk_ascii_graph(title=None):
     for channel in channels.all_channels:
         if not channel.parent:
             yield channel.__class__.__name__
-            channel.graph()
+            for entry in channel.graph():
+                yield entry
             yield "|-> out"
             yield ""
 

@@ -409,15 +409,18 @@ class BaseChannel:
         for node in self._nodes:
             if isinstance(node, SubChannel):
                 yield prefix + '|—\\ (%s)' % node.name
-                node.graph(prefix='|  ' + prefix)
+                for entry in node.graph(prefix='|  ' + prefix):
+                    yield entry
             elif isinstance(node, ConditionSubChannel):
                 yield prefix + '|?\\ (%s)' % node.name
-                node.graph(prefix='|  ' + prefix)
+                for entry in node.graph(prefix='|  ' + prefix):
+                    yield entry
                 yield prefix + '|  -> Out'
             elif isinstance(node, Case):
                 for i, c in enumerate(node.cases):
                     yield prefix + '|c%s\\' % i
-                    c[1].graph(prefix='|  ' + prefix)
+                    for entry in c[1].graph(prefix='|  ' + prefix):
+                        yield entry
                     yield prefix + '|<--'
             else:
                 yield prefix + '|-' + node.name
@@ -464,7 +467,8 @@ class BaseChannel:
             yield '"%s"->"%s";' % (previous, end)
 
         for end, sub in after:
-            sub.graph_dot(end=end)
+            for entry in sub.graph_dot(end=end):
+                yield entry
 
     def __str__(self):
         return "<chan: %s>" % self.name

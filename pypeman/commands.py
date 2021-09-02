@@ -152,6 +152,7 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
             endpoints=endpoints,
             channels=channels,
             plugin_manager=plugin_manager,
+            settings=settings,
             )
         ctx["cli"] = cli
         ctx.update(namespace)

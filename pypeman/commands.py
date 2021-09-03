@@ -153,6 +153,7 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
             channels=channels,
             plugin_manager=plugin_manager,
             settings=settings,
+            print_graph=print_graph,
             )
         ctx["cli"] = cli
         ctx.update(namespace)
@@ -311,6 +312,12 @@ def printsettings():
         print(name, "=", repr(getattr(settings, name)))
 
 
+def print_graph(dot=False):
+    """ prints the project graph """
+    for line in mk_graph(dot):
+        print(line)
+
+
 @cli.command(context_settings=CLI_CTX_SETTINGS)
 @click.option(
     "--dot", is_flag=True,
@@ -320,8 +327,7 @@ def graph(dot):
     """ Show channel graph"""
 
     load_project()
-    for line in mk_graph(dot):
-        print(line)
+    print_graph(dot)
 
 
 @cli.command(context_settings=CLI_CTX_SETTINGS)

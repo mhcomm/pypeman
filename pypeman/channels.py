@@ -9,6 +9,7 @@ import warnings
 from asyncio import ensure_future
 
 from pypeman import message, msgstore, events
+from pypeman.helpers.itertools import flatten
 from pypeman.helpers.sleeper import Sleeper
 
 
@@ -214,8 +215,11 @@ class BaseChannel:
         """
         Append specified nodes to channel.
 
-        :param args: Nodes to add.
+        :param args: Nodes to add. can be a list, a tupe or a nested
+                list of tuples or lists if nodes.
+                nodes with value None are ignored
         """
+        args = [node for node in flatten(args) if node]
         for node in args:
             node.channel = self
             self._nodes.append(node)
@@ -225,7 +229,8 @@ class BaseChannel:
 
     def fork(self, name=None, message_store_factory=None):
         """
-        Create a new channel that process a copy of the message at this point.
+        Create a new channel that processes a copy of the message
+        at this point.
         Subchannels are executed in parallel of main process.
 
         :return: The forked channel

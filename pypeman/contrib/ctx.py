@@ -56,7 +56,6 @@ class CombineCtx(nodes.BaseNode):
                 payload.update(ctx_payload)
             else:
                 payload[dst] = msg.ctx[ctx_name]['payload']
-            ch_logger.debug("combine payload = %s", repr(payload))
 
         msg.payload = payload
 

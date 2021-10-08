@@ -1,5 +1,11 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
 
+## [0.4.1](https://github.com/mhcomm/pypeman/compare/0.4.0...0.4.1)
+* cleanup: rmv bad logs (too verbose combine + file watcher logs)
+* change repr string for channels
+* fix graph command (sub nodes were missing)
+* add print_graph command to cli_mode
+* allow None nodes and nested lists for channel.append()
 ## [0.4.0](https://github.com/mhcomm/pypeman/compare/0.3.5...0.4.0)
 * remove python 3.5 from supported versions.
 * create a node to combine contexts

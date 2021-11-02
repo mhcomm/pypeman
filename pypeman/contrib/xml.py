@@ -22,10 +22,12 @@ class PythonToXML(nodes.BaseNode):
     """ Convert python payload to XML."""
 
     def __init__(self, *args, **kwargs):
+        self.encoding = kwargs.pop('encoding', None)
         self.pretty = kwargs.pop('pretty', False)
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
-        msg.payload = xmltodict.unparse(msg.payload, pretty=self.pretty)
+        msg.payload = xmltodict.unparse(
+            msg.payload, encoding=self.encoding, pretty=self.pretty)
         msg.content_type = 'application/xml'
         return msg

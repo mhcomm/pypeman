@@ -22,7 +22,7 @@ class PythonToXML(nodes.BaseNode):
     """ Convert python payload to XML."""
 
     def __init__(self, *args, **kwargs):
-        self.encoding = kwargs.pop('encoding', None)
+        self.encoding = kwargs.pop('encoding', "utf-8")
         self.pretty = kwargs.pop('pretty', False)
         super().__init__(*args, **kwargs)
 

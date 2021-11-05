@@ -141,11 +141,22 @@ class RemoteAdminServer():
             'status': channels.BaseChannel.status_id_to_str(chan.status)
         }
 
-    async def list_msg(self, channel, start=0, count=10, order_by='timestamp'):
+    async def list_msg(self, channel, start=0, count=10, order_by='timestamp', mk_b64pickle=False):
         """
         List first `count` messages from message store of specified channel.
 
         :params channel: The channel name.
+        :param mk_b64pickle: if True (yield payload / ctx fields as b64 encoded pickles)
+                if False a a dict with a field type, field value and a field repr
+                will be created.
+                Field types depend on the channel's jsonable_msg_info_for_admin() method
+                typical values are:
+                    "asis": value is the object 'asis', as the object could be pickled
+                    "bytes": bytes just as ASCII string
+                    "utf8bytes": bytes as UTF8 string
+                    "b64":  base 64 encoded bytes
+                    "repr": a repr() string of the object is returned
+                    "b64pickle": all fields b64 encoded pickles of the related python object
         """
         chan = self.get_channel(channel)
 
@@ -153,7 +164,11 @@ class RemoteAdminServer():
 
         for res in messages:
             res['timestamp'] = res['message'].timestamp_str()
-            res['message'] = res['message'].to_json()
+            if mk_b64pickle:
+                res['message'] = res['message'].to_json()
+            else:
+                msg = res['message']
+                res['message'] = chan.jsonable_msg_info_for_admin(msg)
 
         return {'messages': messages, 'total': await chan.message_store.total()}
 
@@ -180,7 +195,7 @@ class RemoteAdminServer():
         Push a message in the channel.
 
         :params channel: The channel name.
-        :params msg_ids: The text added to the payload.
+        :params text: The text added to the payload.
         """
         chan = self.get_channel(channel)
         msg = message.Message(payload=text)
@@ -248,7 +263,8 @@ class RemoteAdminClient():
         """
         return self.send_command('stop_channel', [channel])
 
-    def list_msg(self, channel, start=0, count=10, order_by='timestamp'):
+    def list_msg(self, channel, start=0, count=10, order_by='timestamp',
+                 mk_b64pickle=True):
         """
         List first 10 messages on specified channel from remote instance.
 
@@ -258,7 +274,8 @@ class RemoteAdminClient():
         :params order_by: Message order. only 'timestamp' and '-timestamp' handled for now.
         :returns: list of message with status.
         """
-        result = self.send_command('list_msg', [channel, start, count, order_by])
+        result = self.send_command('list_msg', [channel, start, count, 
+                                   order_by, mk_b64pickle])
 
         for m in result['messages']:
             m['message'] = message.Message.from_json(m['message'])

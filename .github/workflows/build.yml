@@ -1,0 +1,41 @@
+name: Pypeman CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.6", "3.7", "3.8", "pypy-3.6", "pypy-3.7"]
+    steps:
+        - uses: actions/checkout@v2
+        - name: setup python
+          uses: actions/setup-python@v2
+          with:
+            python-version: ${{ matrix.python-version }}
+            architecture: x64
+        - name: install dependencies
+          run: |
+            python -m pip install -U pip
+            python -m pip install flake8
+        # - name: check import order
+        #   if: ${{ matrix.python-version == '3.8' }}
+        #   run: |
+        #     python -m pip install isort
+        #     python -m isort --show-files setup.py pypeman
+        #     python -m isort --diff --check setup.py pypeman
+        - name: flake
+          if: ${{ matrix.python-version < 'pypy' }}
+          run: |
+            python -m flake8 pypeman setup.py --exclude pypeman/client
+        - name: pytest
+          run: |
+            python -m pip install nose
+            python -m pip install -r requirements.txt
+            python -m pip install -r requirements_test.txt
+            pytest --cov=pypeman --cov-config=.coveragerc
+            codecov
+

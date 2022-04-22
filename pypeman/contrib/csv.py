@@ -45,17 +45,18 @@ class Python2CSVstr(nodes.BaseNode):
     Convert python list of dict (like json) to csv str
     """
     def __init__(self, *args, header=False, fieldnames=None,
-                 delimiter=',', quoting=None, **kwargs):
+                 delimiter=',', quoting=None, newline="", **kwargs):
         self.header = header
         self.delimiter = delimiter
         self.fieldnames = fieldnames
         self.quoting = quoting or csv.QUOTE_NONE
+        self.newline = newline
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
         data = msg.payload
         fieldnames = self.fieldnames or list(data[0].keys())
-        output = io.StringIO()
+        output = io.StringIO(newline=self.newline)
         writer = csv.DictWriter(output, fieldnames, delimiter=self.delimiter, quoting=self.quoting)
         if self.header:
             writer.writeheader()

@@ -612,7 +612,7 @@ class FileWriter(BaseNode):
     """
         Write a file with the message content.
         Can create a validation file with no content but with same path and same
-        base name with different extension (for exemple .ok)
+        base name with different extension (for example .ok)
     """
     def __init__(self, filepath=None, binary_mode=False, safe_file=True, create_valid_file=False,
                  validation_extension=".ok", *args, **kwargs):
@@ -658,7 +658,7 @@ class FileMover(BaseNode):
 
     Used to store files at another place
     params:
-    dest_fpath : path of the destination folder (if it don't exists it creates it)
+    dest_fpath : path of the destination folder (if it doesn't exists it creates it)
     """
     def __init__(self, dest_path, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -668,7 +668,7 @@ class FileMover(BaseNode):
 
     def process(self, msg):
         dest_fpath = os.path.join(self.dest_path, msg.meta["filename"])
-        logger.info("move file %s to dest %s" % (msg.meta["filepath"], dest_fpath))
+        logger.info("move file %s to dest %s", msg.meta["filepath"], dest_fpath)
         shutil.move(msg.meta["filepath"], dest_fpath)
         msg.meta["filepath"] = dest_fpath
         return msg
@@ -680,7 +680,7 @@ class FileCleaner(BaseNode):
     with a given extension
 
     param:
-    extensions_to_rm => list of all extensions to rm
+    extensions_to_rm => list of all extensions to rm (example: [".ok"])
     msg.meta["filepath"]
     """
     def __init__(self, extensions_to_rm=None, *args, **kwargs):
@@ -688,15 +688,16 @@ class FileCleaner(BaseNode):
         self.extensions_to_rm = extensions_to_rm
 
     def process(self, msg):
-        if os.path.isfile(msg.meta["filepath"]):
-            logger.info("delete %s ..." % msg.meta["filepath"])
-            os.remove(msg.meta["filepath"])
-        base_fpath = os.path.splitext(msg.meta["filepath"])[0]
+        fpath = Path(msg.meta['filepath'])
+        if fpath.is_file():
+            logger.info("delete %s ...", msg.meta["filepath"])
+            fpath.unlink()
         if self.extensions_to_rm:
             for extension in self.extensions_to_rm:
-                if os.path.isfile(base_fpath + extension):
-                    logger.info("delete %s ..." % (base_fpath + extension))
-                    os.remove(base_fpath + extension)
+                meta_path = fpath.with_suffix(extension)
+                if meta_path.is_file():
+                    logger.info("delete %s ...", (meta_path))
+                    meta_path.unlink()
 
 
 class Map(BaseNode):

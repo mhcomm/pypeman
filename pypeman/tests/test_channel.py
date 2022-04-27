@@ -11,8 +11,8 @@ from pypeman.errors import PypemanParamError
 from pypeman.test import TearDownProjectTestCase as TestCase
 from pypeman.tests.common import ExceptNode
 from pypeman.tests.common import generate_msg
-from pypeman.tests.common import ExceptionTest
-from pypeman.tests.common import NodeTest
+from pypeman.tests.common import TstException
+from pypeman.tests.common import TstNode
 
 
 class ChannelsTests(TestCase):
@@ -48,7 +48,7 @@ class ChannelsTests(TestCase):
         """ Whether BaseChannel handling is working """
 
         chan = BaseChannel(name="test_channel1", loop=self.loop)
-        n = NodeTest()
+        n = TstNode()
         msg = generate_msg()
 
         same_chan = chan.add(n)
@@ -75,10 +75,10 @@ class ChannelsTests(TestCase):
         """ Whether Sub Channel is working """
 
         chan = BaseChannel(name="test_channel3", loop=self.loop)
-        n1 = NodeTest(name="main")
-        n2 = NodeTest(name="sub")
-        n3 = NodeTest(name="sub1")
-        n4 = NodeTest(name="sub2")
+        n1 = TstNode(name="main")
+        n2 = TstNode(name="sub")
+        n3 = TstNode(name="sub1")
+        n4 = TstNode(name="sub2")
 
         msg = generate_msg()
 
@@ -102,8 +102,8 @@ class ChannelsTests(TestCase):
         """ Whether Sub Channel exception handling is working """
 
         chan = BaseChannel(name="test_channel4", loop=self.loop)
-        n1 = NodeTest(name="main")
-        n2 = NodeTest(name="sub")
+        n1 = TstNode(name="main")
+        n2 = TstNode(name="sub")
         n3 = ExceptNode(name="sub2")
 
         msg = generate_msg()
@@ -119,7 +119,7 @@ class ChannelsTests(TestCase):
 
         self.assertEqual(n1.processed, 1, "Sub Channel not working")
 
-        with self.assertRaises(ExceptionTest):
+        with self.assertRaises(TstException):
             self.clean_loop()
 
         self.assertEqual(n2.processed, 1, "Sub Channel not working")
@@ -128,10 +128,10 @@ class ChannelsTests(TestCase):
         """ Whether Conditionnal channel is working """
 
         chan = BaseChannel(name="test_channel5", loop=self.loop)
-        n1 = NodeTest(name="main")
-        n2 = NodeTest(name="end_main")
-        not_processed = NodeTest(name="cond_notproc")
-        processed = NodeTest(name="cond_proc")
+        n1 = TstNode(name="main")
+        n2 = TstNode(name="end_main")
+        not_processed = TstNode(name="cond_notproc")
+        processed = TstNode(name="cond_proc")
 
         msg = generate_msg()
 
@@ -160,11 +160,11 @@ class ChannelsTests(TestCase):
         """ Whether Conditionnal channel is working """
 
         chan = BaseChannel(name="test_channel6", loop=self.loop)
-        n1 = NodeTest(name="main")
-        n2 = NodeTest(name="end_main")
-        not_processed = NodeTest(name="cond_notproc")
-        processed = NodeTest(name="cond_proc")
-        not_processed2 = NodeTest(name="cond_proc2")
+        n1 = TstNode(name="main")
+        n2 = TstNode(name="end_main")
+        not_processed = TstNode(name="cond_notproc")
+        processed = TstNode(name="cond_proc")
+        not_processed2 = TstNode(name="cond_proc2")
 
         msg = generate_msg()
 
@@ -474,5 +474,5 @@ class ChannelsTests(TestCase):
 
         # Launch channel processing
         self.start_channels()
-        with self.assertRaises(ExceptionTest):
+        with self.assertRaises(TstException):
             self.loop.run_until_complete(chan.process(msg))

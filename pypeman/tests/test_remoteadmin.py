@@ -10,7 +10,7 @@ from pypeman.remoteadmin import RemoteAdminClient
 from pypeman.remoteadmin import RemoteAdminServer
 from pypeman.test import TearDownProjectTestCase as TestCase
 from pypeman.tests.common import generate_msg
-from pypeman.tests.common import NodeTest
+from pypeman.tests.common import TstNode
 
 
 class RemoteAdminTests(TestCase):
@@ -56,10 +56,10 @@ class RemoteAdminTests(TestCase):
 
         chan = BaseChannel(name="test_remote050", loop=self.loop, message_store_factory=store_factory)
 
-        n = NodeTest()
-        n2 = NodeTest(name="sub")
-        n3 = NodeTest(name="sub1")
-        n4 = NodeTest(name="sub2")
+        n = TstNode()
+        n2 = TstNode(name="sub")
+        n3 = TstNode(name="sub1")
+        n4 = TstNode(name="sub2")
 
         msg = generate_msg(with_context=True)
         msg2 = generate_msg(timestamp=(1982, 11, 27, 12, 35))

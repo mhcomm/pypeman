@@ -7,7 +7,7 @@ from pypeman.test import TearDownProjectTestCase as TestCase
 from pypeman.tests.common import generate_msg
 
 
-class NodeTest(nodes.BaseNode):
+class TstNode(nodes.BaseNode):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -46,7 +46,7 @@ class TestingTests(TestCase):
 
         chan = BaseChannel(name="test_channel_test_1", loop=self.loop)
 
-        n = NodeTest(name="testme")
+        n = TstNode(name="testme")
         chan.add(n)
 
         msg = generate_msg(message_content="X")
@@ -66,7 +66,7 @@ class TestingTests(TestCase):
 
         chan = BaseChannel(name="test_channel_test_2", loop=self.loop)
 
-        n = NodeTest(name="testme")
+        n = TstNode(name="testme")
         chan.add(n)
 
         msg_x = generate_msg(message_content="X")

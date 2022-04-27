@@ -15,9 +15,10 @@ import websockets
 from aiohttp import web
 from io import StringIO
 
-from jsonrpcserver import method, async_dispatch
-from jsonrpcclient import parse_json, request_json, notification_json
-from jsonrpcclient import request_json, notification_json
+from jsonrpcserver import async_dispatch
+from jsonrpcserver import method
+from jsonrpcclient import parse_json
+from jsonrpcclient import request_json
 
 
 from pypeman.conf import settings

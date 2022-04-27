@@ -9,17 +9,17 @@ from pypeman import nodes
 from pypeman.channels import BaseChannel
 from pypeman.test import TearDownProjectTestCase as TestCase
 from pypeman.tests.common import generate_msg
-from pypeman.tests.common import TestException
-from pypeman.tests.common import TestNode
+from pypeman.tests.common import ExceptionTest
+from pypeman.tests.common import NodeTest
 
 
-class TestConditionalErrorNode(nodes.BaseNode):
+class ConditionalErrorTestNode(nodes.BaseNode):
 
     def process(self, msg):
         print("Process %s" % self.name)
 
         if "shall_fail" in msg.payload:
-            raise TestException()
+            raise ExceptionTest()
 
         return msg
 
@@ -59,7 +59,7 @@ class MsgstoreTests(TestCase):
         chan = BaseChannel(
             name="test_channel9", loop=self.loop,
             message_store_factory=msgstore.FakeMessageStoreFactory())
-        n = TestNode()
+        n = NodeTest()
         msg = generate_msg(with_context=True)
 
         chan.add(n)
@@ -77,8 +77,8 @@ class MsgstoreTests(TestCase):
 
         chan = BaseChannel(name="test_channel10", loop=self.loop, message_store_factory=store_factory)
 
-        n = TestNode()
-        n_error = TestConditionalErrorNode()
+        n = NodeTest()
+        n_error = ConditionalErrorTestNode()
 
         msg = generate_msg(with_context=True)
         msg2 = generate_msg(timestamp=(1982, 11, 27, 12, 35))
@@ -99,7 +99,7 @@ class MsgstoreTests(TestCase):
         self.loop.run_until_complete(chan.handle(msg3))
         self.loop.run_until_complete(chan.handle(msg4))
 
-        with self.assertRaises(TestException):
+        with self.assertRaises(ExceptionTest):
             # This message should be in error state
             self.loop.run_until_complete(chan.handle(msg5))
 
@@ -143,10 +143,10 @@ class MsgstoreTests(TestCase):
 
         chan = BaseChannel(name="test_channel10.25", loop=self.loop, message_store_factory=store_factory)
 
-        n1 = TestNode()
-        n2 = TestNode()
-        n3 = TestNode()
-        n4 = TestNode()
+        n1 = NodeTest()
+        n2 = NodeTest()
+        n3 = NodeTest()
+        n4 = NodeTest()
 
         chan.add(n1, n2)
         fork = chan.fork()
@@ -166,7 +166,7 @@ class MsgstoreTests(TestCase):
 
         chan = BaseChannel(name="test_channel10.5", loop=self.loop, message_store_factory=store_factory)
 
-        n = TestNode()
+        n = NodeTest()
 
         msg = generate_msg(with_context=True)
         msg2 = generate_msg(timestamp=(1982, 11, 27, 12, 35))
@@ -200,8 +200,8 @@ class MsgstoreTests(TestCase):
 
         chan = BaseChannel(name="test_channel11", loop=self.loop, message_store_factory=store_factory)
 
-        n = TestNode()
-        n_error = TestConditionalErrorNode()
+        n = NodeTest()
+        n_error = ConditionalErrorTestNode()
 
         msg = generate_msg(with_context=True)
         msg2 = generate_msg(timestamp=(1982, 11, 27, 12, 35))
@@ -222,7 +222,7 @@ class MsgstoreTests(TestCase):
         self.loop.run_until_complete(chan.handle(msg3))
         self.loop.run_until_complete(chan.handle(msg4))
 
-        with self.assertRaises(TestException):
+        with self.assertRaises(ExceptionTest):
             # This message should be in error state
             self.loop.run_until_complete(chan.handle(msg5))
 

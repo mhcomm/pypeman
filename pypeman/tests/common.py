@@ -76,7 +76,7 @@ def generate_msg(timestamp=None, message_content=default_message_content,
     return m
 
 
-class TestException(Exception):
+class ExceptionTest(Exception):
     """ custom Exception """
 
 
@@ -129,7 +129,7 @@ class SimpleTestNode(nodes.BaseNode):
         return msg
 
 
-class TestNode(nodes.BaseNode):
+class NodeTest(nodes.BaseNode):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Used to test if node is processed during test
@@ -139,8 +139,8 @@ class TestNode(nodes.BaseNode):
         return msg
 
 
-class ExceptNode(TestNode):
+class ExceptNode(NodeTest):
     # This node raises an exception
     def process(self, msg):
         super().process(msg)
-        raise TestException()
+        raise ExceptionTest()

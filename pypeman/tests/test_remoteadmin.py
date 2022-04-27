@@ -10,7 +10,7 @@ from pypeman.remoteadmin import RemoteAdminClient
 from pypeman.remoteadmin import RemoteAdminServer
 from pypeman.test import TearDownProjectTestCase as TestCase
 from pypeman.tests.common import generate_msg
-from pypeman.tests.common import TestNode
+from pypeman.tests.common import NodeTest
 
 
 class RemoteAdminTests(TestCase):
@@ -24,7 +24,7 @@ class RemoteAdminTests(TestCase):
         pending = asyncio.Task.all_tasks(loop=self.loop)
 
         if pending:
-            self.loop.run_until_complete(asyncio.gather(*pending))
+            self.loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
 
     def start_channels(self):
         # Start channels
@@ -56,10 +56,10 @@ class RemoteAdminTests(TestCase):
 
         chan = BaseChannel(name="test_remote050", loop=self.loop, message_store_factory=store_factory)
 
-        n = TestNode()
-        n2 = TestNode(name="sub")
-        n3 = TestNode(name="sub1")
-        n4 = TestNode(name="sub2")
+        n = NodeTest()
+        n2 = NodeTest(name="sub")
+        n3 = NodeTest(name="sub1")
+        n4 = NodeTest(name="sub2")
 
         msg = generate_msg(with_context=True)
         msg2 = generate_msg(timestamp=(1982, 11, 27, 12, 35))

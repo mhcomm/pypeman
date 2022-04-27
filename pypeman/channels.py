@@ -171,7 +171,7 @@ class BaseChannel:
         """
         self.status = BaseChannel.STOPPING
         # Verify that all messages are processed
-        with (await self.lock):
+        async with self.lock:
             self.status = BaseChannel.STOPPED
         # stop all pending sleeps
         await self.interruptable_sleeper.cancel_all()
@@ -312,7 +312,7 @@ class BaseChannel:
         self.logger.info("%s handle %s", self, msg)
 
         # Only one message processing at time
-        with (await self.lock):
+        async with self.lock:
             self.status = BaseChannel.PROCESSING
             try:
                 result = await self.subhandle(msg)

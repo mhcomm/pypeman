@@ -15,8 +15,9 @@ import websockets
 from aiohttp import web
 from io import StringIO
 
-from jsonrpcserver.aio import methods
-from jsonrpcclient.websockets_client import WebSocketsClient
+from jsonrpcserver import method, async_dispatch
+from jsonrpcclient import parse_json, request_json, notification_json
+from jsonrpcclient import request_json, notification_json
 
 
 from pypeman.conf import settings
@@ -60,13 +61,6 @@ class RemoteAdminServer():
 
     async def start(self):
         """ Start remote admin server """
-        methods.add(self.exec)
-        methods.add(self.channels)
-        methods.add(self.stop_channel)
-        methods.add(self.start_channel)
-        methods.add(self.list_msg)
-        methods.add(self.replay_msg)
-        methods.add(self.push_msg)
 
         start_server = websockets.serve(
             self.command,
@@ -82,10 +76,11 @@ class RemoteAdminServer():
         Generic function to handle a command from client.
         """
         request = await websocket.recv()
-        response = await methods.dispatch(request)
-        if not response.is_notification:
+        response = await async_dispatch(request, context=self)
+        if response.wanted:
             await websocket.send(str(response))
 
+    @method
     async def exec(self, command):
         """
         Execute a python command on this instance and
@@ -101,6 +96,7 @@ class RemoteAdminServer():
 
         return out.getvalue()
 
+    @method
     async def channels(self):
         """
         Return a list of available channels.
@@ -115,6 +111,7 @@ class RemoteAdminServer():
 
         return chans
 
+    @method
     async def start_channel(self, channel):
         """
         Start the specified channel
@@ -128,6 +125,7 @@ class RemoteAdminServer():
             'status': channels.BaseChannel.status_id_to_str(chan.status)
         }
 
+    @method
     async def stop_channel(self, channel):
         """
         Stop the specified channel
@@ -141,6 +139,7 @@ class RemoteAdminServer():
             'status': channels.BaseChannel.status_id_to_str(chan.status)
         }
 
+    @method
     async def list_msg(self, channel, start=0, count=10, order_by='timestamp'):
         """
         List first `count` messages from message store of specified channel.
@@ -157,6 +156,7 @@ class RemoteAdminServer():
 
         return {'messages': messages, 'total': await chan.message_store.total()}
 
+    @method
     async def replay_msg(self, channel, msg_ids):
         """
         Replay messages from message store.
@@ -175,6 +175,7 @@ class RemoteAdminServer():
 
         return result
 
+    @method
     async def push_msg(self, channel, text):
         """
         Push a message in the channel.
@@ -213,9 +214,11 @@ class RemoteAdminClient():
         """
         Asynchronous version of command sending
         """
-        async with websockets.connect(self.url, loop=self.loop) as ws:
-            response = await WebSocketsClient(ws).request(command, *args)
-            return response
+        async with websockets.connect(self.url) as ws:
+            await ws.send(request_json(command, [*args]))
+            response = await ws.recv()
+            parsed_response = parse_json(response)
+            return parsed_response.result
 
     def exec(self, command):
         """
@@ -223,8 +226,7 @@ class RemoteAdminClient():
         and return stdout result.
         """
         result = self.send_command('exec', [command])
-        print(result)
-        return
+        return result
 
     def channels(self):
         """
@@ -259,6 +261,7 @@ class RemoteAdminClient():
         :returns: list of message with status.
         """
         result = self.send_command('list_msg', [channel, start, count, order_by])
+        print(result)
 
         for m in result['messages']:
             m['message'] = message.Message.from_json(m['message'])
@@ -327,7 +330,9 @@ class PypemanShell(cmd.Cmd):
         "List avaible channels"
         result = self.client.channels()
         print("\nChannel list:")
+        logger.warning(result)
         for idx, channel in enumerate(result):
+            logger.warning(channel)
             print("{idx}) {name} ({status})".format(idx=idx, **channel))
 
         print("")
@@ -336,12 +341,12 @@ class PypemanShell(cmd.Cmd):
 
     def do_stop(self, arg):
         "Stop a channel by his name"
-        result = self.client.stop_channel(arg)
+        result = self.client.stop(arg)
         print(result)
 
     def do_start(self, arg):
         "Start a channel by his name"
-        result = self.client.start_channel(arg)
+        result = self.client.start(arg)
         print(result)
 
     def do_select(self, arg):

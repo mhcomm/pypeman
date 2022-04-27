@@ -47,10 +47,10 @@ setup(
     install_requires=[
         "click",
         "daemonlite",
-        "websockets<7",
+        "websockets",
         "aiohttp",
-        "jsonrpcclient[websockets]<=2.5.2",
-        "jsonrpcserver<4",
+        "jsonrpcclient",
+        "jsonrpcserver<5",  # cannot import name 'Protocol' from 'typing' : fixed in py3.8
         "sqlitedict",
         # TODO Remove next dependency as soon as jsonrpcclient is removed
         "requests"

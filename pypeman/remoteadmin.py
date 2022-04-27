@@ -262,7 +262,6 @@ class RemoteAdminClient():
         :returns: list of message with status.
         """
         result = self.send_command('list_msg', [channel, start, count, order_by])
-        print(result)
 
         for m in result['messages']:
             m['message'] = message.Message.from_json(m['message'])
@@ -331,9 +330,7 @@ class PypemanShell(cmd.Cmd):
         "List avaible channels"
         result = self.client.channels()
         print("\nChannel list:")
-        logger.warning(result)
         for idx, channel in enumerate(result):
-            logger.warning(channel)
             print("{idx}) {name} ({status})".format(idx=idx, **channel))
 
         print("")

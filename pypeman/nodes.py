@@ -3,6 +3,7 @@ import base64
 import json
 import logging
 import os
+import shutil
 import smtplib
 import types
 import warnings
@@ -10,6 +11,7 @@ import warnings
 from datetime import datetime
 from collections import OrderedDict
 from fnmatch import fnmatch
+from pathlib import Path
 
 from email.mime.text import MIMEText
 
@@ -607,11 +609,18 @@ class FileReader(BaseNode):
 
 
 class FileWriter(BaseNode):
-    """ Write a file with the message content. """
-    def __init__(self, filepath=None, binary_mode=False, safe_file=True, *args, **kwargs):
+    """
+        Write a file with the message content.
+        Can create a validation file with no content but with same path and same
+        base name with different extension (for example .ok)
+    """
+    def __init__(self, filepath=None, binary_mode=False, safe_file=True, create_valid_file=False,
+                 validation_extension=".ok", *args, **kwargs):
         self.filepath = filepath
         self.binary_mode = binary_mode
         self.safe_file = safe_file
+        self.create_valid_file = create_valid_file
+        self.validation_extension = validation_extension
         self.first_filename = True
         self.counter = 0
         super().__init__(*args, **kwargs)
@@ -637,7 +646,58 @@ class FileWriter(BaseNode):
             file_.write(msg.payload)
         if self.safe_file:
             os.rename(dest, old_file)
+        if self.create_valid_file:
+            validation_path = Path(old_file).with_suffix(self.validation_extension)
+            validation_path.touch()
         return msg
+
+
+class FileMover(BaseNode):
+    """
+    Move file
+
+    Used to store files at another place
+    params:
+    dest_fpath : path of the destination folder (if it doesn't exists it creates it)
+    """
+    def __init__(self, dest_path, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.dest_path = dest_path
+        if not os.path.exists(dest_path):
+            os.makedirs(dest_path)
+
+    def process(self, msg):
+        dest_fpath = os.path.join(self.dest_path, msg.meta["filename"])
+        logger.info("move file %s to dest %s", msg.meta["filepath"], dest_fpath)
+        shutil.move(msg.meta["filepath"], dest_fpath)
+        msg.meta["filepath"] = dest_fpath
+        return msg
+
+
+class FileCleaner(BaseNode):
+    """
+    Delete a file and/or all metafiles in a directory with same basename but
+    with a given extension
+
+    param:
+    extensions_to_rm => list of all extensions to rm (example: [".ok"])
+    msg.meta["filepath"]
+    """
+    def __init__(self, extensions_to_rm=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.extensions_to_rm = extensions_to_rm
+
+    def process(self, msg):
+        fpath = Path(msg.meta['filepath'])
+        if fpath.is_file():
+            logger.info("delete %s ...", msg.meta["filepath"])
+            fpath.unlink()
+        if self.extensions_to_rm:
+            for extension in self.extensions_to_rm:
+                meta_path = fpath.with_suffix(extension)
+                if meta_path.is_file():
+                    logger.info("delete %s ...", (meta_path))
+                    meta_path.unlink()
 
 
 class Map(BaseNode):
@@ -831,3 +891,5 @@ wrap.add_lazy('pypeman.contrib.ftp', "FTPFileWriter", [])
 wrap.add_lazy('pypeman.contrib.ftp', "FTPFileReader", [])
 wrap.add_lazy('pypeman.contrib.ftp', "FTPFileDeleter", [])
 wrap.add_lazy('pypeman.contrib.ftp', "FTPFileDeleter", [])
+wrap.add_lazy('pypeman.contrib.csv', "CSV2Python", [])
+wrap.add_lazy('pypeman.contrib.csv', "Python2CSVstr", [])

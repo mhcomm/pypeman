@@ -3,6 +3,8 @@ import os
 import unittest
 
 from unittest import mock
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import aiohttp
 import pytest
@@ -567,3 +569,75 @@ class NodesTests(TestCase):
         mock_file.assert_called_once_with('/filepath2', 'w')
         handle = mock_file()
         handle.write.assert_called_once_with('message_content2')
+
+
+class TestsFileNodes(TestCase):
+    """ Tests common.com_nodes File Nodes
+    """
+    tmpdir_obj = None
+
+    @classmethod
+    def setUpClass(self):
+        self.tmpdir_obj = TemporaryDirectory()
+
+    @classmethod
+    def tearDownClass(self):
+        self.tmpdir_obj.cleanup()
+        self.tmpdir_obj = None
+
+    def test_filemover(self):
+        indir_pth = Path(self.tmpdir_obj.name)
+        outdir_pth = indir_pth / "out"
+        fname = "test_fmover.txt"
+        src_fpath_pth = indir_pth / fname
+        dst_fpath_pth = outdir_pth / fname
+        src_fpath_pth.touch()
+        fmover_node = nodes.FileMover(dest_path=outdir_pth)
+        msg = message.Message(meta={"filename": fname, "filepath": str(src_fpath_pth)})
+        fmover_node.process(msg)
+        self.assertFalse(src_fpath_pth.exists(), msg="file not moved (already in indir)")
+        self.assertTrue(dst_fpath_pth.exists(), msg="file not moved (not in outdir)")
+        return msg
+
+    def test_filecleaner(self):
+        indir_pth = Path(self.tmpdir_obj.name)
+        fname = "test_fcleaner.txt"
+        fname2 = "test_fcleaner.rm"
+        src_fpath_pth = indir_pth / fname
+        src2_fpath_pth = indir_pth / fname2
+        src_fpath_pth.touch()
+        src2_fpath_pth.touch()
+        fcleaner_node = nodes.FileCleaner(extensions_to_rm=[".rm"])
+        msg = message.Message(meta={"filename": fname, "filepath": str(src_fpath_pth)})
+        fcleaner_node.process(msg)
+        self.assertFalse(src_fpath_pth.exists(), msg="file 1 not rm")
+        self.assertFalse(src2_fpath_pth.exists(), msg="file 2 not rm")
+        return msg
+
+
+class TestsCsvContrib(TestCase):
+    """ Tests common.com_nodes File Nodes
+    """
+    tmpdir_obj = None
+    py_data = [
+        {"id": "1", "msg": "msg1", "ty": "ty1"},
+        {"id": "2", "msg": "msg2", "ty": "ty2"},
+        {"id": "3", "msg": "msg3", "ty": "ty3"},
+    ]
+    csv_data_fpath = Path(__file__).parent / "data" / "csv_test_data.csv"
+    with open(csv_data_fpath, "r", newline="") as fin:
+        csv_str_data = fin.read()
+
+    def test_csv2python(self):
+        csv2py_node = nodes.CSV2Python(to_dict=True, headers=True)
+        msg = message.Message(meta={"filepath": self.csv_data_fpath})
+        processed_msg = csv2py_node.process(msg)
+        self.assertListEqual(self.py_data, processed_msg.payload)
+        return msg
+
+    def test_python2csvstr(self):
+        py2csv_node = nodes.Python2CSVstr(header=True)
+        msg = message.Message(payload=self.py_data)
+        processed_msg = py2csv_node.process(msg)
+        self.assertEqual(self.csv_str_data, processed_msg.payload)
+        return msg

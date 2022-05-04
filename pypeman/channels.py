@@ -500,7 +500,9 @@ class SubChannel(BaseChannel):
     def callback(self, fut):
         try:
             result = fut.result()
-            logger.debug("Subchannel %s end process message %s", self, result)
+            logger.debug("Subchannel %s end process message %s", repr(self), result)
+        except Dropped:
+            self.logger.info("Subchannel %s. Msg was dropped", repr(self))
         except Exception:
             self.logger.exception("Error while processing msg in subchannel %s", self)
 

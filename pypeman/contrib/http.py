@@ -142,6 +142,7 @@ class HttpRequest(nodes.BaseNode):
         :param url: url to send.
         :param method: 'get', 'put' or 'post', use meta['method'] if None, Default to 'get'.
         :param headers: headers for request, use meta['headers'] if None.
+        :param cookies: cookies for request, use meta['cookies'] if None.
         :param auth: tuple or aiohttp.BasicAuth object.
         :param verify: verify ssl. Default True.
         :param params: get params in dict. List for multiple elements, ex :
@@ -221,15 +222,14 @@ class HttpRequest(nodes.BaseNode):
             basic_auth = self.auth
 
         data = None
-        if method in ['put', 'post']:
+        if method.lower() in ['put', 'post']:
             data = msg.payload
-        with aiohttp.ClientSession(connector=conn) as session:
+        with aiohttp.ClientSession(connector=conn, cookies=cookies) as session:
             resp = await session.request(
                     method=method,
                     url=url,
                     auth=basic_auth,
                     headers=headers,
-                    cookies=cookies,
                     params=get_params,
                     data=data
                     )

@@ -401,17 +401,14 @@ class NodesTests(TestCase):
         msg1 = generate_msg(message_content=content1)
         meta_params = {'omega': 'meta_params'}
         headers1 = {'test': 'test'}
-        cookie1 = {"cookie1": "cooookie"}
         msg1.meta = {
-            "beta": "meta_url", 'params': meta_params, 'headers': headers1,
-            "cookies": cookie1}
+            "beta": "meta_url", 'params': meta_params, 'headers': headers1}
         req_url1 = 'http://url/meta_url/payload_url'
         req_kwargs1 = {
             'data': None,
             'params': [('omega', 'meta_params')],
             'url': req_url1,
             'headers': headers1,
-            'cookies': cookie1,
             'method': 'get',
             'auth': b_auth
             }

@@ -150,11 +150,13 @@ class HttpRequest(nodes.BaseNode):
     """
 
     def __init__(self, url, *args, method=None, headers=None, auth=None,
-                 verify=True, params=None, client_cert=None, **kwargs):
+                 verify=True, params=None, client_cert=None, cookies=None,
+                 **kwargs):
         super().__init__(*args, **kwargs)
         self.url = url
         self.method = method
         self.headers = headers
+        self.cookies = cookies
         self.auth = auth
         self.verify = verify
         self.params = params
@@ -199,6 +201,7 @@ class HttpRequest(nodes.BaseNode):
             conn = aiohttp.TCPConnector(verify_ssl=self.verify, loop=loop)
 
         headers = nodes.choose_first_not_none(self.headers, msg.meta.get('headers'))
+        cookies = nodes.choose_first_not_none(self.cookies, msg.meta.get('cookies'))
         method = nodes.choose_first_not_none(self.method, msg.meta.get('method'), 'get')
         params = nodes.choose_first_not_none(self.params, msg.meta.get('params'))
 
@@ -226,6 +229,7 @@ class HttpRequest(nodes.BaseNode):
                     url=url,
                     auth=basic_auth,
                     headers=headers,
+                    cookies=cookies,
                     params=get_params,
                     data=data
                     )

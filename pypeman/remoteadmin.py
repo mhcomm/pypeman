@@ -141,7 +141,7 @@ class RemoteAdminServer():
         }
 
     @method
-    async def list_msg(self, channel, start=0, count=10, order_by='timestamp'):
+    async def list_msg(self, channel, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None):
         """
         List first `count` messages from message store of specified channel.
 
@@ -149,7 +149,8 @@ class RemoteAdminServer():
         """
         chan = self.get_channel(channel)
 
-        messages = await chan.message_store.search(start=start, count=count, order_by=order_by)
+        messages = await chan.message_store.search(
+            start=start, count=count, order_by=order_by, start_dt=start_dt, end_dt=end_dt)
 
         for res in messages:
             res['timestamp'] = res['message'].timestamp_str()
@@ -174,6 +175,43 @@ class RemoteAdminServer():
             except Exception as exc:
                 result.append({'error': str(exc)})
 
+        return result
+
+    @method
+    async def view_msg(self, channel, msg_ids):
+        """
+        Replay messages from message store.
+
+        :params channel: The channel name.
+        :params msg_ids: The message ids list to replay.
+        """
+        chan = self.get_channel(channel)
+        result = []
+        for msg_id in msg_ids:
+            try:
+                msg_res = await chan.message_store.view(msg_id)
+                result.append(msg_res.to_dict())
+            except Exception as exc:
+                result.append({'error': str(exc)})
+
+        return result
+
+    @method
+    async def preview_msg(self, channel, msg_ids):
+        """
+        Replay messages from message store.
+
+        :params channel: The channel name.
+        :params msg_ids: The message ids list to replay.
+        """
+        chan = self.get_channel(channel)
+        result = []
+        for msg_id in msg_ids:
+            try:
+                msg_res = await chan.message_store.preview(msg_id)
+                result.append(msg_res.to_dict())
+            except Exception as exc:
+                result.append({'error': str(exc)})
         return result
 
     @method
@@ -251,17 +289,20 @@ class RemoteAdminClient():
         """
         return self.send_command('stop_channel', [channel])
 
-    def list_msg(self, channel, start=0, count=10, order_by='timestamp'):
+    def list_msg(self, channel, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None):
         """
         List first 10 messages on specified channel from remote instance.
 
         :params channel: The channel name.
         :params start: Start index of listing.
         :params count: Count from index.
+        :params start_dt: (optional) start datetime filter (isoformat)
+        :params end_dt: (optional) start datetime filter (isoformat)
         :params order_by: Message order. only 'timestamp' and '-timestamp' handled for now.
         :returns: list of message with status.
         """
-        result = self.send_command('list_msg', [channel, start, count, order_by])
+        list_msg_args = [channel, start, count, order_by, start_dt, end_dt]
+        result = self.send_command('list_msg', list_msg_args)
 
         for m in result['messages']:
             m['message'] = message.Message.from_json(m['message'])
@@ -279,6 +320,50 @@ class RemoteAdminClient():
             occurs.
         """
         request_result = self.send_command('replay_msg', [channel, msg_ids])
+
+        result = []
+        for msg in request_result:
+            if 'error' not in msg:
+                result.append(message.Message.from_dict(msg))
+            else:
+                result.append(msg)
+
+        return result
+
+    def view_msg(self, channel, msg_ids):
+        """
+        View content of the specified message from id list of specified
+        channel on remote instance.
+
+        :params channel: The channel name.
+        :params msg_ids: Message id list to replay
+        :returns: List of result for each message. Result
+            can be {'error': <msg_error>} for one id if error
+            occurs.
+        """
+        request_result = self.send_command('view_msg', [channel, msg_ids])
+
+        result = []
+        for msg in request_result:
+            if 'error' not in msg:
+                result.append(message.Message.from_dict(msg))
+            else:
+                result.append(msg)
+
+        return result
+
+    def preview_msg(self, channel, msg_ids):
+        """
+        Preview content of the specified message from id list of specified
+        channel on remote instance.
+
+        :params channel: The channel name.
+        :params msg_ids: Message id list to replay
+        :returns: List of result for each message. Result
+            can be {'error': <msg_error>} for one id if error
+            occurs.
+        """
+        request_result = self.send_command('preview_msg', [channel, msg_ids])
 
         result = []
         for msg in request_result:
@@ -364,30 +449,78 @@ class PypemanShell(cmd.Cmd):
 
     @_with_current_channel
     def do_list(self, channel, arg):
-        "List messages of selected channel. You can specify start, end and order_by arguments"
+        """
+        List messages of selected channel. You can specify start, end and order_by arguments
+        Optional args:
+            - to filter messages, you can pass start_dt and end_dt (isoformat datetimes)
+            to filter messages
+            - to preview 100 firsts characters of the message payload, pass the argument `--preview`
+        """
         args = arg.split()
-        start, end, order_by = 0, 10, '-timestamp'
+        start, end, order_by = 0, 100, '-timestamp'
+        start_dt = None
+        end_dt = None
+        to_preview = False
+        # Parsing of naming args
+        for arg in args:
+            if type(arg) == str:
+                if arg.startswith("start_dt="):
+                    start_dt = arg.split("=")[1]
+                    args.remove(arg)
+                if arg.startswith("end_dt="):
+                    end_dt = arg.split("=")[1]
+                    args.remove(arg)
+                if arg == "--preview":
+                    to_preview = True
+                    args.remove(arg)
 
+        # Parsing of common args
         if args:
-            start = args[0]
+            start = int(args[0])
         if len(args) > 1:
-            start = args[1]
+            end = int(args[1])
         if len(args) > 2:
-            start = args[2]
+            order_by = args[2]
 
-        result = self.client.list_msg(channel, start, end, order_by)
+        result = self.client.list_msg(channel, start, end, order_by, start_dt=start_dt, end_dt=end_dt)
 
         if not result['total']:
             print('No message yet.')
 
         for res in result['messages']:
             print(res['message'].timestamp, res['id'], res['state'])
+            if to_preview:
+                print(res['message'].payload[:100])
 
     @_with_current_channel
     def do_replay(self, channel, arg):
         "Replay a message list by their ids"
         msg_ids = arg.split()
         results = self.client.replay_msg(channel, msg_ids)
+        for msg_id, msg in zip(msg_ids, results):
+            print("Result message for replaying message %s:" % msg_id)
+            if isinstance(msg, message.Message):
+                print(msg.to_print())
+            else:
+                print('Error on msg: %s - %s' % (msg_id, msg['error']))
+
+    @_with_current_channel
+    def do_view(self, channel, arg):
+        "View content of a message list by their ids"
+        msg_ids = arg.split()
+        results = self.client.view_msg(channel, msg_ids)
+        for msg_id, msg in zip(msg_ids, results):
+            print("Result message for replaying message %s:" % msg_id)
+            if isinstance(msg, message.Message):
+                print(msg.to_print())
+            else:
+                print('Error on msg: %s - %s' % (msg_id, msg['error']))
+
+    @_with_current_channel
+    def do_preview(self, channel, arg):
+        "Preview content of a message list by their ids"
+        msg_ids = arg.split()
+        results = self.client.preview_msg(channel, msg_ids)
         for msg_id, msg in zip(msg_ids, results):
             print("Result message for replaying message %s:" % msg_id)
             if isinstance(msg, message.Message):

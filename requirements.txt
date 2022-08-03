@@ -1,6 +1,7 @@
 # Mandatory
 click
 daemonlite
+python-dateutil
 websockets
 jsonrpcserver<5  # cannot import name 'Protocol' from 'typing' : fixed in py3.8
 jsonrpcclient

@@ -211,8 +211,8 @@ class BaseNode:
         return result
 
     async def _test_handle(self, msg):
-        """ Specific handle for TEST mode to enable some testing and introspection operations like mock input and/or
-        output, or count processed message.
+        """ Specific handle for TEST mode to enable some testing and introspection operations
+        like mock input and/or output, or count processed message.
 
         :param msg: Message to process.
         :return: Processed message.

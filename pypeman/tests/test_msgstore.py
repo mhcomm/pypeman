@@ -136,6 +136,15 @@ class MsgstoreTests(TestCase):
         dict_msg = self.loop.run_until_complete(chan.message_store.get('%s' % msg5.uuid))
         self.assertEqual(dict_msg['state'], 'error', "Message %s should be in error state!" % msg5)
 
+        # Test list messages
+        msgs = self.loop.run_until_complete(chan.message_store.search(start=2, count=5))
+        self.assertEqual(len(msgs), 3, "Failure of listing messages for memory msg store")
+
+        # Test list messages with filters
+        msgs = self.loop.run_until_complete(chan.message_store.search(
+            start_dt="1982-11-27", end_dt="1982-11-28T13:00:00"))
+        self.assertEqual(len(msgs), 2, "Failure of listing messages for memory msg store")
+
         # Test view message
         msg_content = self.loop.run_until_complete(chan.message_store.view('%s' % msg5.uuid))
         self.assertEqual(msg_content.payload, msg5.payload, "Failure of message %s view!" % msg5)
@@ -271,6 +280,15 @@ class MsgstoreTests(TestCase):
 
         self.assertTrue(os.path.exists("%s/%s/1982/11/28/19821128_1235_%s"
                         % (tempdir, chan.name, msg3.uuid)))
+
+        # Test list messages
+        msgs = self.loop.run_until_complete(chan.message_store.search(start=2, count=5))
+        self.assertEqual(len(msgs), 3, "Failure of listing messages for file msg store")
+
+        # Test list messages with filters
+        msgs = self.loop.run_until_complete(chan.message_store.search(
+            start_dt="1982-11-27", end_dt="1982-11-28T13:00:00"))
+        self.assertEqual(len(msgs), 2, "Failure of listing messages for file msg store")
 
         # Test view message
         msg_content = self.loop.run_until_complete(chan.message_store.view(

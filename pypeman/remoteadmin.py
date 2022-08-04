@@ -510,7 +510,7 @@ class PypemanShell(cmd.Cmd):
         msg_ids = arg.split()
         results = self.client.view_msg(channel, msg_ids)
         for msg_id, msg in zip(msg_ids, results):
-            print("Result message for replaying message %s:" % msg_id)
+            print("View of msg %s:" % msg_id)
             if isinstance(msg, message.Message):
                 print(msg.to_print())
             else:
@@ -522,7 +522,7 @@ class PypemanShell(cmd.Cmd):
         msg_ids = arg.split()
         results = self.client.preview_msg(channel, msg_ids)
         for msg_id, msg in zip(msg_ids, results):
-            print("Result message for replaying message %s:" % msg_id)
+            print("Preview of message %s:" % msg_id)
             if isinstance(msg, message.Message):
                 print(msg.to_print())
             else:

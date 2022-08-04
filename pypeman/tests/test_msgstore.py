@@ -136,6 +136,14 @@ class MsgstoreTests(TestCase):
         dict_msg = self.loop.run_until_complete(chan.message_store.get('%s' % msg5.uuid))
         self.assertEqual(dict_msg['state'], 'error', "Message %s should be in error state!" % msg5)
 
+        # Test view message
+        msg_content = self.loop.run_until_complete(chan.message_store.view('%s' % msg5.uuid))
+        self.assertEqual(msg_content.payload, msg5.payload, "Failure of message %s view!" % msg5)
+
+        # Test preview message
+        msg_content = self.loop.run_until_complete(chan.message_store.preview('%s' % msg5.uuid))
+        self.assertEqual(msg_content.payload, msg5.payload[:999], "Failure of message %s preview!" % msg5)
+
     def test_memory_message_store_in_fork(self):
         """ We can store a message in FileMessageStore """
 
@@ -263,6 +271,16 @@ class MsgstoreTests(TestCase):
 
         self.assertTrue(os.path.exists("%s/%s/1982/11/28/19821128_1235_%s"
                         % (tempdir, chan.name, msg3.uuid)))
+
+        # Test view message
+        msg_content = self.loop.run_until_complete(chan.message_store.view(
+            '1982/11/12/19821112_1435_%s' % msg5.uuid))
+        self.assertEqual(msg_content.payload, msg5.payload, "Failure of message %s view!" % msg5)
+
+        # Test preview message
+        msg_content = self.loop.run_until_complete(chan.message_store.preview(
+            '1982/11/12/19821112_1435_%s' % msg5.uuid))
+        self.assertEqual(msg_content.payload, msg5.payload[:999], "Failure of message %s preview!" % msg5)
 
         self.clean_loop()
 

@@ -181,13 +181,13 @@ class MemoryMessageStore(MessageStore):
 
     async def preview(self, id):
         msg = await self.view(id)
-        msg["message_content"] = msg["message_content"][:999]
+        msg.payload = msg.payload[:999]
         return msg
 
     async def view(self, id):
         msg = await self.get(id)
-        msg_content = msg.payload
-        return {"id": id, "message_content": msg_content}
+        msg_content = msg["message"]
+        return msg_content
 
     async def search(self, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None):
 

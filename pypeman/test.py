@@ -68,7 +68,9 @@ class PypeTestCase(TestCase):
             cls.loop.run_until_complete(chan.stop())
 
         pending = asyncio.all_tasks(loop=cls.loop)
-        asyncio.gather(*pending, loop=cls.loop).cancel()
+        print(pending)
+        if pending:
+            asyncio.gather(*pending).cancel()
 
         cls.loop.close()
         cls.loop = asyncio.new_event_loop()

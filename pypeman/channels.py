@@ -113,7 +113,10 @@ class BaseChannel:
         self._first_start = True
 
         # Used to avoid multiple messages processing at same time
-        self.lock = asyncio.Lock(loop=self.loop)
+        # Lock use `asyncio.get_running_loop()` that only be called from coroutines or callbacks
+        # So now, lock is instanciated in start
+        self.lock = None
+
         self.sub_chan_tasks = []
 
     @classmethod
@@ -148,6 +151,7 @@ class BaseChannel:
         Start the channel. Called before starting processus. Can be overloaded to specify specific
         start procedure.
         """
+        self.lock = asyncio.Lock()
         self.status = BaseChannel.STARTING
         if self._first_start:
             self.init_node_graph()

@@ -25,7 +25,7 @@ class HTTPEndpoint(endpoints.SocketEndpoint):
             loop=None,
             http_args=None,
             host=None,
-            sock=None,
+            sock=None,  # TODO: Why have sock and port if it's the same ?
             reuse_port=None,
             ):
         """
@@ -201,9 +201,9 @@ class HttpRequest(nodes.BaseNode):
             except FileNotFoundError:
                 logger.error("loading certs %s failed", self.client_cert)
                 raise
-            conn = aiohttp.TCPConnector(ssl_context=ssl_context, loop=loop)
+            conn = aiohttp.TCPConnector(ssl=ssl_context, loop=loop)
         else:
-            conn = aiohttp.TCPConnector(verify_ssl=self.verify, loop=loop)
+            conn = aiohttp.TCPConnector(ssl=self.verify, loop=loop)
 
         headers = nodes.choose_first_not_none(self.headers, msg.meta.get('headers'))
         cookies = nodes.choose_first_not_none(self.cookies, msg.meta.get('cookies'))

@@ -37,8 +37,8 @@ def tstfct2(msg):
 
 
 def get_mock_coro(return_value):
-    @asyncio.coroutine
-    def mock_coro(*args, **kwargs):
+
+    async def mock_coro(*args, **kwargs):
         return return_value
 
     return mock.Mock(wraps=mock_coro)

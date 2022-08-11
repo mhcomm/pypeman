@@ -1,6 +1,8 @@
 import asyncio
 import sys
 
+from functools import wraps
+
 # code copieds from https://github.com/feenes/mytb v0.0.13
 #  file: mytb/aio/compat.py
 
@@ -8,6 +10,19 @@ import sys
 assert sys.version_info >= (3, 4)
 
 patched = []  # keeps track of what has been patched
+
+
+def awaitify(sync_func):
+    """
+    Wrap a synchronous callable to allow ``await``'in it
+    Since python 3.8 asyncio.coroutine is deprecated
+    TODO: Check if there's a proper way to rewrite all sync
+    funcs (that calls Event)into native coroutines
+    """
+    @wraps(sync_func)
+    async def async_func(*args, **kwargs):
+        return sync_func(*args, **kwargs)
+    return async_func
 
 
 def patch():

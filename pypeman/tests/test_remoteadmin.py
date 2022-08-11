@@ -21,7 +21,7 @@ class RemoteAdminTests(TestCase):
 
     def clean_loop(self):
         # Useful to execute future callbacks
-        pending = asyncio.Task.all_tasks(loop=self.loop)
+        pending = asyncio.all_tasks(loop=self.loop)
 
         if pending:
             self.loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))

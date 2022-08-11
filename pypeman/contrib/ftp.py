@@ -210,7 +210,7 @@ class FTPWatcherChannel(channels.BaseChannel):
         Watch recursively for ftp new files.
         If file match regex, it is downloaded then processed in a message.
         """
-        await asyncio.sleep(self.interval, loop=self.loop)
+        await asyncio.sleep(self.interval)
         try:
             await self.tick()
         finally:

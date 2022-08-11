@@ -67,7 +67,7 @@ class PypeTestCase(TestCase):
         for chan in channels.all_channels:
             cls.loop.run_until_complete(chan.stop())
 
-        pending = asyncio.Task.all_tasks(loop=cls.loop)
+        pending = asyncio.all_tasks(loop=cls.loop)
         asyncio.gather(*pending, loop=cls.loop).cancel()
 
         cls.loop.close()
@@ -99,7 +99,7 @@ class PypeTestCase(TestCase):
         """
         raised_exceptions = []
 
-        pending = asyncio.Task.all_tasks(loop=cls.loop)
+        pending = asyncio.all_tasks(loop=cls.loop)
 
         for task in pending:
             if not task.done():  # Exclude already resolved exception

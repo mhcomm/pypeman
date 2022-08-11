@@ -200,7 +200,7 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
     plugin_manager.stop_plugins()
 
     print("End started tasks...")
-    pending = asyncio.Task.all_tasks()
+    pending = asyncio.all_tasks()
     logger.debug("%d pending tasks to wait for", len(pending))
     for task in pending:
         logger.debug("shall wait for task %s", repr(task))

@@ -18,11 +18,9 @@ from pypeman.tests.common import TstNode
 
 class ChannelsTests(TestCase):
     def clean_loop(self):
-        # Useful in pypeman<0.5 to execute future callbacks
-        pending = asyncio.Task.all_tasks(loop=self.loop)
-        # TODO: in Python 3.8+ asyncio.Task.all_tasks doesn't exist
-        # use asyncio.all_tasks, but doesn't have same behavior (
-        # it returns only not done tasks) so pending will be empty
+        # Useful to execute future callbacks  # TODO: remove ?
+        pending = asyncio.all_tasks(loop=self.loop)
+
         if pending:
             self.loop.run_until_complete(asyncio.gather(*pending))
 

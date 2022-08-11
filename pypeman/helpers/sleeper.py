@@ -16,7 +16,7 @@ class Sleeper:
         """
         a sleep function, that can be interrupted
         """
-        coro = asyncio.sleep(delay, result=result, loop=self.loop)
+        coro = asyncio.sleep(delay, result=result)
         task = asyncio.ensure_future(coro)
         self.tasks.add(task)
         try:

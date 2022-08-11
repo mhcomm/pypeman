@@ -165,7 +165,6 @@ class BaseNode:
 
         if self.passthrough:
             old_msg = msg.copy()
-
         # Allow process as coroutine function
         if asyncio.iscoroutinefunction(self.process):
             result = await self.async_run(msg)
@@ -415,7 +414,7 @@ class Sleep(BaseNode):
         super().__init__(*args, **kwargs)
 
     async def process(self, msg):
-        await asyncio.sleep(self.duration, loop=self.channel.loop)
+        await asyncio.sleep(self.duration)
         return msg
 
 
@@ -427,7 +426,8 @@ class JsonToPython(BaseNode):
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
-        msg.payload = json.loads(msg.payload, encoding=self.encoding)
+        encoded_payload = msg.payload.encode(self.encoding)
+        msg.payload = json.loads(encoded_payload)
         msg.content_type = 'application/python'
         return msg
 

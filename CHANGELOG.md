@@ -1,5 +1,9 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
 
+## [0.5.0](https://github.com/mhcomm/pypeman/compare/0.4.1...0.5.0)
+* remove python 3.6 from supported versions
+* Add python 3.9 and python 3.10 compatibility
+
 ## [0.4.1](https://github.com/mhcomm/pypeman/compare/0.4.0...0.4.1)
 * cleanup: rmv bad logs (too verbose combine + file watcher logs)
 * change repr string for channels

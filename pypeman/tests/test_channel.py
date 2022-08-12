@@ -17,10 +17,10 @@ from pypeman.tests.common import TstNode
 
 class ChannelsTests(TestCase):
     def clean_loop(self):
-        # Useful in pypeman<5 to execute future callbacks
+        # Useful in pypeman<0.5 to execute future callbacks
         pending = asyncio.Task.all_tasks(loop=self.loop)
-        # TODO: in Python 3.8+ asyncio.Task.all_tasks don't exists
-        # use asyncio.all_tasks, but don't have same behavior (
+        # TODO: in Python 3.8+ asyncio.Task.all_tasks doesn't exist
+        # use asyncio.all_tasks, but doesn't have same behavior (
         # it returns only not done tasks) so pending will be empty
         if pending:
             self.loop.run_until_complete(asyncio.gather(*pending))
@@ -89,7 +89,10 @@ class ChannelsTests(TestCase):
         self.assertEqual(chan, same_chan, "Append don't return channel.")
 
         sub = chan.fork(name="subchannel")
-        sub.append(n2, n3, n4)
+        sub.append(n2)
+        sub2 = sub.fork(name="subsubchannel")
+        sub2.append(n3)
+        sub.append(n4)
 
         # Launch channel processing
         self.start_channels()
@@ -99,6 +102,8 @@ class ChannelsTests(TestCase):
         self.assertTrue(n3.processed, "Sub Channel not working")
         self.assertTrue(n4.processed, "Sub Channel not working")
         self.assertEqual(sub.name, "test_channel3.subchannel", "Subchannel name is incorrect")
+        self.assertEqual(sub2.name, "test_channel3.subchannel.subsubchannel",
+                         "Subchannel name is incorrect")
 
     def test_sub_channel_with_exception(self):
         """ Whether Sub Channel exception handling is working """
@@ -106,8 +111,9 @@ class ChannelsTests(TestCase):
         chan = BaseChannel(name="test_channel4", loop=self.loop)
         n1 = TstNode(name="main")
         n2 = TstNode(name="sub")
-        n3 = ExceptNode(name="sub2")
+        n3 = ExceptNode(name="exc")
         n4 = TstNode(name="submain")
+        n5 = TstNode(name="sub2")
 
         msg = generate_msg()
 
@@ -115,6 +121,8 @@ class ChannelsTests(TestCase):
         sub = chan.fork(name="Hello")
         sub.add(n2, n3)
         chan.add(n4)
+        sub2 = chan.fork(name="sub2")
+        sub2.append(n5)
 
         # Launch channel processing
         self.start_channels()
@@ -126,6 +134,7 @@ class ChannelsTests(TestCase):
 
         self.assertEqual(n2.processed, 1, "Sub Channel not working")
         self.assertEqual(n4.processed, 1, "Sub Channel not working")
+        self.assertEqual(n5.processed, 1, "Sub Channel not working")
 
     def test_cond_channel(self):
         """ Whether Conditionnal channel is working """

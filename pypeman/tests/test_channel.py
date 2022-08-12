@@ -17,9 +17,11 @@ from pypeman.tests.common import TstNode
 
 class ChannelsTests(TestCase):
     def clean_loop(self):
-        # Useful to execute future callbacks
+        # Useful in pypeman<5 to execute future callbacks
         pending = asyncio.Task.all_tasks(loop=self.loop)
-
+        # TODO: in Python 3.8+ asyncio.Task.all_tasks don't exists
+        # use asyncio.all_tasks, but don't have same behavior (
+        # it returns only not done tasks) so pending will be empty
         if pending:
             self.loop.run_until_complete(asyncio.gather(*pending))
 
@@ -105,24 +107,25 @@ class ChannelsTests(TestCase):
         n1 = TstNode(name="main")
         n2 = TstNode(name="sub")
         n3 = ExceptNode(name="sub2")
+        n4 = TstNode(name="submain")
 
         msg = generate_msg()
 
         chan.add(n1)
         sub = chan.fork(name="Hello")
         sub.add(n2, n3)
+        chan.add(n4)
 
         # Launch channel processing
         self.start_channels()
 
-        self.loop.run_until_complete(chan.handle(msg))
+        with self.assertRaises(TstException):
+            self.loop.run_until_complete(chan.handle(msg))
 
         self.assertEqual(n1.processed, 1, "Sub Channel not working")
 
-        with self.assertRaises(TstException):
-            self.clean_loop()
-
         self.assertEqual(n2.processed, 1, "Sub Channel not working")
+        self.assertEqual(n4.processed, 1, "Sub Channel not working")
 
     def test_cond_channel(self):
         """ Whether Conditionnal channel is working """

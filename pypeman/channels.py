@@ -114,6 +114,7 @@ class BaseChannel:
 
         # Used to avoid multiple messages processing at same time
         self.lock = asyncio.Lock(loop=self.loop)
+        self.sub_chan_tasks = []
 
     @classmethod
     def status_id_to_str(cls, state_id):
@@ -329,6 +330,9 @@ class BaseChannel:
                 await self.message_store.change_message_state(msg_store_id, message.Message.ERROR)
                 raise
             finally:
+                if self.sub_chan_tasks:
+                    # Launch sub chans handle() and callbacks
+                    await asyncio.gather(*self.sub_chan_tasks)
                 self.status = BaseChannel.WAITING
                 self.processed_msgs += 1
 
@@ -498,6 +502,7 @@ class SubChannel(BaseChannel):
     """ Subchannel used for forking channel processing. """
 
     def callback(self, fut):
+        self.parent.sub_chan_tasks.remove(fut)
         try:
             result = fut.result()
             logger.debug("Subchannel %s end process message %s", repr(self), result)
@@ -505,12 +510,13 @@ class SubChannel(BaseChannel):
             self.logger.info("Subchannel %s. Msg was dropped", repr(self))
         except Exception:
             self.logger.exception("Error while processing msg in subchannel %s", self)
+            raise
 
     async def process(self, msg):
         if self._nodes:
             fut = ensure_future(self._nodes[0].handle(msg.copy()), loop=self.loop)
             fut.add_done_callback(self.callback)
-
+            self.parent.sub_chan_tasks.append(fut)
         return msg
 
 

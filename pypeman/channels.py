@@ -330,11 +330,11 @@ class BaseChannel:
                 await self.message_store.change_message_state(msg_store_id, message.Message.ERROR)
                 raise
             finally:
+                self.status = BaseChannel.WAITING
+                self.processed_msgs += 1
                 if self.sub_chan_tasks:
                     # Launch sub chans handle() and callbacks
                     await asyncio.gather(*self.sub_chan_tasks)
-                self.status = BaseChannel.WAITING
-                self.processed_msgs += 1
 
     async def subhandle(self, msg):
         """ Overload this method only if you know what you are doing. Called by ``handle`` method.

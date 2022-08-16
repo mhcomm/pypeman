@@ -110,7 +110,7 @@ class RemoteAdminTests(TestCase):
         self.assertEqual(chan.status, BaseChannel.WAITING, "Starting channel doesn't work")
 
         # Search message
-        msg_list = client.list_msg(channel='test_remote050', start=2, count=5, order_by='-timestamp')
+        msg_list = client.list_msgs(channel='test_remote050', start=2, count=5, order_by='-timestamp')
 
         print(msg_list)
 
@@ -118,7 +118,7 @@ class RemoteAdminTests(TestCase):
         self.assertEqual(msg_list['messages'][0]['id'], idref_msg3, 'List channel messages broken')
 
         # Search message with date filter
-        msg_list = client.list_msg(
+        msg_list = client.list_msgs(
             channel='test_remote050', start_dt="1982-11-27", end_dt="1982-11-28T13:00:00")
 
         print(msg_list)
@@ -129,14 +129,14 @@ class RemoteAdminTests(TestCase):
         # Replay message
         result = client.replay_msg('test_remote050', [idref_msg3])
 
-        msg_list = client.list_msg(channel='test_remote050', start=0, count=5, order_by='-timestamp')
+        msg_list = client.list_msgs(channel='test_remote050', start=0, count=5, order_by='-timestamp')
         self.assertEqual(msg_list['total'], 5, 'List channel messages broken')
         self.assertEqual(msg_list['messages'][0]['id'], result[0].uuid, 'Replay messages broken')
 
         # Push message
         result = client.push_msg(channel='test_remote050', text="Yaaay")
 
-        msg_list = client.list_msg(channel='test_remote050', start=0, count=5, order_by='-timestamp')
+        msg_list = client.list_msgs(channel='test_remote050', start=0, count=5, order_by='-timestamp')
         self.assertEqual(msg_list['total'], 6, 'Push message broken')
         self.assertEqual(msg_list['messages'][0]['id'], result.uuid, 'Push message broken')
 
@@ -152,4 +152,4 @@ class RemoteAdminTests(TestCase):
         print(msg_list)
 
         self.assertEqual(len(msg_list), 1, 'Preview messages broken')
-        self.assertEqual(msg_list[0].payload, msg3.payload[:999], 'Preview messages broken')
+        self.assertEqual(msg_list[0].payload, msg3.payload[:1000], 'Preview messages broken')

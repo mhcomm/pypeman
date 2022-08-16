@@ -146,12 +146,12 @@ class MsgstoreTests(TestCase):
         self.assertEqual(len(msgs), 2, "Failure of listing messages for memory msg store")
 
         # Test view message
-        msg_content = self.loop.run_until_complete(chan.message_store.view('%s' % msg5.uuid))
+        msg_content = self.loop.run_until_complete(chan.message_store.get_msg_content('%s' % msg5.uuid))
         self.assertEqual(msg_content.payload, msg5.payload, "Failure of message %s view!" % msg5)
 
         # Test preview message
-        msg_content = self.loop.run_until_complete(chan.message_store.preview('%s' % msg5.uuid))
-        self.assertEqual(msg_content.payload, msg5.payload[:999], "Failure of message %s preview!" % msg5)
+        msg_content = self.loop.run_until_complete(chan.message_store.get_preview_str('%s' % msg5.uuid))
+        self.assertEqual(msg_content.payload, msg5.payload[:1000], "Failure of message %s preview!" % msg5)
 
     def test_memory_message_store_in_fork(self):
         """ We can store a message in FileMessageStore """
@@ -291,14 +291,14 @@ class MsgstoreTests(TestCase):
         self.assertEqual(len(msgs), 2, "Failure of listing messages for file msg store")
 
         # Test view message
-        msg_content = self.loop.run_until_complete(chan.message_store.view(
+        msg_content = self.loop.run_until_complete(chan.message_store.get_msg_content(
             '1982/11/12/19821112_1435_%s' % msg5.uuid))
         self.assertEqual(msg_content.payload, msg5.payload, "Failure of message %s view!" % msg5)
 
         # Test preview message
-        msg_content = self.loop.run_until_complete(chan.message_store.preview(
+        msg_content = self.loop.run_until_complete(chan.message_store.get_preview_str(
             '1982/11/12/19821112_1435_%s' % msg5.uuid))
-        self.assertEqual(msg_content.payload, msg5.payload[:999], "Failure of message %s preview!" % msg5)
+        self.assertEqual(msg_content.payload, msg5.payload[:1000], "Failure of message %s preview!" % msg5)
 
         self.clean_loop()
 

@@ -76,7 +76,7 @@ export default {
       if (this.pagination.sortBy !== null) {
         args.push((this.pagination.descending ? '' : '-') + this.pagination.sortBy)
       }
-      this.$clientcall('list_msg', args).then((result) => {
+      this.$clientcall('list_msgs', args).then((result) => {
         this.messages = result.messages
         this.totalItems = result.total
         this.loading = false

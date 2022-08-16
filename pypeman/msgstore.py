@@ -57,7 +57,7 @@ class MessageStore():
         :return: A dict `{'id':<message_id>, 'state': <message_state>, 'message': <message_object>}`.
         """
 
-    async def preview(self, id):
+    async def get_preview_str(self, id):
         """
         Return the first 1000 chars of message content corresponding to `id`
 
@@ -65,12 +65,12 @@ class MessageStore():
         :return: A dict `{'id':<message_id>, 'message_content': str}`.
         """
 
-    async def view(self, id):
+    async def get_msg_content(self, id):
         """
-        Return the  message the content of the message corresponding to given `id`
+        Return the content of the message corresponding to given `id`
 
         :param id: Message id. Message store dependant.
-        :return: A dict `{'id':<message_id>, 'message_content': str}`.
+        :return: A dict `{'id':<message_id>, 'message_content': Message}`.
         """
 
     async def search(self, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None):
@@ -106,10 +106,10 @@ class NullMessageStore(MessageStore):
     async def get(self, id):
         return None
 
-    async def preview(self, id):
+    async def get_preview_str(self, id):
         return None
 
-    async def view(self, id):
+    async def get_msg_content(self, id):
         return None
 
     async def search(self, **kwargs):
@@ -135,10 +135,10 @@ class FakeMessageStore(MessageStore):
     async def get(self, id):
         return {'id': id, 'state': 'processed', 'message': None}
 
-    async def preview(self, id):
+    async def get_preview_str(self, id):
         return {"id": id, "message_content": "content"}
 
-    async def view(self, id):
+    async def get_msg_content(self, id):
         return {"id": id, "message_content": "content"}
 
     async def search(self, **kwargs):
@@ -179,12 +179,15 @@ class MemoryMessageStore(MessageStore):
         resp['message'] = Message.from_dict(resp['message'])
         return resp
 
-    async def preview(self, id):
-        msg = await self.view(id)
-        msg.payload = msg.payload[:999]
+    async def get_preview_str(self, id):
+        msg = await self.get_msg_content(id)
+        try:
+            msg.payload = str(msg.payload)[:1000]
+        except Exception:
+            msg.payload = repr(msg.payload)[:1000]
         return msg
 
-    async def view(self, id):
+    async def get_msg_content(self, id):
         msg = await self.get(id)
         msg_content = msg["message"]
         return msg_content
@@ -204,16 +207,21 @@ class MemoryMessageStore(MessageStore):
             end_dt = dateutil.parser.isoparse(end_dt)
 
         result = []
-        for value in sorted(self.messages.values(), key=lambda x: x[sort_key], reverse=reverse):
-            if start_dt and value["timestamp"] < start_dt:
-                continue
-            if end_dt and value["timestamp"] > end_dt:
-                continue
+        pos = 0
+        values = (
+            val for val in self.messages.values()
+            if (not start_dt or val["timestamp"] >= start_dt)
+            and (not end_dt or val["timestamp"] <= end_dt)
+        )
+        for value in sorted(values, key=lambda x: x[sort_key], reverse=reverse):
             resp = dict(value)
             resp['message'] = Message.from_dict(resp['message'])
-
-            result.append(resp)
-        return result[start: start + count]
+            if start <= pos < start + count:
+                result.append(resp)
+            elif pos >= start + count:
+                break
+            pos += 1
+        return result
 
     async def total(self):
         return len(self.messages)
@@ -305,12 +313,15 @@ class FileMessageStore(MessageStore):
             msg = Message.from_json(f.read().decode('utf-8'))
             return {'id': id, 'state': await self.get_message_state(id), 'message': msg}
 
-    async def preview(self, id):
-        msg = await self.view(id)
-        msg.payload = str(msg.payload[:999])
+    async def get_preview_str(self, id):
+        msg = await self.get_msg_content(id)
+        try:
+            msg.payload = str(msg.payload)[:1000]
+        except Exception:
+            msg.payload = repr(msg.payload)[:1000]
         return msg
 
-    async def view(self, id):
+    async def get_msg_content(self, id):
         msg = await self.get(id)
         msg_content = msg["message"]
         return msg_content

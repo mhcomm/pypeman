@@ -141,7 +141,7 @@ class RemoteAdminServer():
         }
 
     @method
-    async def list_msg(self, channel, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None):
+    async def list_msgs(self, channel, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None):
         """
         List first `count` messages from message store of specified channel.
 
@@ -180,7 +180,7 @@ class RemoteAdminServer():
     @method
     async def view_msg(self, channel, msg_ids):
         """
-        Replay messages from message store.
+        Permit to get the content of a message
 
         :params channel: The channel name.
         :params msg_ids: The message ids list to replay.
@@ -189,7 +189,7 @@ class RemoteAdminServer():
         result = []
         for msg_id in msg_ids:
             try:
-                msg_res = await chan.message_store.view(msg_id)
+                msg_res = await chan.message_store.get_msg_content(msg_id)
                 result.append(msg_res.to_dict())
             except Exception as exc:
                 result.append({'error': str(exc)})
@@ -199,7 +199,7 @@ class RemoteAdminServer():
     @method
     async def preview_msg(self, channel, msg_ids):
         """
-        Replay messages from message store.
+        Permits to get the 1000 chars of a message payload
 
         :params channel: The channel name.
         :params msg_ids: The message ids list to replay.
@@ -208,7 +208,7 @@ class RemoteAdminServer():
         result = []
         for msg_id in msg_ids:
             try:
-                msg_res = await chan.message_store.preview(msg_id)
+                msg_res = await chan.message_store.get_preview_str(msg_id)
                 result.append(msg_res.to_dict())
             except Exception as exc:
                 result.append({'error': str(exc)})
@@ -289,7 +289,7 @@ class RemoteAdminClient():
         """
         return self.send_command('stop_channel', [channel])
 
-    def list_msg(self, channel, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None):
+    def list_msgs(self, channel, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None):
         """
         List first 10 messages on specified channel from remote instance.
 
@@ -302,7 +302,7 @@ class RemoteAdminClient():
         :returns: list of message with status.
         """
         list_msg_args = [channel, start, count, order_by, start_dt, end_dt]
-        result = self.send_command('list_msg', list_msg_args)
+        result = self.send_command('list_msgs', list_msg_args)
 
         for m in result['messages']:
             m['message'] = message.Message.from_json(m['message'])
@@ -482,7 +482,7 @@ class PypemanShell(cmd.Cmd):
         if len(args) > 2:
             order_by = args[2]
 
-        result = self.client.list_msg(channel, start, end, order_by, start_dt=start_dt, end_dt=end_dt)
+        result = self.client.list_msgs(channel, start, end, order_by, start_dt=start_dt, end_dt=end_dt)
 
         if not result['total']:
             print('No message yet.')

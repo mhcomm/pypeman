@@ -4,6 +4,7 @@ import logging
 import os
 import re
 
+from itertools import islice
 from collections import OrderedDict
 
 from pypeman.message import Message
@@ -207,20 +208,16 @@ class MemoryMessageStore(MessageStore):
             end_dt = dateutil.parser.isoparse(end_dt)
 
         result = []
-        pos = 0
         values = (
             val for val in self.messages.values()
             if (not start_dt or val["timestamp"] >= start_dt)
             and (not end_dt or val["timestamp"] <= end_dt)
         )
-        for value in sorted(values, key=lambda x: x[sort_key], reverse=reverse):
+        for value in islice(sorted(values, key=lambda x: x[sort_key], reverse=reverse),
+                            start, start + count):
             resp = dict(value)
             resp['message'] = Message.from_dict(resp['message'])
-            if start <= pos < start + count:
-                result.append(resp)
-            elif pos >= start + count:
-                break
-            pos += 1
+            result.append(resp)
         return result
 
     async def total(self):
@@ -373,7 +370,7 @@ class FileMessageStore(MessageStore):
                     os.path.join(self.base_path, year), reverse=reverse):
                 for day in await self.sorted_list_directories(
                         os.path.join(self.base_path, year, month), reverse=reverse):
-                    # Pre filter with date to avoid listing unusefull dirs
+                    # Pre filter with date to avoid listing unuseful dirs
                     msg_date = datetime.date(year=int(year), month=int(month), day=int(day))
                     if start_dt:
                         if msg_date < start_dt.date():

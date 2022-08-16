@@ -138,12 +138,12 @@ class MsgstoreTests(TestCase):
 
         # Test list messages
         msgs = self.loop.run_until_complete(chan.message_store.search(start=2, count=5))
-        self.assertEqual(len(msgs), 3, "Failure of listing messages for memory msg store")
+        self.assertEqual(len(msgs), 3, "Failure of listing messages from memory msg store")
 
         # Test list messages with filters
         msgs = self.loop.run_until_complete(chan.message_store.search(
             start_dt="1982-11-27", end_dt="1982-11-28T13:00:00"))
-        self.assertEqual(len(msgs), 2, "Failure of listing messages for memory msg store")
+        self.assertEqual(len(msgs), 2, "Failure of listing messages from memory msg store")
 
         # Test view message
         msg_content = self.loop.run_until_complete(chan.message_store.get_msg_content('%s' % msg5.uuid))

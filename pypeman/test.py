@@ -95,6 +95,8 @@ class PypeTestCase(TestCase):
         """
         You can use this function if you have some subchannel in you channel
         and want to see the final result by processing all remaining tasks.
+        TODO: maybe remove this function (all subchannels are awaited in the
+            handle so pending will be empty)
 
         :return: A list of raised exceptions during task execution.
         """
@@ -103,11 +105,10 @@ class PypeTestCase(TestCase):
         pending = asyncio.all_tasks(loop=cls.loop)
 
         for task in pending:
-            if not task.done():  # Exclude already resolved exception
-                try:
-                    cls.loop.run_until_complete(task)
-                except Exception as exc: # noqa
-                    raised_exceptions.append(exc)
+            try:
+                cls.loop.run_until_complete(task)
+            except Exception as exc: # noqa
+                raised_exceptions.append(exc)
 
         return raised_exceptions
 

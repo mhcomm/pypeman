@@ -474,7 +474,7 @@ class NodesTests(TestCase):
                 'ssl.SSLContext',
                 autospec=True) as mock_ssl_context:
             mock_ctx_mgr = mock_client_session.return_value
-            mock_session = mock_ctx_mgr.__enter__.return_value
+            mock_session = mock_ctx_mgr.__aenter__.return_value
             mg = mock.MagicMock()
             mg.text = get_mock_coro(mock.MagicMock())
             mock_session.request = get_mock_coro(mg)

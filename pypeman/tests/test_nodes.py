@@ -1,8 +1,8 @@
 import asyncio
 import json
 import os
-import unittest
 import sys
+import unittest
 
 from unittest import mock
 from pathlib import Path
@@ -398,7 +398,7 @@ class NodesTests(TestCase):
             fake_ftp.upload_file.assert_called_once_with('test_write.part', 'message_content')
             fake_ftp.rename.assert_called_once_with('test_write.part', 'test_write')
 
-    @unittest.skipIf((sys.version_info.major == 3 and sys.version_info.minor == 7),
+    @unittest.skipIf((sys.version_info[:2] == (3, 7)),
                      "difficulty to mock async with statement in py3.7")  # TODO: rm in py3.8+
     def test_httprequest_node(self):
         """ Whether HttpRequest node is functional """

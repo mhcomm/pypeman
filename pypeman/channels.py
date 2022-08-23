@@ -114,7 +114,7 @@ class BaseChannel:
 
         # Used to avoid multiple messages processing at same time
         # Lock use `asyncio.get_running_loop()` that only be called from coroutines or callbacks
-        # So now, lock is instanciated in start
+        # So now, lock is instanciated at start
         self.lock = None
 
         self.sub_chan_tasks = []

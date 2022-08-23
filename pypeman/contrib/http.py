@@ -141,8 +141,8 @@ class HttpRequest(nodes.BaseNode):
         Http request node
         :param url: url to send.
         :param method: 'get', 'put' or 'post', use meta['method'] if None, Default to 'get'.
-        :param headers: headers for request, use meta['headers'] if None.
-        :param cookies: cookies for request, use meta['cookies'] if None.
+        :param headers: headers for request, use meta.get('headers') if None.
+        :param cookies: cookies for request, use meta.get('cookies') if None.
         :param auth: tuple or aiohttp.BasicAuth object.
         :param verify: verify ssl. Default True.
         :param params: get params in dict. List for multiple elements, ex :

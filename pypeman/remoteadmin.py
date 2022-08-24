@@ -4,6 +4,7 @@ import functools
 import json
 import logging
 import os
+import re
 import sys
 
 # TODO use readline for history ?
@@ -141,7 +142,8 @@ class RemoteAdminServer():
         }
 
     @method
-    async def list_msgs(self, channel, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None):
+    async def list_msgs(self, channel, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None,
+                        text=None, rtext=None):
         """
         List first `count` messages from message store of specified channel.
 
@@ -150,7 +152,8 @@ class RemoteAdminServer():
         chan = self.get_channel(channel)
 
         messages = await chan.message_store.search(
-            start=start, count=count, order_by=order_by, start_dt=start_dt, end_dt=end_dt)
+            start=start, count=count, order_by=order_by, start_dt=start_dt, end_dt=end_dt,
+            text=text, rtext=rtext)
 
         for res in messages:
             res['timestamp'] = res['message'].timestamp_str()
@@ -289,7 +292,8 @@ class RemoteAdminClient():
         """
         return self.send_command('stop_channel', [channel])
 
-    def list_msgs(self, channel, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None):
+    def list_msgs(self, channel, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None,
+                  text=None, rtext=None):
         """
         List first 10 messages on specified channel from remote instance.
 
@@ -298,10 +302,12 @@ class RemoteAdminClient():
         :params count: Count from index.
         :params start_dt: (optional) start datetime filter (isoformat)
         :params end_dt: (optional) start datetime filter (isoformat)
+        :params text: (optional) text to search in message
+        :params rtext: (optional) regex to search in message
         :params order_by: Message order. only 'timestamp' and '-timestamp' handled for now.
         :returns: list of message with status.
         """
-        list_msg_args = [channel, start, count, order_by, start_dt, end_dt]
+        list_msg_args = [channel, start, count, order_by, start_dt, end_dt, text, rtext]
         result = self.send_command('list_msgs', list_msg_args)
 
         for m in result['messages']:
@@ -456,7 +462,14 @@ class PypemanShell(cmd.Cmd):
             to filter messages
             - to preview 100 firsts characters of the message payload, pass the argument `--preview`
         """
+        dquote_args_regex = r'\w+=".*?"'
+        dquote_args = re.findall(dquote_args_regex, arg)
+        for st_arg in dquote_args:
+            arg.replace(st_arg, "")
+            st_arg = st_arg.replace('"', '')
         args = arg.split()
+        if dquote_args:
+            args.extend(dquote_args)
         start, end, order_by = 0, 100, '-timestamp'
         start_dt = None
         end_dt = None
@@ -473,6 +486,12 @@ class PypemanShell(cmd.Cmd):
                 if arg == "--preview":
                     to_preview = True
                     args.remove(arg)
+                if arg.startswith("text="):
+                    text = arg.split("=")[1]
+                    args.remove(arg)
+                if arg.startswith("rtext="):
+                    rtext = arg.split("=")[1]
+                    args.remove(arg)
 
         # Parsing of common args
         if args:
@@ -482,7 +501,9 @@ class PypemanShell(cmd.Cmd):
         if len(args) > 2:
             order_by = args[2]
 
-        result = self.client.list_msgs(channel, start, end, order_by, start_dt=start_dt, end_dt=end_dt)
+        result = self.client.list_msgs(
+            channel, start, end, order_by, start_dt=start_dt, end_dt=end_dt,
+            text=text, rtext=rtext)
 
         if not result['total']:
             print('No message yet.')

@@ -141,7 +141,8 @@ class HttpRequest(nodes.BaseNode):
         Http request node
         :param url: url to send.
         :param method: 'get', 'put' or 'post', use meta['method'] if None, Default to 'get'.
-        :param headers: headers for request, use meta['headers'] if None.
+        :param headers: headers for request, use meta.get('headers') if None.
+        :param cookies: cookies for request, use meta.get('cookies') if None.
         :param auth: tuple or aiohttp.BasicAuth object.
         :param verify: verify ssl. Default True.
         :param params: get params in dict. List for multiple elements, ex :
@@ -150,11 +151,13 @@ class HttpRequest(nodes.BaseNode):
     """
 
     def __init__(self, url, *args, method=None, headers=None, auth=None,
-                 verify=True, params=None, client_cert=None, **kwargs):
+                 verify=True, params=None, client_cert=None, cookies=None,
+                 **kwargs):
         super().__init__(*args, **kwargs)
         self.url = url
         self.method = method
         self.headers = headers
+        self.cookies = cookies
         self.auth = auth
         self.verify = verify
         self.params = params
@@ -199,6 +202,7 @@ class HttpRequest(nodes.BaseNode):
             conn = aiohttp.TCPConnector(verify_ssl=self.verify, loop=loop)
 
         headers = nodes.choose_first_not_none(self.headers, msg.meta.get('headers'))
+        cookies = nodes.choose_first_not_none(self.cookies, msg.meta.get('cookies'))
         method = nodes.choose_first_not_none(self.method, msg.meta.get('method'), 'get')
         params = nodes.choose_first_not_none(self.params, msg.meta.get('params'))
 
@@ -218,9 +222,9 @@ class HttpRequest(nodes.BaseNode):
             basic_auth = self.auth
 
         data = None
-        if method in ['put', 'post']:
+        if method.lower() in ['put', 'post']:
             data = msg.payload
-        with aiohttp.ClientSession(connector=conn) as session:
+        with aiohttp.ClientSession(connector=conn, cookies=cookies) as session:
             resp = await session.request(
                     method=method,
                     url=url,

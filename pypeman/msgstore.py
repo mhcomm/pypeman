@@ -74,7 +74,26 @@ class MessageStore():
         :return: A dict `{'id':<message_id>, 'message_content': Message}`.
         """
 
-    async def search(self, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None):
+    async def is_regex_in_msg(self, id, rtext):
+        """
+        Return True if the str(msg) contains the regex rtext
+
+        :param id: Message id. Message store dependant.
+        :param rtext: String. The rtext is the text to convert in regex and to search in msg
+        :return: True if it matchs False otherwise
+        """
+
+    async def is_txt_in_msg(self, id, text):
+        """
+        Return True if the str(msg) contains param text
+
+        :param id: Message id. Message store dependant.
+        :param text: String. The text to search in msg
+        :return: True if it text is find False otherwise
+        """
+
+    async def search(self, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None,
+                     text=None, rtext=None):
         """
         Return a list of message with store specific `id` and processed status.
 
@@ -83,6 +102,8 @@ class MessageStore():
         :param order_by: Message order. Allowed values : ['timestamp', 'status'].
         :param start_dt: (optional) Isoformat start date(time) to filter with
         :param end_dt: (optional) Isoformat end date(time) to filter with
+        :param text: (optional) String to search in message content
+        :param rtext: (optional) String regex to search in message content
         :return: A list of dict `{'id':<message_id>, 'state': <message_state>, 'message': <message_object>}`.
         """
 
@@ -142,6 +163,12 @@ class FakeMessageStore(MessageStore):
     async def get_msg_content(self, id):
         return {"id": id, "message_content": "content"}
 
+    async def is_regex_in_msg(self, id, rtext):
+        return True
+
+    async def is_txt_in_msg(self, id, text):
+        return True
+
     async def search(self, **kwargs):
         return []
 
@@ -193,7 +220,25 @@ class MemoryMessageStore(MessageStore):
         msg_content = msg["message"]
         return msg_content
 
-    async def search(self, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None):
+    async def is_regex_in_msg(self, id, rtext):
+        msg = await self.get_msg_content(id)
+        try:
+            msg.payload = str(msg.payload)[:1000]
+        except Exception:
+            msg.payload = repr(msg.payload)[:1000]
+        regex = re.compile(rtext)
+        return True if regex.match(msg.payload) else False
+
+    async def is_txt_in_msg(self, id, text):
+        msg = await self.get_msg_content(id)
+        try:
+            msg.payload = str(msg.payload)[:1000]
+        except Exception:
+            msg.payload = repr(msg.payload)[:1000]
+        return text in msg.payload
+
+    async def search(self, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None,
+                     text=None, rtext=None):
 
         if order_by.startswith('-'):
             reverse = True
@@ -213,6 +258,10 @@ class MemoryMessageStore(MessageStore):
             if (not start_dt or val["timestamp"] >= start_dt)
             and (not end_dt or val["timestamp"] <= end_dt)
         )
+        if text:
+            values = (val for val in values if self.is_txt_in_msg(val["id"], text))
+        if rtext:
+            values = (val for val in values if self.is_regex_in_msg(val["id"], rtext))
         for value in islice(sorted(values, key=lambda x: x[sort_key], reverse=reverse),
                             start, start + count):
             resp = dict(value)
@@ -345,7 +394,25 @@ class FileMessageStore(MessageStore):
                             count += 1
         return count
 
-    async def search(self, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None):
+    async def is_regex_in_msg(self, id, rtext):
+        msg = await self.get_msg_content(id)
+        try:
+            msg.payload = str(msg.payload)[:1000]
+        except Exception:
+            msg.payload = repr(msg.payload)[:1000]
+        regex = re.compile(rtext)
+        return True if regex.match(msg.payload) else False
+
+    async def is_txt_in_msg(self, id, text):
+        msg = await self.get_msg_content(id)
+        try:
+            msg.payload = str(msg.payload)[:1000]
+        except Exception:
+            msg.payload = repr(msg.payload)[:1000]
+        return text in msg.payload
+
+    async def search(self, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None,
+                     text=None, rtext=None):
         # TODO better performance for slicing by counting file in dirs ?
         if order_by.startswith('-'):
             reverse = True
@@ -389,14 +456,18 @@ class FileMessageStore(MessageStore):
                             minute = int(msg_str_time[2:4])
                             msg_time = datetime.time(hour=hour, minute=minute, second=0)
                             msg_dt = datetime.datetime.combine(msg_date, msg_time)
+                            mid = os.path.join(year, month, day, msg_name)
                             if start_dt:
                                 if msg_dt < start_dt:
                                     continue
                             if end_dt:
                                 if msg_dt > end_dt:
                                     continue
+                            if text:
+                                self.is_txt_in_msg(mid, text)
+                            if rtext:
+                                self.is_regex_in_msg(mid, rtext)
                             if start <= position < end:
-                                mid = os.path.join(year, month, day, msg_name)
                                 result.append(await self.get(mid))
                             position += 1
         return result

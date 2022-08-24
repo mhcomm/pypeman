@@ -460,12 +460,14 @@ class PypemanShell(cmd.Cmd):
         Optional args:
             - to filter messages, you can pass start_dt and end_dt (isoformat datetimes)
             to filter messages
+            - to filter messages, you can pass text and rtext (string between double quotes)
+            to filter messages
             - to preview 100 firsts characters of the message payload, pass the argument `--preview`
         """
         dquote_args_regex = r'\w+=".*?"'
         dquote_args = re.findall(dquote_args_regex, arg)
         for st_arg in dquote_args:
-            arg.replace(st_arg, "")
+            arg = arg.replace(st_arg, "")
             st_arg = st_arg.replace('"', '')
         args = arg.split()
         if dquote_args:
@@ -474,6 +476,8 @@ class PypemanShell(cmd.Cmd):
         start_dt = None
         end_dt = None
         to_preview = False
+        text = None
+        rtext = None
         # Parsing of naming args
         for arg in args:
             if type(arg) == str:

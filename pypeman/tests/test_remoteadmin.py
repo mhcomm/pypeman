@@ -62,9 +62,9 @@ class RemoteAdminTests(TestCase):
         n4 = TstNode(name="sub2")
 
         msg = generate_msg(with_context=True)
-        msg2 = generate_msg(timestamp=(1982, 11, 27, 12, 35))
-        msg3 = generate_msg(timestamp=(1982, 11, 28, 12, 35))
-        msg4 = generate_msg(timestamp=(1982, 11, 28, 14, 35))
+        msg2 = generate_msg(timestamp=(1982, 11, 27, 12, 35), message_content="message content2")
+        msg3 = generate_msg(timestamp=(1982, 11, 28, 12, 35), message_content="message_content3")
+        msg4 = generate_msg(timestamp=(1982, 11, 28, 14, 35), message_content="message content4")
 
         idref_msg3 = msg3.uuid
 
@@ -125,6 +125,24 @@ class RemoteAdminTests(TestCase):
 
         self.assertEqual(len(msg_list['messages']), 2, 'List channel messages broken')
         self.assertEqual(msg_list['messages'][1]['id'], idref_msg3, 'List channel messages broken')
+
+        # Search message with text filter
+        msg_list = client.list_msgs(
+            channel='test_remote050', text="sage_c")
+
+        print(msg_list)
+
+        self.assertEqual(len(msg_list['messages']), 1, 'List channel messages broken')
+        self.assertEqual(msg_list['messages'][0]['id'], idref_msg3, 'List channel messages broken')
+
+        # Search message with regex filter
+        msg_list = client.list_msgs(
+            channel='test_remote050', rtext="\w+_\w+")  # noqa: W605
+
+        print(msg_list)
+
+        self.assertEqual(len(msg_list['messages']), 1, 'List channel messages broken')
+        self.assertEqual(msg_list['messages'][0]['id'], idref_msg3, 'List channel messages broken')
 
         # Replay message
         result = client.replay_msg('test_remote050', [idref_msg3])

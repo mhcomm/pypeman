@@ -81,9 +81,9 @@ class MsgstoreTests(TestCase):
         n_error = TstConditionalErrorNode()
 
         msg = generate_msg(with_context=True)
-        msg2 = generate_msg(timestamp=(1982, 11, 27, 12, 35))
-        msg3 = generate_msg(timestamp=(1982, 11, 28, 12, 35))
-        msg4 = generate_msg(timestamp=(1982, 11, 28, 14, 35))
+        msg2 = generate_msg(timestamp=(1982, 11, 27, 12, 35), message_content="message content2")
+        msg3 = generate_msg(timestamp=(1982, 11, 28, 12, 35), message_content="message content3")
+        msg4 = generate_msg(timestamp=(1982, 11, 28, 14, 35), message_content="message_content4")
 
         # This message should be in error
         msg5 = generate_msg(timestamp=(1982, 11, 12, 14, 35),
@@ -140,9 +140,13 @@ class MsgstoreTests(TestCase):
         msgs = self.loop.run_until_complete(chan.message_store.search(start=2, count=5))
         self.assertEqual(len(msgs), 3, "Failure of listing messages from memory msg store")
 
-        # Test list messages with filters
+        # Test list messages with date filters
         msgs = self.loop.run_until_complete(chan.message_store.search(
             start_dt="1982-11-27", end_dt="1982-11-28T13:00:00"))
+        self.assertEqual(len(msgs), 2, "Failure of listing messages from memory msg store")
+
+        # Test list messages with text filter
+        msgs = self.loop.run_until_complete(chan.message_store.search(text="sage con"))
         self.assertEqual(len(msgs), 2, "Failure of listing messages from memory msg store")
 
         # Test view message
@@ -221,9 +225,9 @@ class MsgstoreTests(TestCase):
         n_error = TstConditionalErrorNode()
 
         msg = generate_msg(with_context=True)
-        msg2 = generate_msg(timestamp=(1982, 11, 27, 12, 35))
-        msg3 = generate_msg(timestamp=(1982, 11, 28, 12, 35))
-        msg4 = generate_msg(timestamp=(1982, 11, 28, 14, 35))
+        msg2 = generate_msg(timestamp=(1982, 11, 27, 12, 35), message_content="message content2")
+        msg3 = generate_msg(timestamp=(1982, 11, 28, 12, 35), message_content="message content3")
+        msg4 = generate_msg(timestamp=(1982, 11, 28, 14, 35), message_content="message_content4")
 
         # This message should be in error
         msg5 = generate_msg(timestamp=(1982, 11, 12, 14, 35),
@@ -285,10 +289,20 @@ class MsgstoreTests(TestCase):
         msgs = self.loop.run_until_complete(chan.message_store.search(start=2, count=5))
         self.assertEqual(len(msgs), 3, "Failure of listing messages for file msg store")
 
-        # Test list messages with filters
+        # Test list messages with date filters
         msgs = self.loop.run_until_complete(chan.message_store.search(
             start_dt="1982-11-27", end_dt="1982-11-28T13:00:00"))
         self.assertEqual(len(msgs), 2, "Failure of listing messages for file msg store")
+
+        # Test list messages with text filters
+        msgs = self.loop.run_until_complete(chan.message_store.search(
+            text="sage con"))
+        self.assertEqual(len(msgs), 2, "Failure of listing messages for file msg store")
+
+        # Test list messages with regex filters
+        msgs = self.loop.run_until_complete(chan.message_store.search(
+            rtext="\w+_\w+"))  # noqa: W605
+        self.assertEqual(len(msgs), 1, "Failure of listing messages for file msg store")
 
         # Test view message
         msg_content = self.loop.run_until_complete(chan.message_store.get_msg_content(

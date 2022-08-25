@@ -226,6 +226,8 @@ class MemoryMessageStore(MessageStore):
             msg.payload = str(msg.payload)[:1000]
         except Exception:
             msg.payload = repr(msg.payload)[:1000]
+        logger.warning("ui")
+        logger.warning(rtext)
         regex = re.compile(rtext)
         return True if regex.match(msg.payload) else False
 
@@ -259,9 +261,18 @@ class MemoryMessageStore(MessageStore):
             and (not end_dt or val["timestamp"] <= end_dt)
         )
         if text:
-            values = (val for val in values if self.is_txt_in_msg(val["id"], text))
+            found_values = []
+            for val in values:
+                if await self.is_txt_in_msg(val["id"], text):
+                    found_values.append(val)
+            values = found_values
+
         if rtext:
-            values = (val for val in values if self.is_regex_in_msg(val["id"], rtext))
+            found_values = []
+            for val in values:
+                if await self.is_regex_in_msg(val["id"], rtext):
+                    found_values.append(val)
+            values = found_values
         for value in islice(sorted(values, key=lambda x: x[sort_key], reverse=reverse),
                             start, start + count):
             resp = dict(value)

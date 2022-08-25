@@ -427,7 +427,6 @@ class FileMessageStore(MessageStore):
             end_dt = dateutil.parser.isoparse(end_dt)
 
         # TODO handle sort_key
-
         result = []
         end = start + count
         position = 0
@@ -464,9 +463,11 @@ class FileMessageStore(MessageStore):
                                 if msg_dt > end_dt:
                                     continue
                             if text:
-                                self.is_txt_in_msg(mid, text)
+                                if not await self.is_txt_in_msg(mid, text):
+                                    continue
                             if rtext:
-                                self.is_regex_in_msg(mid, rtext)
+                                if not await self.is_regex_in_msg(mid, rtext):
+                                    continue
                             if start <= position < end:
                                 result.append(await self.get(mid))
                             position += 1

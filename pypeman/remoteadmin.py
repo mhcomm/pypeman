@@ -26,7 +26,6 @@ from pypeman.conf import settings
 from pypeman import channels
 from pypeman import message
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -153,7 +152,7 @@ class RemoteAdminServer():
 
         messages = await chan.message_store.search(
             start=start, count=count, order_by=order_by, start_dt=start_dt, end_dt=end_dt,
-            text=text, rtext=rtext)
+            text=text, rtext=rtext) or []
 
         for res in messages:
             res['timestamp'] = res['message'].timestamp_str()
@@ -468,7 +467,7 @@ class PypemanShell(cmd.Cmd):
         dquote_args = re.findall(dquote_args_regex, arg)
         for st_arg in dquote_args:
             arg = arg.replace(st_arg, "")
-            st_arg = st_arg.replace('"', '')
+        dquote_args = [dqarg.replace('"', "") for dqarg in dquote_args]
         args = arg.split()
         if dquote_args:
             args.extend(dquote_args)
@@ -478,8 +477,10 @@ class PypemanShell(cmd.Cmd):
         to_preview = False
         text = None
         rtext = None
+
+        args_copy = [i for i in args]
         # Parsing of naming args
-        for arg in args:
+        for arg in args_copy:
             if type(arg) == str:
                 if arg.startswith("start_dt="):
                     start_dt = arg.split("=")[1]
@@ -504,7 +505,6 @@ class PypemanShell(cmd.Cmd):
             end = int(args[1])
         if len(args) > 2:
             order_by = args[2]
-
         result = self.client.list_msgs(
             channel, start, end, order_by, start_dt=start_dt, end_dt=end_dt,
             text=text, rtext=rtext)

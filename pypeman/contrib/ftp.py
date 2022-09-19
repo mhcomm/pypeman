@@ -1,9 +1,11 @@
 import asyncio
+import logging
 import re
 
 from asyncio import ensure_future
 from ftplib import FTP
 from io import BytesIO
+from pathlib import Path
 
 from concurrent.futures import ThreadPoolExecutor
 
@@ -11,6 +13,8 @@ from pypeman import channels, nodes, message
 
 # Can be redefined
 default_thread_pool = ThreadPoolExecutor(max_workers=3)
+
+logger = logging.getLogger(__name__)
 
 
 class FTPConnection():
@@ -113,7 +117,8 @@ class FTPWatcherChannel(channels.BaseChannel):
     """
     def __init__(self, *args, host="", port=21, credentials="", basedir="", regex='.*',
                  interval=60, delete_after=False, encoding="utf-8",
-                 thread_pool=None, sort_function=sorted, **kwargs):
+                 thread_pool=None, sort_function=sorted, real_extensions=None,
+                 **kwargs):
         super().__init__(*args, **kwargs)
 
         self.basedir = basedir
@@ -122,6 +127,7 @@ class FTPWatcherChannel(channels.BaseChannel):
         self.re = re.compile(regex)
         self.encoding = encoding
         self.sort_function = sort_function
+        self.real_extensions = real_extensions  # list of extensions for exemple: [".csv", ".CSV"]
         self.ls_prev = set()
 
         # pool used to make ftp connection out of thread
@@ -184,6 +190,19 @@ class FTPWatcherChannel(channels.BaseChannel):
 
         for filename in added:
             if self.re.match(filename) and not self.is_stopped():
+                if self.real_extensions:
+                    for extension in self.real_extensions:
+                        real_fname = str(Path(filename).with_suffix(extension))
+                        if real_fname in ls:
+                            filename = real_fname
+                            break
+                    else:
+                        # If no related files
+                        # TODO : ask if raise exc or not
+                        logger.error(
+                            "No %r related file to %s",
+                            self.real_extensions, filename)
+                        continue
                 ensure_future(self.get_file_and_process(filename), loop=self.loop)
 
     async def watch_for_file(self):

@@ -2,6 +2,7 @@ import asyncio
 import os
 import uuid
 import logging
+import pathlib
 import re
 import types
 import warnings
@@ -598,11 +599,15 @@ class FileWatcherChannel(BaseChannel):
     Watch for file change or creation. File content becomes message payload.
     ``filepath`` is in message meta.
 
+    If the regex is for an acknowledgement file (.ok for exemple) you can convert it to the
+    real filepath via the real_extensions init arg. The returned msg payload will be the
+    content of the real file and not the acknowledgement file. Idem for meta
     """
 
     NEW, UNCHANGED, MODIFIED, DELETED = range(4)
 
-    def __init__(self, *args, basedir='', regex='.*', interval=1, binary_file=False, path='', **kwargs):
+    def __init__(self, *args, basedir='', regex='.*', interval=1, binary_file=False, path='',
+                 real_extensions=None, **kwargs):
         super().__init__(*args, **kwargs)
         if path:
             self.basedir = path
@@ -615,13 +620,13 @@ class FileWatcherChannel(BaseChannel):
         self.data = {}
         self.re = re.compile(self.regex)
         self.binary_file = binary_file
-
+        self.real_extensions = real_extensions  # list of extensions for exemple: [".csv", ".CSV"]
         # Set mtime for all existing matching files
         if os.path.exists(self.basedir):
             for filename in os.listdir(self.basedir):
                 if self.re.match(filename):
-                    filepath = os.path.join(self.basedir, filename)
-                    mtime = os.stat(filepath).st_mtime
+                    filepath = pathlib.Path(self.basedir) / filename
+                    mtime = filepath.stat().st_mtime
                     self.data[filename] = mtime
         else:
             self.logger.warning("Path doesn't exists: %r", self.basedir)
@@ -633,8 +638,8 @@ class FileWatcherChannel(BaseChannel):
     def file_status(self, filename):
         if filename in self.data:
             old_mtime = self.data[filename]
-            filepath = os.path.join(self.basedir, filename)
-            new_mtime = os.stat(filepath).st_mtime
+            filepath = pathlib.Path(self.basedir) / filename
+            new_mtime = filepath.stat().st_mtime
             if new_mtime == old_mtime:
                 return FileWatcherChannel.UNCHANGED
             elif new_mtime > old_mtime:
@@ -663,8 +668,22 @@ class FileWatcherChannel(BaseChannel):
                         status = self.file_status(filename)
 
                         if status in [FileWatcherChannel.MODIFIED, FileWatcherChannel.NEW]:
-                            filepath = os.path.join(self.basedir, filename)
-                            self.data[filename] = os.stat(filepath).st_mtime
+                            filepath = pathlib.Path(self.basedir) / filename
+                            self.data[filename] = filepath.stat().st_mtime
+                            if self.real_extensions:
+                                for extension in self.real_extensions:
+                                    real_fpath = filepath.with_suffix(extension)
+                                    if real_fpath.exists():
+                                        filepath = real_fpath
+                                        filename = real_fpath.name
+                                        break
+                                else:
+                                    # If no related files
+                                    # TODO : ask if raise exc or not
+                                    logger.error(
+                                        "No %r related file to %s",
+                                        self.real_extensions, str(filepath))
+                                    continue
 
                             # Read file and make message
                             if self.binary_file:
@@ -672,13 +691,14 @@ class FileWatcherChannel(BaseChannel):
                             else:
                                 mode = "r"
 
-                            with open(filepath, mode) as f:
-                                msg = message.Message()
+                            msg = message.Message()
+
+                            with open(str(filepath), mode) as f:
                                 msg.payload = f.read()
-                                msg.meta['filename'] = filename
-                                msg.meta['filepath'] = filepath
-                                fut = ensure_future(self.handle(msg), loop=self.loop)
-                                fut.add_done_callback(self._handle_callback)
+                            msg.meta['filename'] = filename
+                            msg.meta['filepath'] = str(filepath)
+                            fut = ensure_future(self.handle(msg), loop=self.loop)
+                            fut.add_done_callback(self._handle_callback)
 
         except Exception:  # TODO: might explicitely silence some special cases.
             self.logger.exception("filewatcher problem")

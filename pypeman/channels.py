@@ -660,9 +660,8 @@ class FileWatcherChannel(BaseChannel):
         try:
             if self.basedir.exists():
                 listfile = self.basedir.iterdir()
-                # listfile.sort()  # TODO: ask if it's really useful
 
-                for filepath in listfile:
+                for filepath in sorted(listfile):
                     filename = filepath.name
                     if self.re.match(filename):
                         status = self.file_status(filename)

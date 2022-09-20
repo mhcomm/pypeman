@@ -1,5 +1,6 @@
 import asyncio
 
+from pathlib import Path
 from socket import SOL_SOCKET
 from unittest import mock
 
@@ -459,6 +460,46 @@ class ChannelsTests(TestCase):
             channels.all_channels.remove(chan)
 
             del chan
+
+        # Basic test with extension changer
+        mock_list_dir2 = mock.Mock(return_value=set(["file1.ok", "file1.txt"]))
+        fake_ftp2 = mock.MagicMock()
+
+        # This hack avoid bug : https://bugs.python.org/issue25599#msg256903
+        def fake_list_dir2(*args):
+            return mock_list_dir2(*args)
+
+        fake_ftp2.list_dir = fake_list_dir2
+        fake_ftp_helper2 = mock.Mock(return_value=fake_ftp2)
+
+        with mock.patch('pypeman.contrib.ftp.FTPHelper', new=fake_ftp_helper2):
+            chan2 = channels.FTPWatcherChannel(name="ftpchan2", regex=r".*\.ok$", loop=self.loop,
+                                               basedir="testdir",  real_extensions=[".txt"],
+                                               **ftp_config)
+            n = nodes.Log(name="test_ftp_chan2")
+            chan2.add(n)
+            chan2.watch_for_file = asyncio.coroutine(mock.Mock())
+            self.start_channels()
+            self.loop.run_until_complete(chan2.tick())
+            fake_ftp2.download_file.assert_called_once_with("testdir/file1.txt")
+            self.clean_loop()
+            channels.all_channels.remove(chan2)
+
+            del chan2
+
+    def test_fwatcher_channel(self):
+        ftest_dir = Path(__file__).parent / "data"
+        ok_fpath = ftest_dir / "testfile.ok"
+        chan = channels.FileWatcherChannel(name="fwatchan", regex=r".*\.ok$", loop=self.loop,
+                                           basedir=str(ftest_dir), real_extensions=[".txt"])
+        n = nodes.Log(name="test_fwatch_chan")
+        chan.add(n)
+        n._reset_test()
+        self.start_channels()
+        ok_fpath.touch()
+        self.loop.run_until_complete(chan.watch_for_file())
+        self.assertEqual(n.last_input().payload, "testfilecontent")
+        self.clean_loop()
 
     def test_channel_stopped_dont_process_message(self):
         """ Whether BaseChannel handling return a good result """

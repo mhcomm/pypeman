@@ -1,5 +1,4 @@
 import asyncio
-import os
 import uuid
 import logging
 import pathlib
@@ -599,7 +598,7 @@ class FileWatcherChannel(BaseChannel):
     Watch for file change or creation. File content becomes message payload.
     ``filepath`` is in message meta.
 
-    If the regex is for an acknowledgement file (.ok for exemple) you can convert it to the
+    If the regex is for an acknowledgement file (.ok for example) you can convert it to the
     real filepath via the real_extensions init arg. The returned msg payload will be the
     content of the real file and not the acknowledgement file. Idem for meta
     """
@@ -614,20 +613,20 @@ class FileWatcherChannel(BaseChannel):
             warnings.warn("path deprecated, use basedir instead", DeprecationWarning)
         if basedir:
             self.basedir = basedir
+        self.basedir = pathlib.Path(self.basedir)
         self.regex = regex
         self.interval = interval
-        self.dirflag = os.path.isdir(self.basedir)
+        self.dirflag = self.basedir.is_dir()
         self.data = {}
         self.re = re.compile(self.regex)
         self.binary_file = binary_file
         self.real_extensions = real_extensions  # list of extensions for exemple: [".csv", ".CSV"]
         # Set mtime for all existing matching files
-        if os.path.exists(self.basedir):
-            for filename in os.listdir(self.basedir):
-                if self.re.match(filename):
-                    filepath = pathlib.Path(self.basedir) / filename
+        if self.basedir.exists():
+            for filepath in self.basedir.iterdir():
+                if self.re.match(filepath.name):
                     mtime = filepath.stat().st_mtime
-                    self.data[filename] = mtime
+                    self.data[filepath.name] = mtime
         else:
             self.logger.warning("Path doesn't exists: %r", self.basedir)
 
@@ -638,7 +637,7 @@ class FileWatcherChannel(BaseChannel):
     def file_status(self, filename):
         if filename in self.data:
             old_mtime = self.data[filename]
-            filepath = pathlib.Path(self.basedir) / filename
+            filepath = self.basedir / filename
             new_mtime = filepath.stat().st_mtime
             if new_mtime == old_mtime:
                 return FileWatcherChannel.UNCHANGED
@@ -659,16 +658,16 @@ class FileWatcherChannel(BaseChannel):
         # await asyncio.sleep(self.interval, loop=self.loop)
         # self.logger.debug("sleep done")
         try:
-            if os.path.exists(self.basedir):
-                listfile = os.listdir(self.basedir)
-                listfile.sort()
+            if self.basedir.exists():
+                listfile = self.basedir.iterdir()
+                # listfile.sort()  # TODO: ask if it's really useful
 
-                for filename in listfile:
+                for filepath in listfile:
+                    filename = filepath.name
                     if self.re.match(filename):
                         status = self.file_status(filename)
 
                         if status in [FileWatcherChannel.MODIFIED, FileWatcherChannel.NEW]:
-                            filepath = pathlib.Path(self.basedir) / filename
                             self.data[filename] = filepath.stat().st_mtime
                             if self.real_extensions:
                                 for extension in self.real_extensions:
@@ -693,7 +692,7 @@ class FileWatcherChannel(BaseChannel):
 
                             msg = message.Message()
 
-                            with open(str(filepath), mode) as f:
+                            with filepath.open(mode) as f:
                                 msg.payload = f.read()
                             msg.meta['filename'] = filename
                             msg.meta['filepath'] = str(filepath)

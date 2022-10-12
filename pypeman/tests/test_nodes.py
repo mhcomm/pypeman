@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import unittest
 
@@ -520,6 +521,22 @@ class NodesTests(TestCase):
             self.assertEqual(outmsg.payload, byte_msg)
             mock_session.reset_mock()
 
+    def test_httpjsonrequest_node(self):
+        """ Whether HttpRequest node is functional """
+        channel = FakeChannel(self.loop)
+        url = 'http://url/titi/tata'
+        http_jsonnode = nodes.HttpJsonRequest(url=url, verify=False)
+        http_jsonnode.channel = channel
+        data = {"titi": "tata"}
+        jsondata = json.dumps(data)
+        emptymsg = message.Message()
+        with mock.patch('pypeman.contrib.http.HttpRequest.handle_request') as mock_http_get:
+            fut = asyncio.Future(loop=self.loop)
+            fut.set_result(jsondata)
+            mock_http_get.return_value = fut
+            outdata = self.loop.run_until_complete(http_jsonnode.process(emptymsg))
+        self.assertEqual(data, outdata.payload)
+
     def test_file_reader_node(self):
         """if FileReader are functionnal"""
 
@@ -655,6 +672,13 @@ class TestsCsvContrib(TestCase):
     def test_csv2python(self):
         csv2py_node = nodes.CSV2Python(to_dict=True, headers=True)
         msg = message.Message(meta={"filepath": self.csv_data_fpath})
+        processed_msg = csv2py_node.process(msg)
+        self.assertListEqual(self.py_data, processed_msg.payload)
+        return msg
+
+    def test_csvstr2python(self):
+        csv2py_node = nodes.CSVstr2Python(to_dict=True, headers=True)
+        msg = message.Message(payload=self.csv_str_data)
         processed_msg = csv2py_node.process(msg)
         self.assertListEqual(self.py_data, processed_msg.payload)
         return msg

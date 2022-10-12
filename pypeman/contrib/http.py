@@ -1,3 +1,4 @@
+import json
 import logging
 import ssl
 import warnings
@@ -251,3 +252,17 @@ class RequestNode(HttpRequest):
     def __init__(self, *args, **kwargs):
         warnings.warn("RequestNode node is deprecated. New name is 'HttpRequest' node", DeprecationWarning)
         super().__init__(*args, **kwargs)
+
+
+class HttpJsonRequest(HttpRequest):
+    """
+        Node returning json parsed response of HttpRequest
+    """
+    def __init__(self, *args, encoding='utf-8', **kwargs):
+        self.encoding = encoding
+        super().__init__(*args, **kwargs)
+
+    async def process(self, msg):
+        raw_payload = await self.handle_request(msg)
+        msg.payload = json.loads(raw_payload, encoding=self.encoding)
+        return msg

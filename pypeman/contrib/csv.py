@@ -40,6 +40,37 @@ class CSV2Python(nodes.BaseNode):
         return msg
 
 
+class CSVstr2Python(nodes.BaseNode):
+    """
+    Like CSV2Python but Convert CSV string to Python
+    'headers' indicate if the csv file contain a first line with column titles
+    'to_dict' indicates if module use csv.DictReader or csv.reader (
+        to use csv.DictReader, headers must be set to True too)
+    """
+    def __init__(self, *args, filepath=None, to_dict=False, headers=False,
+                 delimiter=',', quoting=None, encoding=None, **kwargs):
+        self.delimiter = delimiter
+        self.headers = headers
+        self.to_dict = to_dict and headers
+        self.quoting = quoting or csv.QUOTE_NONE
+        self.encoding = encoding or "utf-8"
+        super().__init__(*args, **kwargs)
+
+    def process(self, msg):
+        data_to_return = []
+        csvfile = io.StringIO(msg.payload)
+        if self.to_dict:
+            csvdata = csv.DictReader(csvfile, delimiter=self.delimiter, quoting=self.quoting)
+        else:
+            csvdata = csv.reader(csvfile, delimiter=self.delimiter, quoting=self.quoting)
+            if self.headers:
+                csvdata.pop(0)
+        for row in csvdata:
+            data_to_return.append(row)
+        msg.payload = data_to_return
+        return msg
+
+
 class Python2CSVstr(nodes.BaseNode):
     """
     Convert python list of dict (like json) to csv str

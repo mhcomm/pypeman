@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import collections
 import json
 import logging
 import os
@@ -22,6 +23,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from pypeman.message import Message
 from pypeman.channels import Dropped
+from pypeman.channels import Rejected
 from pypeman.persistence import get_backend
 
 logger = logging.getLogger(__name__)
@@ -862,6 +864,24 @@ class Email(ThreadNode):
         return msg
 
 
+class YielderNode(BaseNode):
+    """
+    Take an iterable msg.payload and returns a generator
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def process(self, msg):
+        if not isinstance(msg.payload, collections.Iterable):
+            logger.error("Yielder node took a non iterable msg.payload: %r", msg.payload)
+            raise Rejected()
+
+        def generator(payload):
+            for line in payload:
+                yield line
+        return generator(msg.payload)
+
+
 def reset_pypeman_nodes():
     """
     clears book keeping of all channels
@@ -886,10 +906,12 @@ wrap.add_lazy('pypeman.contrib.xml', "PythonToXML", ["xmltodict"])
 wrap.add_lazy('pypeman.contrib.hl7', "HL7ToPython", ["hl7"])
 wrap.add_lazy('pypeman.contrib.hl7', "PythonToHL7", ["hl7"])
 wrap.add_lazy('pypeman.contrib.http', "HttpRequest", ["aiohttp"])
+wrap.add_lazy('pypeman.contrib.http', "HttpJsonRequest", ["aiohttp"])
 wrap.add_lazy('pypeman.contrib.http', "RequestNode", ["aiohttp"])
 wrap.add_lazy('pypeman.contrib.ftp', "FTPFileWriter", [])
 wrap.add_lazy('pypeman.contrib.ftp', "FTPFileReader", [])
 wrap.add_lazy('pypeman.contrib.ftp', "FTPFileDeleter", [])
 wrap.add_lazy('pypeman.contrib.ftp', "FTPFileDeleter", [])
 wrap.add_lazy('pypeman.contrib.csv', "CSV2Python", [])
+wrap.add_lazy('pypeman.contrib.csv', "CSVstr2Python", [])
 wrap.add_lazy('pypeman.contrib.csv', "Python2CSVstr", [])

@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import unittest
+import sys
 
 from unittest import mock
 from pathlib import Path
@@ -316,6 +317,17 @@ class NodesTests(TestCase):
             handle = mock_file()
             handle.write.assert_called_once_with('content')
 
+    def test_yielder_node(self):
+        """ Whether YielderNode is functional """
+        yieldernode = nodes.YielderNode()
+        data = [1, 2, 3]
+        msg = message.Message(payload=data)
+        out_gen = yieldernode.process(msg)
+        idx = 0
+        for line in out_gen:
+            self.assertEqual(data[idx], line.payload)
+            idx += 1
+
     def test_xml_nodes(self):
         """ if XML nodes are functional """
         try:
@@ -522,7 +534,7 @@ class NodesTests(TestCase):
             mock_session.reset_mock()
 
     def test_httpjsonrequest_node(self):
-        """ Whether HttpRequest node is functional """
+        """ Whether HttpJsonRequest node is functional """
         channel = FakeChannel(self.loop)
         url = 'http://url/titi/tata'
         http_jsonnode = nodes.HttpJsonRequest(url=url, verify=False)
@@ -531,9 +543,13 @@ class NodesTests(TestCase):
         jsondata = json.dumps(data)
         emptymsg = message.Message()
         with mock.patch('pypeman.contrib.http.HttpRequest.handle_request') as mock_http_get:
-            fut = asyncio.Future(loop=self.loop)
-            fut.set_result(jsondata)
-            mock_http_get.return_value = fut
+            if sys.version_info < (3, 8):
+                # TODO rm when pypeman drop 3.7 support
+                fut = asyncio.Future(loop=self.loop)
+                fut.set_result(jsondata)
+                mock_http_get.return_value = fut
+            else:
+                mock_http_get.return_value = jsondata
             outdata = self.loop.run_until_complete(http_jsonnode.process(emptymsg))
         self.assertEqual(data, outdata.payload)
 

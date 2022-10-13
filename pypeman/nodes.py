@@ -878,7 +878,8 @@ class YielderNode(BaseNode):
 
         def generator(payload):
             for line in payload:
-                yield line
+                msg = Message(payload=line)
+                yield msg
         return generator(msg.payload)
 
 

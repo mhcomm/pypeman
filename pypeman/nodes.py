@@ -876,11 +876,15 @@ class YielderNode(BaseNode):
             logger.error("Yielder node took a non iterable msg.payload: %r", msg.payload)
             raise Rejected()
 
-        def generator(payload):
+        def generator(msg):
+            payload = msg.payload
+            ctx = msg.ctx
+            meta = msg.meta
             for line in payload:
-                msg = Message(payload=line)
-                yield msg
-        return generator(msg.payload)
+                newmsg = Message(meta=meta, payload=line)
+                newmsg.ctx = ctx
+                yield newmsg
+        return generator(msg)
 
 
 def reset_pypeman_nodes():

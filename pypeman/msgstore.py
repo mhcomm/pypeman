@@ -226,8 +226,6 @@ class MemoryMessageStore(MessageStore):
             msg.payload = str(msg.payload)[:1000]
         except Exception:
             msg.payload = repr(msg.payload)[:1000]
-        logger.warning("ui")
-        logger.warning(rtext)
         regex = re.compile(rtext)
         return True if regex.match(msg.payload) else False
 

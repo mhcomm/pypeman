@@ -379,6 +379,7 @@ class BaseChannel:
 
         :return: The result of the processing.
         """
+        logger.info("try to replay %s", str(msg_id))
         msg_dict = await self.message_store.get(msg_id)
         new_message = msg_dict['message'].renew()
         result = await self.handle(new_message)

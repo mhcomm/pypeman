@@ -47,6 +47,7 @@ setup(
     install_requires=[
         "click",
         "daemonlite",
+        "python-dateutil",
         "websockets",
         "aiohttp",
         "jsonrpcclient",

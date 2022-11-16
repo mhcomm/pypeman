@@ -1,7 +1,10 @@
+import datetime
+import dateutil.parser
 import logging
 import os
 import re
 
+from itertools import islice
 from collections import OrderedDict
 
 from pypeman.message import Message
@@ -55,13 +58,31 @@ class MessageStore():
         :return: A dict `{'id':<message_id>, 'state': <message_state>, 'message': <message_object>}`.
         """
 
-    async def search(self, start=0, count=10, order_by='timestamp'):
+    async def get_preview_str(self, id):
+        """
+        Return the first 1000 chars of message content corresponding to `id`
+
+        :param id: Message id. Message store dependant.
+        :return: A dict `{'id':<message_id>, 'message_content': str}`.
+        """
+
+    async def get_msg_content(self, id):
+        """
+        Return the content of the message corresponding to given `id`
+
+        :param id: Message id. Message store dependant.
+        :return: A dict `{'id':<message_id>, 'message_content': Message}`.
+        """
+
+    async def search(self, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None):
         """
         Return a list of message with store specific `id` and processed status.
 
         :param start: First element.
         :param count: Count of elements since first element.
         :param order_by: Message order. Allowed values : ['timestamp', 'status'].
+        :param start_dt: (optional) Isoformat start date(time) to filter with
+        :param end_dt: (optional) Isoformat end date(time) to filter with
         :return: A list of dict `{'id':<message_id>, 'state': <message_state>, 'message': <message_object>}`.
         """
 
@@ -86,6 +107,12 @@ class NullMessageStore(MessageStore):
     async def get(self, id):
         return None
 
+    async def get_preview_str(self, id):
+        return None
+
+    async def get_msg_content(self, id):
+        return None
+
     async def search(self, **kwargs):
         return None
 
@@ -108,6 +135,12 @@ class FakeMessageStore(MessageStore):
 
     async def get(self, id):
         return {'id': id, 'state': 'processed', 'message': None}
+
+    async def get_preview_str(self, id):
+        return {"id": id, "message_content": "content"}
+
+    async def get_msg_content(self, id):
+        return {"id": id, "message_content": "content"}
 
     async def search(self, **kwargs):
         return []
@@ -147,7 +180,20 @@ class MemoryMessageStore(MessageStore):
         resp['message'] = Message.from_dict(resp['message'])
         return resp
 
-    async def search(self, start=0, count=10, order_by='timestamp'):
+    async def get_preview_str(self, id):
+        msg = await self.get_msg_content(id)
+        try:
+            msg.payload = str(msg.payload)[:1000]
+        except Exception:
+            msg.payload = repr(msg.payload)[:1000]
+        return msg
+
+    async def get_msg_content(self, id):
+        msg = await self.get(id)
+        msg_content = msg["message"]
+        return msg_content
+
+    async def search(self, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None):
 
         if order_by.startswith('-'):
             reverse = True
@@ -156,15 +202,23 @@ class MemoryMessageStore(MessageStore):
             reverse = False
             sort_key = order_by
 
-        result = []
-        for value in sorted(self.messages.values(), key=lambda x: x[sort_key], reverse=reverse):
+        if start_dt:
+            start_dt = dateutil.parser.isoparse(start_dt)
+        if end_dt:
+            end_dt = dateutil.parser.isoparse(end_dt)
 
+        result = []
+        values = (
+            val for val in self.messages.values()
+            if (not start_dt or val["timestamp"] >= start_dt)
+            and (not end_dt or val["timestamp"] <= end_dt)
+        )
+        for value in islice(sorted(values, key=lambda x: x[sort_key], reverse=reverse),
+                            start, start + count):
             resp = dict(value)
             resp['message'] = Message.from_dict(resp['message'])
-
             result.append(resp)
-
-        return result[start: start + count]
+        return result
 
     async def total(self):
         return len(self.messages)
@@ -197,7 +251,8 @@ class FileMessageStore(MessageStore):
         self.base_path = os.path.join(path, store_id)
 
         # Match msg file name
-        self.msg_re = re.compile(r'^([0-9]{8})_([0-9]{2})([0-9]{2})_[0-9abcdef]*$')
+        self.msg_re = re.compile(
+            r'^(?P<msg_date>[0-9]{8})_(?P<msg_time>[0-9]{2}[0-9]{2})_(?P<msg_uid>[0-9abcdef]*)$')
 
         try:
             # Try to make dirs if necessary
@@ -255,6 +310,19 @@ class FileMessageStore(MessageStore):
             msg = Message.from_json(f.read().decode('utf-8'))
             return {'id': id, 'state': await self.get_message_state(id), 'message': msg}
 
+    async def get_preview_str(self, id):
+        msg = await self.get_msg_content(id)
+        try:
+            msg.payload = str(msg.payload)[:1000]
+        except Exception:
+            msg.payload = repr(msg.payload)[:1000]
+        return msg
+
+    async def get_msg_content(self, id):
+        msg = await self.get(id)
+        msg_content = msg["message"]
+        return msg_content
+
     async def sorted_list_directories(self, path, reverse=True):
         """
         :param path: Base path
@@ -277,7 +345,7 @@ class FileMessageStore(MessageStore):
                             count += 1
         return count
 
-    async def search(self, start=0, count=10, order_by='timestamp'):
+    async def search(self, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None):
         # TODO better performance for slicing by counting file in dirs ?
         if order_by.startswith('-'):
             reverse = True
@@ -286,11 +354,15 @@ class FileMessageStore(MessageStore):
             reverse = False
             # sort_key = order_by
 
+        if start_dt:
+            start_dt = dateutil.parser.isoparse(start_dt)
+        if end_dt:
+            end_dt = dateutil.parser.isoparse(end_dt)
+
         # TODO handle sort_key
 
         result = []
         end = start + count
-
         position = 0
         for year in await self.sorted_list_directories(
                 os.path.join(self.base_path), reverse=reverse):
@@ -298,17 +370,35 @@ class FileMessageStore(MessageStore):
                     os.path.join(self.base_path, year), reverse=reverse):
                 for day in await self.sorted_list_directories(
                         os.path.join(self.base_path, year, month), reverse=reverse):
+                    # Pre filter with date to avoid listing unuseful dirs
+                    msg_date = datetime.date(year=int(year), month=int(month), day=int(day))
+                    if start_dt:
+                        if msg_date < start_dt.date():
+                            continue
+                    if end_dt:
+                        if msg_date > end_dt.date():
+                            continue
                     for msg_name in sorted(
                             os.listdir(os.path.join(
                                 self.base_path, year, month, day)),
                             reverse=reverse):
                         found = self.msg_re.match(msg_name)
                         if found:
+                            msg_str_time = found.groupdict()["msg_time"]
+                            hour = int(msg_str_time[:2])
+                            minute = int(msg_str_time[2:4])
+                            msg_time = datetime.time(hour=hour, minute=minute, second=0)
+                            msg_dt = datetime.datetime.combine(msg_date, msg_time)
+                            if start_dt:
+                                if msg_dt < start_dt:
+                                    continue
+                            if end_dt:
+                                if msg_dt > end_dt:
+                                    continue
                             if start <= position < end:
                                 mid = os.path.join(year, month, day, msg_name)
                                 result.append(await self.get(mid))
                             position += 1
-
         return result
 
     async def total(self):

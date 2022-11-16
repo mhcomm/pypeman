@@ -492,10 +492,10 @@ class PypemanShell(cmd.Cmd):
                     to_preview = True
                     args.remove(arg)
                 if arg.startswith("text="):
-                    text = arg.split("=")[1]
+                    text = arg.split("=", 1)[1]
                     args.remove(arg)
                 if arg.startswith("rtext="):
-                    rtext = arg.split("=")[1]
+                    rtext = arg.split("=", 1)[1]
                     args.remove(arg)
 
         # Parsing of common args

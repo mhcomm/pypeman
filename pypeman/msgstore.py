@@ -79,8 +79,8 @@ class MessageStore():
         Return True if the str(msg) contains the regex rtext
 
         :param id: Message id. Message store dependant.
-        :param rtext: String. The rtext is the text to convert in regex and to search in msg
-        :return: True if it matchs False otherwise
+        :param rtext: string of regular expression to search in msg
+        :return: True if it matches False otherwise
         """
 
     async def is_txt_in_msg(self, id, text):
@@ -89,7 +89,7 @@ class MessageStore():
 
         :param id: Message id. Message store dependant.
         :param text: String. The text to search in msg
-        :return: True if it text is find False otherwise
+        :return: True if it text is found, False otherwise
         """
 
     async def search(self, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None,
@@ -223,18 +223,18 @@ class MemoryMessageStore(MessageStore):
     async def is_regex_in_msg(self, id, rtext):
         msg = await self.get_msg_content(id)
         try:
-            msg.payload = str(msg.payload)[:1000]
+            msg.payload = str(msg.payload)
         except Exception:
-            msg.payload = repr(msg.payload)[:1000]
+            msg.payload = repr(msg.payload)
         regex = re.compile(rtext)
         return True if regex.match(msg.payload) else False
 
     async def is_txt_in_msg(self, id, text):
         msg = await self.get_msg_content(id)
         try:
-            msg.payload = str(msg.payload)[:1000]
+            msg.payload = str(msg.payload)
         except Exception:
-            msg.payload = repr(msg.payload)[:1000]
+            msg.payload = repr(msg.payload)
         return text in msg.payload
 
     async def search(self, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None,
@@ -406,18 +406,18 @@ class FileMessageStore(MessageStore):
     async def is_regex_in_msg(self, id, rtext):
         msg = await self.get_msg_content(id)
         try:
-            msg.payload = str(msg.payload)[:1000]
+            msg.payload = str(msg.payload)
         except Exception:
-            msg.payload = repr(msg.payload)[:1000]
+            msg.payload = repr(msg.payload)
         regex = re.compile(rtext)
         return True if regex.match(msg.payload) else False
 
     async def is_txt_in_msg(self, id, text):
         msg = await self.get_msg_content(id)
         try:
-            msg.payload = str(msg.payload)[:1000]
+            msg.payload = str(msg.payload)
         except Exception:
-            msg.payload = repr(msg.payload)[:1000]
+            msg.payload = repr(msg.payload)
         return text in msg.payload
 
     async def search(self, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None,

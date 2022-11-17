@@ -148,11 +148,12 @@ class HttpRequest(nodes.BaseNode):
         :param params: get params in dict. List for multiple elements, ex :
                        {'param1': 'omega', param2: ['alpha', 'beta']}
         :param client_cert: tuple with .crt and .key path
+        :param binary: bool, Get response content as bytes
     """
 
     def __init__(self, url, *args, method=None, headers=None, auth=None,
                  verify=True, params=None, client_cert=None, cookies=None,
-                 **kwargs):
+                 binary=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.url = url
         self.method = method
@@ -164,6 +165,7 @@ class HttpRequest(nodes.BaseNode):
         self.client_cert = client_cert
         self.url = self.url.replace('%(meta.', '%(')
         self.payload_in_url_dict = 'payload.' in self.url
+        self.binary = binary
         # TODO: create used payload keys for better perf of generate_request_url()
 
     def generate_request_url(self, msg):
@@ -233,8 +235,11 @@ class HttpRequest(nodes.BaseNode):
                     params=get_params,
                     data=data
                     )
-            resp_text = await resp.text()
-            return str(resp_text)
+            if self.binary:
+                resp_content = await resp.read()
+            else:
+                resp_content = str(await resp.text())
+            return resp_content
 
     async def process(self, msg):
         """ handles request """

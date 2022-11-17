@@ -438,6 +438,13 @@ class NodesTests(TestCase):
             params=args_params
         )
         http_node2.channel = channel
+        http_node3 = nodes.HttpRequest(
+            url=url,
+            verify=False,
+            method='get',
+            binary=True,
+        )
+        http_node3.channel = channel
         msg3 = msg1.copy()
         req_kwargs3 = dict(req_kwargs1)
         req_kwargs3['method'] = 'post'
@@ -447,6 +454,7 @@ class NodesTests(TestCase):
                 ]
         req_kwargs3['headers'] = args_headers
         req_kwargs3['data'] = content1
+        msg4 = msg1.copy()
 
         with mock.patch(
             'pypeman.contrib.http.aiohttp.ClientSession',
@@ -496,6 +504,21 @@ class NodesTests(TestCase):
             self.loop.run_until_complete(http_node2.handle(msg3))
             mock_session.request.assert_called_once_with(**req_kwargs3)
             mock_load_cert_chain.assert_called_once_with(client_cert[0], client_cert[1])
+            mock_session.reset_mock()
+
+            """
+                Test 4:
+                - get bytes content
+            """
+            byte_msg = bytes("coucou", "utf-8")
+            mg = mock.MagicMock()
+            mg.read = get_mock_coro(byte_msg)
+            mock_session.request = get_mock_coro(mg)
+            outmsg = self.loop.run_until_complete(http_node3.handle(msg4))
+            mock_session.request.assert_called_once()
+            mg.read.assert_called_once()
+            self.assertEqual(outmsg.payload, byte_msg)
+            mock_session.reset_mock()
 
     def test_file_reader_node(self):
         """if FileReader are functionnal"""

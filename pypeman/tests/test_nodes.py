@@ -517,7 +517,7 @@ class NodesTests(TestCase):
             outmsg = self.loop.run_until_complete(http_node3.handle(msg4))
             mock_session.request.assert_called_once()
             mg.read.assert_called_once()
-            assert(outmsg.payload, byte_msg)
+            self.assertEqual(outmsg.payload, byte_msg)
             mock_session.reset_mock()
 
     def test_file_reader_node(self):

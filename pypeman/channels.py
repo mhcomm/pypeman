@@ -1,12 +1,12 @@
 import asyncio
 import uuid
 import logging
-import pathlib
 import re
 import types
 import warnings
 
 from asyncio import ensure_future
+from pathlib import Path
 
 from pypeman import message, msgstore, events
 from pypeman.helpers.itertools import flatten
@@ -613,7 +613,7 @@ class FileWatcherChannel(BaseChannel):
             warnings.warn("path deprecated, use basedir instead", DeprecationWarning)
         if basedir:
             self.basedir = basedir
-        self.basedir = pathlib.Path(self.basedir)
+        self.basedir = Path(self.basedir)
         self.regex = regex
         self.interval = interval
         self.dirflag = self.basedir.is_dir()

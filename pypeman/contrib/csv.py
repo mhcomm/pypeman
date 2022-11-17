@@ -43,7 +43,7 @@ class CSV2Python(nodes.BaseNode):
 class CSVstr2Python(nodes.BaseNode):
     """
     Like CSV2Python but Convert CSV string to Python
-    'headers' indicate if the csv file contain a first line with column titles
+    'headers' indicate if the csv file contains a first line with column titles
     'to_dict' indicates if module use csv.DictReader or csv.reader (
         to use csv.DictReader, headers must be set to True too)
     """

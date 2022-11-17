@@ -154,7 +154,7 @@ class HttpRequest(nodes.BaseNode):
 
     def __init__(self, url, *args, method=None, headers=None, auth=None,
                  verify=True, params=None, client_cert=None, cookies=None,
-                 binary=False, **kwargs):
+                 binary=False, json=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.url = url
         self.method = method
@@ -167,6 +167,7 @@ class HttpRequest(nodes.BaseNode):
         self.url = self.url.replace('%(meta.', '%(')
         self.payload_in_url_dict = 'payload.' in self.url
         self.binary = binary
+        self.json = json
         # TODO: create used payload keys for better perf of generate_request_url()
 
     def generate_request_url(self, msg):
@@ -240,6 +241,14 @@ class HttpRequest(nodes.BaseNode):
                 resp_content = await resp.read()
             else:
                 resp_content = str(await resp.text())
+            if self.json:
+                try:
+                    resp_content = json.loads(resp_content)
+                except Exception as exc:
+                    logger.error(
+                        "cannot json parse response from url %s (response=%r)",
+                        url, resp_content)
+                    raise exc
             return resp_content
 
     async def process(self, msg):
@@ -252,17 +261,3 @@ class RequestNode(HttpRequest):
     def __init__(self, *args, **kwargs):
         warnings.warn("RequestNode node is deprecated. New name is 'HttpRequest' node", DeprecationWarning)
         super().__init__(*args, **kwargs)
-
-
-class HttpJsonRequest(HttpRequest):
-    """
-        Node returning json parsed response of HttpRequest
-    """
-    def __init__(self, *args, encoding='utf-8', **kwargs):
-        self.encoding = encoding
-        super().__init__(*args, **kwargs)
-
-    async def process(self, msg):
-        raw_payload = await self.handle_request(msg)
-        msg.payload = json.loads(raw_payload, encoding=self.encoding)
-        return msg

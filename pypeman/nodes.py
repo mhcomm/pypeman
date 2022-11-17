@@ -880,8 +880,8 @@ class YielderNode(BaseNode):
             payload = msg.payload
             ctx = msg.ctx
             meta = msg.meta
-            for line in payload:
-                newmsg = Message(meta=meta, payload=line)
+            for entry in payload:
+                newmsg = Message(meta=meta, payload=entry)
                 newmsg.ctx = ctx
                 yield newmsg
         return generator(msg)

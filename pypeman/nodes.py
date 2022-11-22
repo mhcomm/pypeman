@@ -872,7 +872,7 @@ class YielderNode(BaseNode):
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
-        if not isinstance(msg.payload, collections.Iterable):
+        if not isinstance(msg.payload, collections.abc.Iterable):
             logger.error("Yielder node took a non iterable msg.payload: %r", msg.payload)
             raise Rejected()
 

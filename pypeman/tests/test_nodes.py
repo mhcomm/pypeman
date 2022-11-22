@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import unittest
 
@@ -315,6 +316,17 @@ class NodesTests(TestCase):
             handle = mock_file()
             handle.write.assert_called_once_with('content')
 
+    def test_yielder_node(self):
+        """ Whether YielderNode is functional """
+        yieldernode = nodes.YielderNode()
+        data = [1, 2, 3]
+        msg = message.Message(payload=data)
+        out_gen = yieldernode.process(msg)
+        idx = 0
+        for entry in out_gen:
+            self.assertEqual(data[idx], entry.payload)
+            idx += 1
+
     def test_xml_nodes(self):
         """ if XML nodes are functional """
         try:
@@ -520,6 +532,23 @@ class NodesTests(TestCase):
             self.assertEqual(outmsg.payload, byte_msg)
             mock_session.reset_mock()
 
+            """
+                    Test 5:
+                    - get json content
+            """
+            # channel = FakeChannel(self.loop)
+            url = 'http://url/titi/tata'
+            http_jsonnode = nodes.HttpRequest(url=url, verify=False, json=True)
+            http_jsonnode.channel = channel
+            data = {"titi": "tata"}
+            jsondata = json.dumps(data)
+            emptymsg = message.Message()
+            mg = mock.MagicMock()
+            mg.text = get_mock_coro(jsondata)
+            mock_session.request = get_mock_coro(mg)
+            outdata = self.loop.run_until_complete(http_jsonnode.process(emptymsg))
+            self.assertEqual(data, outdata.payload)
+
     def test_file_reader_node(self):
         """if FileReader are functionnal"""
 
@@ -643,10 +672,16 @@ class TestsCsvContrib(TestCase):
     """ Tests common.com_nodes File Nodes
     """
     tmpdir_obj = None
-    py_data = [
+    py_data_dict = [
         {"id": "1", "msg": "msg1", "ty": "ty1"},
         {"id": "2", "msg": "msg2", "ty": "ty2"},
         {"id": "3", "msg": "msg3", "ty": "ty3"},
+    ]
+    py_data_nodict = [
+        ["id", "msg", "ty"],
+        ["1", "msg1", "ty1"],
+        ["2", "msg2", "ty2"],
+        ["3", "msg3", "ty3"],
     ]
     csv_data_fpath = Path(__file__).parent / "data" / "csv_test_data.csv"
     with open(csv_data_fpath, "r", newline="") as fin:
@@ -654,14 +689,33 @@ class TestsCsvContrib(TestCase):
 
     def test_csv2python(self):
         csv2py_node = nodes.CSV2Python(to_dict=True, headers=True)
+        csv2py_node2 = nodes.CSV2Python(to_dict=False, headers=False)
         msg = message.Message(meta={"filepath": self.csv_data_fpath})
+        msg2 = msg.copy()
+        # Test with to_dict and headers params activated
         processed_msg = csv2py_node.process(msg)
-        self.assertListEqual(self.py_data, processed_msg.payload)
+        self.assertListEqual(self.py_data_dict, processed_msg.payload)
+        # Test without to_dict and headers params
+        processed_msg2 = csv2py_node2.process(msg2)
+        self.assertListEqual(self.py_data_nodict, processed_msg2.payload)
+        return msg
+
+    def test_csvstr2python(self):
+        csv2py_node = nodes.CSVstr2Python(to_dict=True, headers=True)
+        csv2py_node2 = nodes.CSVstr2Python(to_dict=False, headers=False)
+        msg = message.Message(payload=self.csv_str_data)
+        msg2 = msg.copy()
+        # Test with to_dict and headers params activated
+        processed_msg = csv2py_node.process(msg)
+        self.assertListEqual(self.py_data_dict, processed_msg.payload)
+        # Test without to_dict and headers params
+        processed_msg2 = csv2py_node2.process(msg2)
+        self.assertListEqual(self.py_data_nodict, processed_msg2.payload)
         return msg
 
     def test_python2csvstr(self):
         py2csv_node = nodes.Python2CSVstr(header=True)
-        msg = message.Message(payload=self.py_data)
+        msg = message.Message(payload=self.py_data_dict)
         processed_msg = py2csv_node.process(msg)
         self.assertEqual(self.csv_str_data, processed_msg.payload)
         return msg

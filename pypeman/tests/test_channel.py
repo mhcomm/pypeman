@@ -7,7 +7,7 @@ from unittest import mock
 from pypeman import channels, endpoints
 from pypeman import nodes
 from pypeman import events
-from pypeman.channels import BaseChannel
+from pypeman.channels import BaseChannel, Dropped, Rejected
 from pypeman.errors import PypemanParamError
 from pypeman.helpers.aio_compat import awaitify
 from pypeman.test import TearDownProjectTestCase as TestCase
@@ -15,6 +15,18 @@ from pypeman.tests.common import ExceptNode
 from pypeman.tests.common import generate_msg
 from pypeman.tests.common import TstException
 from pypeman.tests.common import TstNode
+
+
+def raise_dropped(msg):
+    raise Dropped()
+
+
+def raise_rejected(msg):
+    raise Rejected()
+
+
+def raise_exc(msg):
+    raise Exception()
 
 
 class ChannelsTests(TestCase):
@@ -91,6 +103,25 @@ class ChannelsTests(TestCase):
         self.assertDictEqual(
             vars(endmsg), vars(n_callback.last_input()),
             "Channel done_callback don't takes last result in input")
+
+    def test_drop_callback(self):
+        """ Whether BaseChannel drop_callback is working """
+        chan1 = BaseChannel(name="test_channel_drop_clbk", loop=self.loop)
+        n1 = TstNode()
+        n_callback = TstNode()
+        chan1.add(n1)
+        chan1.add_drop_callback(n_callback)
+        msg1 = generate_msg(message_content="startmsg")
+        n1.mock(output=raise_dropped)
+        self.start_channels()
+        n_callback._reset_test()
+        with self.assertRaises(Dropped):
+            self.loop.run_until_complete(chan1.handle(msg1))
+
+        self.assertTrue(n_callback.processed, "Channel drop_callback not working")
+        self.assertDictEqual(
+            vars(msg1), vars(n_callback.last_input()),
+            "Channel done_callback don't takes event msg in input")
 
     def test_sub_channel(self):
         """ Whether Sub Channel is working """

@@ -142,6 +142,25 @@ class ChannelsTests(TestCase):
             vars(msg1), vars(n_callback.last_input()),
             "Channel reject_callback don't takes event msg in input")
 
+    def test_fail_callback(self):
+        """ Whether BaseChannel fail_callback is working """
+        chan1 = BaseChannel(name="test_channel_fail_clbk", loop=self.loop)
+        n1 = TstNode()
+        n_callback = TstNode()
+        chan1.add(n1)
+        chan1.add_fail_callback(n_callback)
+        msg1 = generate_msg(message_content="startmsg")
+        n1.mock(output=raise_exc)
+        self.start_channels()
+        n_callback._reset_test()
+        with self.assertRaises(Exception):
+            self.loop.run_until_complete(chan1.handle(msg1))
+
+        self.assertTrue(n_callback.processed, "Channel fail_callback not working")
+        self.assertDictEqual(
+            vars(msg1), vars(n_callback.last_input()),
+            "Channel fail_callback don't takes event msg in input")
+
     def test_sub_channel(self):
         """ Whether Sub Channel is working """
 

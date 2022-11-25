@@ -150,7 +150,7 @@ class ChannelsTests(TestCase):
         chan.add(n1)
 
         # Nodes in this channel should not be processed
-        cond1 = chan.when(lambda x: False, name="Toto")
+        cond1 = chan.when(lambda x: False)
         # Nodes in this channel should be processed
         cond2 = chan.when(True, name="condchannel")
 

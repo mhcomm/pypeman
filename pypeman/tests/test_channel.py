@@ -121,7 +121,26 @@ class ChannelsTests(TestCase):
         self.assertTrue(n_callback.processed, "Channel drop_callback not working")
         self.assertDictEqual(
             vars(msg1), vars(n_callback.last_input()),
-            "Channel done_callback don't takes event msg in input")
+            "Channel drop_callback don't takes event msg in input")
+
+    def test_reject_callback(self):
+        """ Whether BaseChannel reject_callback is working """
+        chan1 = BaseChannel(name="test_channel_reject_clbk", loop=self.loop)
+        n1 = TstNode()
+        n_callback = TstNode()
+        chan1.add(n1)
+        chan1.add_reject_callback(n_callback)
+        msg1 = generate_msg(message_content="startmsg")
+        n1.mock(output=raise_rejected)
+        self.start_channels()
+        n_callback._reset_test()
+        with self.assertRaises(Rejected):
+            self.loop.run_until_complete(chan1.handle(msg1))
+
+        self.assertTrue(n_callback.processed, "Channel reject_callback not working")
+        self.assertDictEqual(
+            vars(msg1), vars(n_callback.last_input()),
+            "Channel reject_callback don't takes event msg in input")
 
     def test_sub_channel(self):
         """ Whether Sub Channel is working """

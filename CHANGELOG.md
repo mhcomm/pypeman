@@ -14,7 +14,7 @@
 * Nodes and Channels Improvements:
 * - FileWriter Node has a param `create_valid_file` to create acknowledgment file
 * - Add cookies in HttpRequestNode
-* - Add a `real_extensions` param to FileWatcherChannel to permits to convert filename from acknowledgement file
+* - Add a `real_extensions` param to FileWatcherChannel to permits to convert filename from acknowledgement file and open associated file
 * - Add `binary` param to HttpRequestNode to handle binary requests
 * - Add `json` param to HttpRequestNode to convert responses
 * RemoteAdmin:

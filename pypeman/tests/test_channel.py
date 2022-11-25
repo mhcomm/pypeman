@@ -73,6 +73,25 @@ class ChannelsTests(TestCase):
         self.start_channels()
         self.loop.run_until_complete(chan.handle(msg))
 
+    def test_done_callback(self):
+        """ Whether BaseChannel done_callback is working """
+        chan1 = BaseChannel(name="test_channel_done_clbk", loop=self.loop)
+        n1 = TstNode()
+        n_callback = TstNode()
+        chan1.add(n1)
+        chan1.add_done_callback(n_callback)
+        msg1 = generate_msg()
+        endmsg = generate_msg(message_content="endmsg")
+        n1.mock(output=endmsg)
+        self.start_channels()
+        n_callback._reset_test()
+        self.loop.run_until_complete(chan1.handle(msg1))
+
+        self.assertTrue(n_callback.processed, "Channel done_callback not working")
+        self.assertDictEqual(
+            vars(endmsg), vars(n_callback.last_input()),
+            "Channel done_callback don't takes last result in input")
+
     def test_sub_channel(self):
         """ Whether Sub Channel is working """
 

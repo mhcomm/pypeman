@@ -1,7 +1,6 @@
 import json
 import logging
 import ssl
-import warnings
 
 import aiohttp
 
@@ -45,14 +44,8 @@ class HTTPEndpoint(endpoints.SocketEndpoint):
 
         address = address or adress
         if address or port:
-            warnings.warn(
-                "HTTPEndpoint 'address', 'adress' and 'port' params are deprecated. "
-                "Replace it by 'host' or 'sock'", DeprecationWarning)
-            if host or sock:
-                raise PypemanParamError(
-                    "Obsolete params ('adress', 'address', 'port') "
-                    "can not be mixed with new params ('host', 'sock')")
-            sock = (address if address else '') + ':' + str(port if port else '')
+            raise PypemanParamError(
+                "HTTPEndpoint Obsolete params ('address', 'port') ")
 
         if host and sock:
             raise PypemanParamError("There can only be one (parameter host or sock)")
@@ -255,9 +248,3 @@ class HttpRequest(nodes.BaseNode):
         """ handles request """
         msg.payload = await self.handle_request(msg)
         return msg
-
-
-class RequestNode(HttpRequest):
-    def __init__(self, *args, **kwargs):
-        warnings.warn("RequestNode node is deprecated. New name is 'HttpRequest' node", DeprecationWarning)
-        super().__init__(*args, **kwargs)

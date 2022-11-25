@@ -9,6 +9,7 @@ from asyncio import ensure_future
 from pathlib import Path
 
 from pypeman import message, msgstore, events
+from pypeman.errors import PypemanConfigError
 from pypeman.helpers.itertools import flatten
 from pypeman.helpers.sleeper import Sleeper
 
@@ -66,6 +67,10 @@ class BaseChannel:
         self._status = BaseChannel.STOPPED
         self.processed_msgs = 0
         self.interruptable_sleeper = Sleeper(loop)  # for interruptable sleeps
+        self.done_callback = None
+        self.fail_callback = None
+        self.drop_callback = None
+        self.reject_callback = None  # TODO: maybe add a 'default' callback that is launch everytime (may be useful for file cleaning for example)
 
         if name:
             self.name = name
@@ -322,16 +327,26 @@ class BaseChannel:
             try:
                 result = await self.subhandle(msg)
                 await self.message_store.change_message_state(msg_store_id, message.Message.PROCESSED)
+                if self.done_callback:
+                    await self.done_callback[0].handle(result)
                 return result
             except Dropped:
                 await self.message_store.change_message_state(msg_store_id, message.Message.PROCESSED)
+                if self.drop_callback:
+                    await self.drop_callback[0].handle(msg)
                 raise
             except Rejected:
                 await self.message_store.change_message_state(msg_store_id, message.Message.REJECTED)
+                if self.reject_callback:
+                    await self.reject_callback[0].handle(msg)
+                if self.fail_callback:
+                    await self.fail_callback[0].handle(msg)
                 raise
             except Exception:
                 self.logger.exception('Error while processing message %s', msg)
                 await self.message_store.change_message_state(msg_store_id, message.Message.ERROR)
+                if self.fail_callback:
+                    await self.fail_callback[0].handle(msg)
                 raise
             finally:
                 if self.sub_chan_tasks:
@@ -485,6 +500,51 @@ class BaseChannel:
         for end, sub in after:
             for entry in sub.graph_dot(end=end):
                 yield entry
+
+    def _init_callback_nodes(self, *callback_nodes):
+        callback_nodes = [node for node in flatten(callback_nodes) if node]
+        for node in callback_nodes:
+            node.channel = self
+
+        if len(callback_nodes) > 1:
+            previous_node = callback_nodes[0]
+
+            for node in callback_nodes[1:]:
+                previous_node.next_node = node
+                previous_node = node
+        return callback_nodes
+
+    def add_done_callback(self, *callback_nodes):
+        """
+        Add a callback when channel ends correctly (and without raising Dropped)
+        """
+        if self.done_callback:
+            raise PypemanConfigError(f"done_callback already existing for channel {self.name}")
+        self.done_callback = self._init_callback_nodes(*callback_nodes)
+
+    def add_fail_callback(self, *callback_nodes):
+        """
+        Add a callback when channel raise an exception (except Dropped)
+        """
+        if self.fail_callback:
+            raise PypemanConfigError(f"fail_callback already existing for channel {self.name}")
+        self.fail_callback = self._init_callback_nodes(*callback_nodes)
+
+    def add_drop_callback(self, *callback_nodes):
+        """
+        Add a callback only when channel raises Dropped)
+        """
+        if self.drop_callback:
+            raise PypemanConfigError(f"drop_callback already existing for channel {self.name}")
+        self.drop_callback = self._init_callback_nodes(*callback_nodes)
+
+    def add_reject_callback(self, *callback_nodes):
+        """
+        Add a callback only when channel ends with a Rejected Exception
+        """
+        if self.reject_callback:
+            raise PypemanConfigError(f"reject_callback already existing for channel {self.name}")
+        self.reject_callback = self._init_callback_nodes(*callback_nodes)
 
     def __str__(self):
         return "<chan: %s>" % self.name

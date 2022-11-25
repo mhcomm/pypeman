@@ -3,6 +3,24 @@
 ## [0.5.0](https://github.com/mhcomm/pypeman/compare/0.4.1...0.5.0)
 * remove python 3.6 from supported versions
 * Add python 3.9 and python 3.10 compatibility
+* Exceptions in subchannels are now brought up in main channel
+* New Nodes:
+* - FileCleaner
+* - FileMover
+* - CSV2Python
+* - Python2CSVstr
+* - CSVstr2Python
+* - YielderNode
+* Nodes and Channels Improvements:
+* - FileWriter Node has a param `create_valid_file` to create acknowledgment file
+* - Add cookies in HttpRequestNode
+* - Add a `real_extensions` param to FileWatcherChannel to permits to convert filename from acknowledgement file
+* - Add `binary` param to HttpRequestNode to handle binary requests
+* - Add `json` param to HttpRequestNode to convert responses
+* RemoteAdmin:
+* - Add `view` and `preview` commands 
+* - Add date filters in search command
+* - Search command can now search a regex
 
 ## [0.4.1](https://github.com/mhcomm/pypeman/compare/0.4.0...0.4.1)
 * cleanup: rmv bad logs (too verbose combine + file watcher logs)

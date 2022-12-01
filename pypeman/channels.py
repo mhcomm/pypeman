@@ -1,8 +1,9 @@
 import asyncio
-import uuid
+import contextvars
 import logging
 import re
 import types
+import uuid
 import warnings
 
 from asyncio import ensure_future
@@ -20,6 +21,8 @@ logger = logging.getLogger(__name__)
 all_channels = []
 
 _channel_names = set()
+
+MSG_CTXVAR = contextvars.ContextVar("msg")
 
 
 class Dropped(Exception):
@@ -70,7 +73,9 @@ class BaseChannel:
         self.done_callback = None
         self.fail_callback = None
         self.drop_callback = None
-        self.reject_callback = None  # TODO: maybe add a 'default' callback that is launch everytime (may be useful for file cleaning for example)
+        self.reject_callback = None
+        # TODO: maybe add a 'default' callback that is launch everytime
+        # (may be useful for file cleaning for example)
 
         if name:
             self.name = name
@@ -123,6 +128,15 @@ class BaseChannel:
         self.lock = None
 
         self.sub_chan_tasks = []
+        self.sub_chan_callbacks = []
+
+    def _reset_sub_chan_callbacks(self, fut):
+        """
+        Remove all subchan callbacks from the list
+        called by the done_callback of subchan future callbacks
+        """
+        self.sub_chan_callbacks = []
+        fut.result()
 
     @classmethod
     def status_id_to_str(cls, state_id):
@@ -320,42 +334,49 @@ class BaseChannel:
             raise ChannelStopped("Channel is stopped so you can't send message.")
 
         self.logger.info("%s handle %s", self, msg)
-
+        has_callback = hasattr(self, "_callback")
         # Only one message processing at time
         async with self.lock:
             self.status = BaseChannel.PROCESSING
             try:
                 result = await self.subhandle(msg)
                 await self.message_store.change_message_state(msg_store_id, message.Message.PROCESSED)
-                if self.done_callback:
-                    await self.done_callback[0].handle(result)
+                if self.done_callback and not has_callback:
+                    await self.done_callback[0].handle(result.copy())
                 return result
             except Dropped:
                 await self.message_store.change_message_state(msg_store_id, message.Message.PROCESSED)
-                if self.drop_callback:
-                    await self.drop_callback[0].handle(msg)
+                if self.drop_callback and not has_callback:
+                    await self.drop_callback[0].handle(msg.copy())
                 raise
             except Rejected:
                 await self.message_store.change_message_state(msg_store_id, message.Message.REJECTED)
-                if self.reject_callback:
-                    await self.reject_callback[0].handle(msg)
-                if self.fail_callback:
-                    await self.fail_callback[0].handle(msg)
+                if self.reject_callback and not has_callback:
+                    await self.reject_callback[0].handle(msg.copy())
+                if self.fail_callback and not has_callback:
+                    await self.fail_callback[0].handle(msg.copy())
                 raise
             except Exception:
                 self.logger.exception('Error while processing message %s', msg)
                 await self.message_store.change_message_state(msg_store_id, message.Message.ERROR)
-                if self.fail_callback:
-                    await self.fail_callback[0].handle(msg)
+                if self.fail_callback and not has_callback:
+                    await self.fail_callback[0].handle(msg.copy())
                 raise
             finally:
                 if self.sub_chan_tasks:
                     await asyncio.gather(*self.sub_chan_tasks)
                 self.status = BaseChannel.WAITING
                 self.processed_msgs += 1
-                if self.sub_chan_tasks:
-                    # Launch sub chans handle() and callbacks
-                    await asyncio.gather(*self.sub_chan_tasks)
+                try:
+                    if self.sub_chan_tasks:
+                        # Launch and wait for sub chans handle()
+                        await asyncio.gather(*self.sub_chan_tasks)
+                finally:
+                    if self.sub_chan_callbacks:
+                        # Launch and wait for sub chans callbacks
+                        subchan_callbacks_fut = asyncio.gather(*self.sub_chan_callbacks)
+                        subchan_callbacks_fut.add_done_callback(self._reset_sub_chan_callbacks)
+                        await subchan_callbacks_fut
 
     async def subhandle(self, msg):
         """ Overload this method only if you know what you are doing. Called by ``handle`` method.
@@ -546,6 +567,16 @@ class BaseChannel:
             raise PypemanConfigError(f"reject_callback already existing for channel {self.name}")
         self.reject_callback = self._init_callback_nodes(*callback_nodes)
 
+    # def _callback(self, *callback_nodes):
+    #     """
+    #     Function called by subchannel future done_callback
+    #     If this function is implemented done/fail/reject/drop callbacks are not instanciated
+    #     in handle but in this func so take care to not implement it if you are not sure what
+    #     you're doing
+    #     TODO: Maybe add a warning if _callback and not isinstance(SubChannel)  ??
+    #     """
+    #     pass
+
     def __str__(self):
         return "<chan: %s>" % self.name
 
@@ -568,22 +599,48 @@ def reset_pypeman_channels():
 class SubChannel(BaseChannel):
     """ Subchannel used for forking channel processing. """
 
-    def callback(self, fut):
-        self.parent.sub_chan_tasks.remove(fut)
+    def _callback(self, fut):
+        """
+        """
+        ctx = contextvars.copy_context()
+        entrymsg = ctx.get(MSG_CTXVAR)
+        callbacks_tasks = []
         try:
             result = fut.result()
-            logger.debug("Subchannel %s end process message %s", repr(self), result)
+            if self.done_callback:
+                callbacktask = asyncio.create_task(self.done_callback[0].handle(result.copy()))
+                callbacks_tasks.append(callbacktask)
+            logger.info("Subchannel %s end process message %s", repr(self), result)
         except Dropped:
+            if self.drop_callback:
+                callbacktask = asyncio.create_task(self.drop_callback[0].handle(entrymsg.copy()))
+                callbacks_tasks.append(callbacktask)
             self.logger.info("Subchannel %s. Msg was dropped", repr(self))
+        except Rejected:
+            if self.reject_callback:
+                callbacktask = asyncio.create_task(self.drop_callback[0].handle(entrymsg.copy()))
+                callbacks_tasks.append(callbacktask)
+            if self.fail_callback:
+                callbacktask = asyncio.create_task(self.fail_callback[0].handle(entrymsg.copy()))
+                callbacks_tasks.append(callbacktask)
+            self.logger.info("Subchannel %s. Msg was Rejected", repr(self))
+            raise
         except Exception:
+            if self.fail_callback:
+                callbacktask = asyncio.create_task(self.fail_callback[0].handle(entrymsg.copy()))
+                callbacks_tasks.append(callbacktask)
             self.logger.exception("Error while processing msg in subchannel %s", self)
             raise
+        finally:
+            self.parent.sub_chan_callbacks.extend(callbacks_tasks)
+            self.parent.sub_chan_tasks.remove(fut)
 
     async def process(self, msg):
         if self._nodes:
-
+            MSG_CTXVAR.set(msg.copy())
+            ctx = contextvars.copy_context()
             fut = ensure_future(self._nodes[0].handle(msg.copy()), loop=self.loop)
-            fut.add_done_callback(self.callback)
+            fut.add_done_callback(self._callback, context=ctx)
             self.parent.sub_chan_tasks.append(fut)
         return msg
 

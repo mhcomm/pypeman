@@ -161,6 +161,242 @@ class ChannelsTests(TestCase):
             vars(msg1), vars(n_callback.last_input()),
             "Channel fail_callback don't takes event msg in input")
 
+    def test_multiple_callbacks(self):
+        """
+            Whether BaseChannel all callbacks are working at same time
+        """
+        chan1 = BaseChannel(name="test_channel_all_clbk", loop=self.loop)
+        n1 = TstNode()
+        n_callbackdone = TstNode()
+        n_callbackdrop = TstNode()
+        n_callbackfail = TstNode()
+        n_callbackreject = TstNode()
+        chan1.add(n1)
+        chan1.add_reject_callback(n_callbackreject)
+        chan1.add_fail_callback(n_callbackfail)
+        chan1.add_drop_callback(n_callbackdrop)
+        chan1.add_done_callback(n_callbackdone)
+        msg1 = generate_msg(message_content="startmsg")
+
+        # Test with ok output
+        self.start_channels()
+        n_callbackreject._reset_test()
+        n_callbackfail._reset_test()
+        n_callbackdrop._reset_test()
+        n_callbackdone._reset_test()
+        self.loop.run_until_complete(chan1.handle(msg1))
+        self.assertTrue(
+            n_callbackdone.processed,
+            "Channel done_callback not working with other callbacks")
+        self.assertFalse(
+            n_callbackreject.processed,
+            "Channel reject_callback called when nobody ask to him")
+        self.assertFalse(
+            n_callbackdrop.processed,
+            "Channel drop_callback called when nobody ask to him")
+        self.assertFalse(
+            n_callbackfail.processed,
+            "Channel fail_callback called when nobody ask to him")
+
+        # Test with an exception
+        n1.mock(output=raise_exc)
+        self.start_channels()
+        n_callbackreject._reset_test()
+        n_callbackfail._reset_test()
+        n_callbackdrop._reset_test()
+        n_callbackdone._reset_test()
+        with self.assertRaises(Exception):
+            self.loop.run_until_complete(chan1.handle(msg1))
+        self.assertTrue(
+            n_callbackfail.processed,
+            "Channel fail_callback not working with other callbacks")
+        self.assertFalse(
+            n_callbackreject.processed,
+            "Channel reject_callback called when nobody ask to him")
+        self.assertFalse(
+            n_callbackdrop.processed,
+            "Channel drop_callback called when nobody ask to him")
+        self.assertFalse(
+            n_callbackdone.processed,
+            "Channel done_callback called when nobody ask to him")
+
+        # Test with a drop
+        n1.mock(output=raise_dropped)
+        self.start_channels()
+        n_callbackreject._reset_test()
+        n_callbackfail._reset_test()
+        n_callbackdrop._reset_test()
+        n_callbackdone._reset_test()
+        with self.assertRaises(Dropped):
+            self.loop.run_until_complete(chan1.handle(msg1))
+        self.assertTrue(
+            n_callbackdrop.processed,
+            "Channel drop_callback not working with other callbacks")
+        self.assertFalse(
+            n_callbackreject.processed,
+            "Channel reject_callback called when nobody ask to him")
+        self.assertFalse(
+            n_callbackfail.processed,
+            "Channel fail_callback called when nobody ask to him")
+        self.assertFalse(
+            n_callbackdone.processed,
+            "Channel done_callback called when nobody ask to him")
+
+        # Test with a rejected
+        n1.mock(output=raise_rejected)
+        self.start_channels()
+        n_callbackreject._reset_test()
+        n_callbackfail._reset_test()
+        n_callbackdrop._reset_test()
+        n_callbackdone._reset_test()
+        with self.assertRaises(Rejected):
+            self.loop.run_until_complete(chan1.handle(msg1))
+        self.assertTrue(
+            n_callbackreject.processed,
+            "Channel reject_callback not working with other callbacks")
+        self.assertTrue(
+            n_callbackfail.processed,
+            "Channel fail_callback not working with other callbacks")
+        self.assertFalse(
+            n_callbackdrop.processed,
+            "Channel drop_callback called when nobody ask to him")
+        self.assertFalse(
+            n_callbackdone.processed,
+            "Channel done_callback called when nobody ask to him")
+
+    def test_subchan_callbacks(self):
+        """
+            Whether callbacks are working correctly in complex channels and subchannels
+        """
+        chan1 = BaseChannel(name="test_subchannel_clbk", loop=self.loop)
+        n1 = TstNode(name="n1")
+        chan1.add(n1)
+        subchan1 = chan1.fork(name="sub1")
+        subchan2 = subchan1.fork(name="sub2")
+        nsub1 = TstNode(name="nsub1")
+        nsub2 = TstNode(name="nsub2")
+        subchan2.add(nsub2)
+        subchan1.add(nsub1)
+        nsub1_endmsg = generate_msg(message_content="nsub1_endmsg")
+        nsub1.mock(output=nsub1_endmsg)
+
+        subchan3 = subchan1.fork(name="sub3")
+        nsub_exc = TstNode(name="nsubexc")
+        nsub_exc.mock(output=raise_exc)
+        subchan3.add(nsub_exc)
+        nsub3 = TstNode(name="nsub3")
+        subchan3.add(nsub3)
+
+        n2 = TstNode(name="n2")
+        chan1.add(n2)
+        n2_endmsg = generate_msg(message_content="n2_endmsg")
+        n2.mock(output=n2_endmsg)
+        subchan4 = chan1.fork(name="sub4")
+        nsub_drop = TstNode(name="nsub_drop")
+        nsub_drop.mock(output=raise_dropped)
+        subchan4.add(nsub_drop)
+
+        n3 = TstNode(name="n3")
+        chan1.add(n3)
+        n3_endmsg = generate_msg(message_content="n3_endmsg")
+        n3.mock(output=n3_endmsg)
+
+        chan1_callbackdone = TstNode(name="chan1_callbackdone")
+        chan1_callbackdrop = TstNode(name="chan1_callbackdrop")
+        chan1_callbackfail = TstNode(name="chan1_callbackfail")
+        chan1_callbackreject = TstNode(name="chan1_callbackreject")
+        chan1.add_reject_callback(chan1_callbackreject)
+        chan1.add_fail_callback(chan1_callbackfail)
+        chan1.add_drop_callback(chan1_callbackdrop)
+        chan1.add_done_callback(chan1_callbackdone)
+
+        sub2_callbackdone1 = TstNode(name="sub2_callbackdone1")
+        sub2_callbackdone1._reset_test()
+        sub2_cbk1_endmsg = generate_msg(message_content="sub2_cbk1_endmsg")
+        sub2_callbackdone1.mock(output=sub2_cbk1_endmsg)
+        sub2_callbackdone2 = TstNode(name="sub2_callbackdone2")
+        sub2_callbackdone2._reset_test()
+        sub2_callbackfail = TstNode(name="sub2_callbackfail")
+        subchan2.add_fail_callback(sub2_callbackfail)
+        subchan2.add_done_callback(sub2_callbackdone1, sub2_callbackdone2)
+
+        sub3_callbackdone = TstNode(name="sub3_callbackdone")
+        sub3_callbackfail = TstNode(name="sub3_callbackfail")
+        sub3_callbackfail._reset_test()
+        subchan3.add_fail_callback(sub3_callbackfail)
+        subchan3.add_done_callback(sub3_callbackdone)
+
+        sub4_callbackdone = TstNode(name="sub4_callbackdone")
+        sub4_callbackdrop = TstNode(name="sub4_callbackdrop")
+        sub4_callbackdrop._reset_test()
+        sub4_callbackfail = TstNode(name="sub4_callbackfail")
+        subchan4.add_fail_callback(sub4_callbackfail)
+        subchan4.add_drop_callback(sub4_callbackdrop)
+        subchan4.add_done_callback(sub4_callbackdone)
+
+        startmsg = generate_msg(message_content="startmsg")
+        self.start_channels()
+        with self.assertRaises(Exception) and self.assertRaises(Dropped):
+            self.loop.run_until_complete(chan1.handle(startmsg))
+        # except Exception:
+        #     pass
+
+        # chan1 : only done_clbk have to be called
+        self.assertTrue(
+            chan1_callbackdone.processed,
+            "chan1 done_callback not called")
+        self.assertFalse(
+            chan1_callbackfail.processed,
+            "chan1 fail_callback called when nobody ask to him")
+        self.assertFalse(
+            chan1_callbackdrop.processed,
+            "chan1 drop_callback called when nobody ask to him")
+        self.assertFalse(
+            chan1_callbackreject.processed,
+            "chan1 rejected_callback called when nobody ask to him")
+
+        # subchan2 : only done_clbk have to be called
+        self.assertTrue(
+            sub2_callbackdone1.processed,
+            "subchan2 done_callback1 not called")
+        self.assertDictEqual(
+            vars(startmsg), vars(sub2_callbackdone1.last_input()),
+            "subchan2 done_callback don't takes event msg in input")
+        self.assertDictEqual(
+            vars(sub2_cbk1_endmsg), vars(sub2_callbackdone2.last_input()),
+            "subchan2 done_callback don't takes event msg in input")
+        self.assertTrue(
+            sub2_callbackdone2.processed,
+            "subchan2 done_callback2 not called")
+        self.assertFalse(
+            sub2_callbackfail.processed,
+            "subchan2 fail_callback called when nobody ask to him")
+
+        # subchan3 : only fail_clbk have to be called
+        self.assertTrue(
+            sub3_callbackfail.processed,
+            "subchan3 fail_callback not called")
+        self.assertDictEqual(
+            vars(nsub1_endmsg), vars(sub3_callbackfail.last_input()),
+            "subchan3 fail_callback don't takes correct input")
+        self.assertFalse(
+            sub3_callbackdone.processed,
+            "subchan3 done_callback called when nobody ask to him")
+
+        # subchan4 : only drop_clbk have to be called
+        self.assertTrue(
+            sub4_callbackdrop.processed,
+            "subchan4 fail_callback not called")
+        self.assertDictEqual(
+            vars(n2_endmsg), vars(sub4_callbackdrop.last_input()),
+            "subchan4 drop_callback don't takes correct input")
+        self.assertFalse(
+            sub4_callbackdone.processed,
+            "subchan4 done_callback called when nobody ask to him")
+        self.assertFalse(
+            sub4_callbackdone.processed,
+            "subchan4 fail_callback called when nobody ask to him")
+
     def test_sub_channel(self):
         """ Whether Sub Channel is working """
 

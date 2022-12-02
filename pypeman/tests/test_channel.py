@@ -85,188 +85,404 @@ class ChannelsTests(TestCase):
         self.start_channels()
         self.loop.run_until_complete(chan.handle(msg))
 
-    def test_done_callback(self):
-        """ Whether BaseChannel done_callback is working """
+    def test_ok_endnodes(self):
+        """ Whether BaseChannel ok_endnodes is working """
         chan1 = BaseChannel(name="test_channel_done_clbk", loop=self.loop)
         n1 = TstNode()
-        n_callback = TstNode()
+        endnode = TstNode()
         chan1.add(n1)
-        chan1.add_done_callback(n_callback)
+        chan1.add_ok_nodes(endnode)
         msg1 = generate_msg()
         endmsg = generate_msg(message_content="endmsg")
         n1.mock(output=endmsg)
         self.start_channels()
-        n_callback._reset_test()
+        endnode._reset_test()
         self.loop.run_until_complete(chan1.handle(msg1))
 
-        self.assertTrue(n_callback.processed, "Channel done_callback not working")
+        self.assertTrue(endnode.processed, "Channel ok_endnodes not working")
         self.assertDictEqual(
-            vars(endmsg), vars(n_callback.last_input()),
-            "Channel done_callback don't takes last result in input")
+            vars(endmsg), vars(endnode.last_input()),
+            "Channel ok_endnodes don't takes last result in input")
 
-    def test_drop_callback(self):
-        """ Whether BaseChannel drop_callback is working """
+    def test_drop_endnodes(self):
+        """ Whether BaseChannel drop_endnodes is working """
         chan1 = BaseChannel(name="test_channel_drop_clbk", loop=self.loop)
         n1 = TstNode()
-        n_callback = TstNode()
+        endnode = TstNode()
         chan1.add(n1)
-        chan1.add_drop_callback(n_callback)
+        chan1.add_drop_nodes(endnode)
         msg1 = generate_msg(message_content="startmsg")
         n1.mock(output=raise_dropped)
         self.start_channels()
-        n_callback._reset_test()
+        endnode._reset_test()
         with self.assertRaises(Dropped):
             self.loop.run_until_complete(chan1.handle(msg1))
 
-        self.assertTrue(n_callback.processed, "Channel drop_callback not working")
+        self.assertTrue(endnode.processed, "Channel drop_endnodes not working")
         self.assertDictEqual(
-            vars(msg1), vars(n_callback.last_input()),
-            "Channel drop_callback don't takes event msg in input")
+            vars(msg1), vars(endnode.last_input()),
+            "Channel drop_endnodes don't takes event msg in input")
 
-    def test_reject_callback(self):
-        """ Whether BaseChannel reject_callback is working """
+    def test_reject_endnodes(self):
+        """ Whether BaseChannel reject_endnodes is working """
         chan1 = BaseChannel(name="test_channel_reject_clbk", loop=self.loop)
         n1 = TstNode()
-        n_callback = TstNode()
+        endnode = TstNode()
         chan1.add(n1)
-        chan1.add_reject_callback(n_callback)
+        chan1.add_reject_nodes(endnode)
         msg1 = generate_msg(message_content="startmsg")
         n1.mock(output=raise_rejected)
         self.start_channels()
-        n_callback._reset_test()
+        endnode._reset_test()
         with self.assertRaises(Rejected):
             self.loop.run_until_complete(chan1.handle(msg1))
 
-        self.assertTrue(n_callback.processed, "Channel reject_callback not working")
+        self.assertTrue(endnode.processed, "Channel reject_endnodes not working")
         self.assertDictEqual(
-            vars(msg1), vars(n_callback.last_input()),
-            "Channel reject_callback don't takes event msg in input")
+            vars(msg1), vars(endnode.last_input()),
+            "Channel reject_endnodes don't takes event msg in input")
 
-    def test_fail_callback(self):
-        """ Whether BaseChannel fail_callback is working """
+    def test_fail_endnodes(self):
+        """ Whether BaseChannel fail_endnodes is working """
         chan1 = BaseChannel(name="test_channel_fail_clbk", loop=self.loop)
         n1 = TstNode()
-        n_callback = TstNode()
+        endnode = TstNode()
         chan1.add(n1)
-        chan1.add_fail_callback(n_callback)
+        chan1.add_fail_nodes(endnode)
         msg1 = generate_msg(message_content="startmsg")
         n1.mock(output=raise_exc)
         self.start_channels()
-        n_callback._reset_test()
+        endnode._reset_test()
         with self.assertRaises(Exception):
             self.loop.run_until_complete(chan1.handle(msg1))
 
-        self.assertTrue(n_callback.processed, "Channel fail_callback not working")
+        self.assertTrue(endnode.processed, "Channel fail_endnodes not working")
         self.assertDictEqual(
-            vars(msg1), vars(n_callback.last_input()),
-            "Channel fail_callback don't takes event msg in input")
+            vars(msg1), vars(endnode.last_input()),
+            "Channel fail_endnodes don't takes event msg in input")
+
+    def test_final_endnodes(self):
+        """ Whether BaseChannel final_endnodes is working """
+        chan1 = BaseChannel(name="test_channel_final_clbk", loop=self.loop)
+        n1 = TstNode()
+        endnode = TstNode()
+        chan1.add(n1)
+        chan1.add_final_nodes(endnode)
+        msg1 = generate_msg(message_content="startmsg")
+        n1.mock(output=raise_exc)
+        self.start_channels()
+        endnode._reset_test()
+        with self.assertRaises(Exception):
+            self.loop.run_until_complete(chan1.handle(msg1))
+
+        self.assertTrue(endnode.processed, "Channel final_endnodes not working")
+        self.assertDictEqual(
+            vars(msg1), vars(endnode.last_input()),
+            "Channel final_endnodes don't takes event msg in input")
 
     def test_multiple_callbacks(self):
         """
-            Whether BaseChannel all callbacks are working at same time
+            Whether BaseChannel all endnodes are working at same time
         """
         chan1 = BaseChannel(name="test_channel_all_clbk", loop=self.loop)
         n1 = TstNode()
-        n_callbackdone = TstNode()
-        n_callbackdrop = TstNode()
-        n_callbackfail = TstNode()
-        n_callbackreject = TstNode()
+        n_endok = TstNode()
+        n_enddrop = TstNode()
+        n_endfail = TstNode()
+        n_endreject = TstNode()
+        n_endfinal = TstNode()
         chan1.add(n1)
-        chan1.add_reject_callback(n_callbackreject)
-        chan1.add_fail_callback(n_callbackfail)
-        chan1.add_drop_callback(n_callbackdrop)
-        chan1.add_done_callback(n_callbackdone)
+        chan1.add_reject_nodes(n_endreject)
+        chan1.add_fail_nodes(n_endfail)
+        chan1.add_drop_nodes(n_enddrop)
+        chan1.add_ok_nodes(n_endok)
+        chan1.add_final_nodes(n_endfinal)
         msg1 = generate_msg(message_content="startmsg")
 
         # Test with ok output
         self.start_channels()
-        n_callbackreject._reset_test()
-        n_callbackfail._reset_test()
-        n_callbackdrop._reset_test()
-        n_callbackdone._reset_test()
+        n_endreject._reset_test()
+        n_endfail._reset_test()
+        n_enddrop._reset_test()
+        n_endok._reset_test()
+        n_endfinal._reset_test()
         self.loop.run_until_complete(chan1.handle(msg1))
         self.assertTrue(
-            n_callbackdone.processed,
-            "Channel done_callback not working with other callbacks")
+            n_endok.processed,
+            "Channel ok_endnodes not working with other callbacks")
+        self.assertTrue(
+            n_endfinal.processed,
+            "Channel final_endnodes not working with other callbacks")
         self.assertFalse(
-            n_callbackreject.processed,
-            "Channel reject_callback called when nobody ask to him")
+            n_endreject.processed,
+            "Channel reject_endnodes called when nobody ask to him")
         self.assertFalse(
-            n_callbackdrop.processed,
-            "Channel drop_callback called when nobody ask to him")
+            n_enddrop.processed,
+            "Channel drop_endnodes called when nobody ask to him")
         self.assertFalse(
-            n_callbackfail.processed,
-            "Channel fail_callback called when nobody ask to him")
+            n_endfail.processed,
+            "Channel fail_endnodes called when nobody ask to him")
 
         # Test with an exception
         n1.mock(output=raise_exc)
         self.start_channels()
-        n_callbackreject._reset_test()
-        n_callbackfail._reset_test()
-        n_callbackdrop._reset_test()
-        n_callbackdone._reset_test()
+        n_endreject._reset_test()
+        n_endfail._reset_test()
+        n_enddrop._reset_test()
+        n_endok._reset_test()
+        n_endfinal._reset_test()
         with self.assertRaises(Exception):
             self.loop.run_until_complete(chan1.handle(msg1))
         self.assertTrue(
-            n_callbackfail.processed,
-            "Channel fail_callback not working with other callbacks")
+            n_endfail.processed,
+            "Channel fail_endnodes not working with other callbacks")
+        self.assertTrue(
+            n_endfinal.processed,
+            "Channel final_endnodes not working with other callbacks")
         self.assertFalse(
-            n_callbackreject.processed,
-            "Channel reject_callback called when nobody ask to him")
+            n_endreject.processed,
+            "Channel reject_endnodes called when nobody ask to him")
         self.assertFalse(
-            n_callbackdrop.processed,
-            "Channel drop_callback called when nobody ask to him")
+            n_enddrop.processed,
+            "Channel drop_endnodes called when nobody ask to him")
         self.assertFalse(
-            n_callbackdone.processed,
-            "Channel done_callback called when nobody ask to him")
+            n_endok.processed,
+            "Channel ok_endnodes called when nobody ask to him")
 
         # Test with a drop
         n1.mock(output=raise_dropped)
         self.start_channels()
-        n_callbackreject._reset_test()
-        n_callbackfail._reset_test()
-        n_callbackdrop._reset_test()
-        n_callbackdone._reset_test()
+        n_endreject._reset_test()
+        n_endfail._reset_test()
+        n_enddrop._reset_test()
+        n_endok._reset_test()
+        n_endfinal._reset_test()
         with self.assertRaises(Dropped):
             self.loop.run_until_complete(chan1.handle(msg1))
         self.assertTrue(
-            n_callbackdrop.processed,
-            "Channel drop_callback not working with other callbacks")
+            n_enddrop.processed,
+            "Channel drop_endnodes not working with other callbacks")
+        self.assertTrue(
+            n_endfinal.processed,
+            "Channel final_endnodes not working with other callbacks")
         self.assertFalse(
-            n_callbackreject.processed,
-            "Channel reject_callback called when nobody ask to him")
+            n_endreject.processed,
+            "Channel reject_endnodes called when nobody ask to him")
         self.assertFalse(
-            n_callbackfail.processed,
-            "Channel fail_callback called when nobody ask to him")
+            n_endfail.processed,
+            "Channel fail_endnodes called when nobody ask to him")
         self.assertFalse(
-            n_callbackdone.processed,
-            "Channel done_callback called when nobody ask to him")
+            n_endok.processed,
+            "Channel ok_endnodes called when nobody ask to him")
 
         # Test with a rejected
         n1.mock(output=raise_rejected)
         self.start_channels()
-        n_callbackreject._reset_test()
-        n_callbackfail._reset_test()
-        n_callbackdrop._reset_test()
-        n_callbackdone._reset_test()
+        n_endreject._reset_test()
+        n_endfail._reset_test()
+        n_enddrop._reset_test()
+        n_endok._reset_test()
+        n_endfinal._reset_test()
         with self.assertRaises(Rejected):
             self.loop.run_until_complete(chan1.handle(msg1))
         self.assertTrue(
-            n_callbackreject.processed,
-            "Channel reject_callback not working with other callbacks")
+            n_endreject.processed,
+            "Channel reject_endnodes not working with other callbacks")
         self.assertTrue(
-            n_callbackfail.processed,
-            "Channel fail_callback not working with other callbacks")
+            n_endfinal.processed,
+            "Channel final_endnodes not working with other callbacks")
         self.assertFalse(
-            n_callbackdrop.processed,
-            "Channel drop_callback called when nobody ask to him")
+            n_endfail.processed,
+            "Channel fail_endnodes not working with other callbacks")
         self.assertFalse(
-            n_callbackdone.processed,
-            "Channel done_callback called when nobody ask to him")
+            n_enddrop.processed,
+            "Channel drop_endnodes called when nobody ask to him")
+        self.assertFalse(
+            n_endok.processed,
+            "Channel ok_endnodes called when nobody ask to him")
 
-    def test_subchan_callbacks(self):
+    def test_condchan_endnodes(self):
         """
-            Whether callbacks are working correctly in complex channels and subchannels
+            Whether endnodes are working correctly in case subchannels
+        """
+        chan1 = BaseChannel(name="test_condchannel_endnodes", loop=self.loop)
+        n1 = TstNode(name="n1")
+        chan1.add(n1)
+        condchan = chan1.when(
+            lambda msg: msg.payload == "exc"
+        )
+        n2 = TstNode(name="n2")
+        n3exc = TstNode(name="n3")
+        chan1.add(n2)
+        n3exc.mock(output=raise_exc)
+        condchan.add(n3exc)
+
+        chan1_endok = TstNode(name="chan1_endok")
+        chan1_endfail = TstNode(name="chan1_endfail")
+        chan1_endfinal = TstNode(name="chan1_endfinal")
+        chan1.add_fail_nodes(chan1_endfail)
+        chan1.add_ok_nodes(chan1_endok)
+        chan1.add_final_nodes(chan1_endfinal)
+        chan1_endfail._reset_test()
+        chan1_endok._reset_test()
+        chan1_endfinal._reset_test()
+
+        startmsg = generate_msg(message_content="startmsg")
+        self.start_channels()
+        self.loop.run_until_complete(chan1.handle(startmsg))
+        self.assertTrue(
+            chan1_endok.processed,
+            "chan1 ok_endnodes not called")
+        self.assertTrue(
+            chan1_endfinal.processed,
+            "chan1 final_endnodes not called")
+        self.assertFalse(
+            chan1_endfail.processed,
+            "chan1 fail_callback called when nobody ask to him")
+
+        chan1_endfail._reset_test()
+        chan1_endok._reset_test()
+        chan1_endfinal._reset_test()
+        excmsg = generate_msg(message_content="exc")
+        with self.assertRaises(Exception):
+            self.loop.run_until_complete(chan1.handle(excmsg))
+        self.assertTrue(
+            chan1_endfail.processed,
+            "chan1 fail_endnodes not called")
+        self.assertTrue(
+            chan1_endfinal.processed,
+            "chan1 final_endnodes not called")
+        self.assertFalse(
+            chan1_endok.processed,
+            "chan1 ok_callback called when nobody ask to him")
+
+    def test_casecondchan_endnodes(self):
+        """
+            Whether endnodes are working correctly in case subchannels
+        """
+        chan1 = BaseChannel(name="test_casechannel_endnodes", loop=self.loop)
+        n1 = TstNode(name="n1")
+        chan1.add(n1)
+        condchanok1, condchanok2, condchanexc = chan1.case(
+            lambda msg: msg.payload == "ok1",
+            lambda msg: msg.payload == "ok2",
+            lambda msg: msg.payload == "exc",
+            names=["condchanok1", "condchanok2", "condchanexc"]
+        )
+        n2 = TstNode(name="n2")
+        chan1.add(n2)
+        n_ok1 = TstNode(name="n_ok1")
+        nok1_endmsg = generate_msg(message_content="nok1_endmsg")
+        n_ok1.mock(output=nok1_endmsg)
+        condchanok1.add(n_ok1)
+        n_ok2 = TstNode(name="n_ok2")
+        nok2_endmsg = generate_msg(message_content="nok2_endmsg")
+        n_ok2.mock(output=nok2_endmsg)
+        condchanok2.add(n_ok2)
+        n_exc = TstNode(name="nexc")
+        n_exc.mock(output=raise_exc)
+        condchanexc.add(n_exc)
+
+        chan1_endok = TstNode(name="chan1_endok")
+        chan1_endfail = TstNode(name="chan1_endfail")
+        chan1_endfinal = TstNode(name="chan1_endfinal")
+        chan1.add_fail_nodes(chan1_endfail)
+        chan1.add_ok_nodes(chan1_endok)
+        chan1.add_final_nodes(chan1_endfinal)
+        chan1_endfail._reset_test()
+        chan1_endok._reset_test()
+        chan1_endfinal._reset_test()
+
+        # Test without entering in cond subchans
+        startmsg = generate_msg(message_content="startmsg")
+        self.start_channels()
+        self.loop.run_until_complete(chan1.handle(startmsg))
+        self.assertTrue(
+            chan1_endok.processed,
+            "chan1 ok_endnodes not called")
+        self.assertDictEqual(
+            vars(startmsg), vars(chan1_endfinal.last_input()),
+            "chan ok_endnodes don't takes chan output in input")
+        self.assertTrue(
+            chan1_endfinal.processed,
+            "chan1 final_endnodes not called")
+        self.assertDictEqual(
+            vars(startmsg), vars(chan1_endfinal.last_input()),
+            "chan final_endnodes don't takes event msg in input")
+        self.assertFalse(
+            chan1_endfail.processed,
+            "chan1 fail_callback called when nobody ask to him")
+
+        # Test entering in cond subchans ok1
+        chan1_endfail._reset_test()
+        chan1_endok._reset_test()
+        chan1_endfinal._reset_test()
+        startmsg = generate_msg(message_content="ok1")
+        self.loop.run_until_complete(chan1.handle(startmsg))
+        self.assertTrue(
+            chan1_endok.processed,
+            "chan1 ok_endnodes not called")
+        self.assertDictEqual(
+            vars(nok1_endmsg), vars(chan1_endok.last_input()),
+            "chan ok_endnodes don't takes chan output in input")
+        self.assertTrue(
+            chan1_endfinal.processed,
+            "chan1 final_endnodes not called")
+        self.assertDictEqual(
+            vars(startmsg), vars(chan1_endfinal.last_input()),
+            "chan final_endnodes don't takes event msg in input")
+        self.assertFalse(
+            chan1_endfail.processed,
+            "chan1 fail_callback called when nobody ask to him")
+
+        # Test entering in cond subchans ok2
+        chan1_endfail._reset_test()
+        chan1_endok._reset_test()
+        chan1_endfinal._reset_test()
+        startmsg = generate_msg(message_content="ok2")
+        self.loop.run_until_complete(chan1.handle(startmsg))
+        self.assertTrue(
+            chan1_endok.processed,
+            "chan1 ok_endnodes not called")
+        self.assertDictEqual(
+            vars(nok2_endmsg), vars(chan1_endok.last_input()),
+            "chan ok_endnodes don't takes chan output in input")
+        self.assertTrue(
+            chan1_endfinal.processed,
+            "chan1 final_endnodes not called")
+        self.assertDictEqual(
+            vars(startmsg), vars(chan1_endfinal.last_input()),
+            "chan final_endnodes don't takes event msg in input")
+        self.assertFalse(
+            chan1_endfail.processed,
+            "chan1 fail_callback called when nobody ask to him")
+
+        # Test entering in cond subchans exc (raising exc)
+        chan1_endfail._reset_test()
+        chan1_endok._reset_test()
+        chan1_endfinal._reset_test()
+        startmsg = generate_msg(message_content="exc")
+        with self.assertRaises(Exception):
+            self.loop.run_until_complete(chan1.handle(startmsg))
+        self.assertTrue(
+            chan1_endfail.processed,
+            "chan1 fail_endnodes not called")
+        self.assertDictEqual(
+            vars(startmsg), vars(chan1_endfail.last_input()),
+            "chan fail_endnodes don't takes event msg in input")
+        self.assertTrue(
+            chan1_endfinal.processed,
+            "chan1 final_endnodes not called")
+        self.assertDictEqual(
+            vars(startmsg), vars(chan1_endfinal.last_input()),
+            "chan final_endnodes don't takes event msg in input")
+        self.assertFalse(
+            chan1_endok.processed,
+            "chan1 ok_callback called when nobody ask to him")
+
+    def test_subchan_endnodes(self):
+        """
+            Whether endnodes are working correctly in complex channels and subchannels
         """
         chan1 = BaseChannel(name="test_subchannel_clbk", loop=self.loop)
         n1 = TstNode(name="n1")
@@ -301,101 +517,113 @@ class ChannelsTests(TestCase):
         n3_endmsg = generate_msg(message_content="n3_endmsg")
         n3.mock(output=n3_endmsg)
 
-        chan1_callbackdone = TstNode(name="chan1_callbackdone")
-        chan1_callbackdrop = TstNode(name="chan1_callbackdrop")
-        chan1_callbackfail = TstNode(name="chan1_callbackfail")
-        chan1_callbackreject = TstNode(name="chan1_callbackreject")
-        chan1.add_reject_callback(chan1_callbackreject)
-        chan1.add_fail_callback(chan1_callbackfail)
-        chan1.add_drop_callback(chan1_callbackdrop)
-        chan1.add_done_callback(chan1_callbackdone)
+        chan1_endok = TstNode(name="chan1_endok")
+        chan1_enddrop = TstNode(name="chan1_enddrop")
+        chan1_endfail = TstNode(name="chan1_endfail")
+        chan1_endreject = TstNode(name="chan1_endreject")
+        chan1_endfinal = TstNode(name="chan1_endfinal")
+        chan1.add_reject_nodes(chan1_endreject)
+        chan1.add_fail_nodes(chan1_endfail)
+        chan1.add_drop_nodes(chan1_enddrop)
+        chan1.add_ok_nodes(chan1_endok)
+        chan1.add_final_nodes(chan1_endfinal)
 
-        sub2_callbackdone1 = TstNode(name="sub2_callbackdone1")
-        sub2_callbackdone1._reset_test()
+        sub2_endok1 = TstNode(name="sub2_endok1")
+        sub2_endok1._reset_test()
         sub2_cbk1_endmsg = generate_msg(message_content="sub2_cbk1_endmsg")
-        sub2_callbackdone1.mock(output=sub2_cbk1_endmsg)
-        sub2_callbackdone2 = TstNode(name="sub2_callbackdone2")
-        sub2_callbackdone2._reset_test()
-        sub2_callbackfail = TstNode(name="sub2_callbackfail")
-        subchan2.add_fail_callback(sub2_callbackfail)
-        subchan2.add_done_callback(sub2_callbackdone1, sub2_callbackdone2)
+        sub2_endok1.mock(output=sub2_cbk1_endmsg)
+        sub2_endok2 = TstNode(name="sub2_endok2")
+        sub2_endok2._reset_test()
+        sub2_endfail = TstNode(name="sub2_endfail")
+        subchan2.add_fail_nodes(sub2_endfail)
+        subchan2.add_ok_nodes(sub2_endok1, sub2_endok2)
 
-        sub3_callbackdone = TstNode(name="sub3_callbackdone")
-        sub3_callbackfail = TstNode(name="sub3_callbackfail")
-        sub3_callbackfail._reset_test()
-        subchan3.add_fail_callback(sub3_callbackfail)
-        subchan3.add_done_callback(sub3_callbackdone)
+        sub3_endok = TstNode(name="sub3_endok")
+        sub3_endfail = TstNode(name="sub3_endfail")
+        sub3_endfinal = TstNode(name="sub3_endfinal")
+        sub3_endfail._reset_test()
+        sub3_endfinal._reset_test()
+        subchan3.add_fail_nodes(sub3_endfail)
+        subchan3.add_final_nodes(sub3_endfinal)
+        subchan3.add_ok_nodes(sub3_endok)
 
-        sub4_callbackdone = TstNode(name="sub4_callbackdone")
-        sub4_callbackdrop = TstNode(name="sub4_callbackdrop")
-        sub4_callbackdrop._reset_test()
-        sub4_callbackfail = TstNode(name="sub4_callbackfail")
-        subchan4.add_fail_callback(sub4_callbackfail)
-        subchan4.add_drop_callback(sub4_callbackdrop)
-        subchan4.add_done_callback(sub4_callbackdone)
+        sub4_endok = TstNode(name="sub4_endok")
+        sub4_enddrop = TstNode(name="sub4_enddrop")
+        sub4_enddrop._reset_test()
+        sub4_endfail = TstNode(name="sub4_endfail")
+        subchan4.add_fail_nodes(sub4_endfail)
+        subchan4.add_drop_nodes(sub4_enddrop)
+        subchan4.add_ok_nodes(sub4_endok)
 
         startmsg = generate_msg(message_content="startmsg")
         self.start_channels()
         with self.assertRaises(Exception) and self.assertRaises(Dropped):
             self.loop.run_until_complete(chan1.handle(startmsg))
-        # except Exception:
-        #     pass
 
-        # chan1 : only done_clbk have to be called
+        # chan1 : only ok and final end nodes have to be called
         self.assertTrue(
-            chan1_callbackdone.processed,
-            "chan1 done_callback not called")
+            chan1_endok.processed,
+            "chan1 ok_endnodes not called")
+        self.assertTrue(
+            chan1_endfinal.processed,
+            "chan1 final_endnodes not called")
         self.assertFalse(
-            chan1_callbackfail.processed,
-            "chan1 fail_callback called when nobody ask to him")
+            chan1_endfail.processed,
+            "chan1 fail_endnodes called when nobody ask to him")
         self.assertFalse(
-            chan1_callbackdrop.processed,
-            "chan1 drop_callback called when nobody ask to him")
+            chan1_enddrop.processed,
+            "chan1 drop_endnodes called when nobody ask to him")
         self.assertFalse(
-            chan1_callbackreject.processed,
+            chan1_endreject.processed,
             "chan1 rejected_callback called when nobody ask to him")
 
-        # subchan2 : only done_clbk have to be called
+        # subchan2 : only done endonodes have to be called
         self.assertTrue(
-            sub2_callbackdone1.processed,
-            "subchan2 done_callback1 not called")
+            sub2_endok1.processed,
+            "subchan2 ok_endnodes1 not called")
         self.assertDictEqual(
-            vars(startmsg), vars(sub2_callbackdone1.last_input()),
-            "subchan2 done_callback don't takes event msg in input")
+            vars(startmsg), vars(sub2_endok1.last_input()),
+            "subchan2 ok_endnodes don't takes event msg in input")
         self.assertDictEqual(
-            vars(sub2_cbk1_endmsg), vars(sub2_callbackdone2.last_input()),
-            "subchan2 done_callback don't takes event msg in input")
+            vars(sub2_cbk1_endmsg), vars(sub2_endok2.last_input()),
+            "subchan2 ok_endnodes don't takes event msg in input")
         self.assertTrue(
-            sub2_callbackdone2.processed,
-            "subchan2 done_callback2 not called")
+            sub2_endok2.processed,
+            "subchan2 ok_endnodes2 not called")
         self.assertFalse(
-            sub2_callbackfail.processed,
-            "subchan2 fail_callback called when nobody ask to him")
+            sub2_endfail.processed,
+            "subchan2 fail_endnodes called when nobody ask to him")
 
-        # subchan3 : only fail_clbk have to be called
+        # subchan3 : only fail and final endnodes have to be called
         self.assertTrue(
-            sub3_callbackfail.processed,
-            "subchan3 fail_callback not called")
+            sub3_endfail.processed,
+            "subchan3 fail_endnodes not called")
         self.assertDictEqual(
-            vars(nsub1_endmsg), vars(sub3_callbackfail.last_input()),
-            "subchan3 fail_callback don't takes correct input")
+            vars(nsub1_endmsg), vars(sub3_endfail.last_input()),
+            "subchan3 fail_endnodes don't takes correct input")
+        self.assertTrue(
+            sub3_endfinal.processed,
+            "subchan3 final_endnodes not called")
+        self.assertDictEqual(
+            vars(nsub1_endmsg), vars(sub3_endfinal.last_input()),
+            "subchan3 final_endnodes don't takes correct input")
         self.assertFalse(
-            sub3_callbackdone.processed,
-            "subchan3 done_callback called when nobody ask to him")
+            sub3_endok.processed,
+            "subchan3 ok_endnodes called when nobody ask to him")
 
-        # subchan4 : only drop_clbk have to be called
+        # subchan4 : only drop endnodes have to be called
         self.assertTrue(
-            sub4_callbackdrop.processed,
-            "subchan4 fail_callback not called")
+            sub4_enddrop.processed,
+            "subchan4 fail_endnodes not called")
         self.assertDictEqual(
-            vars(n2_endmsg), vars(sub4_callbackdrop.last_input()),
-            "subchan4 drop_callback don't takes correct input")
+            vars(n2_endmsg), vars(sub4_enddrop.last_input()),
+            "subchan4 drop_endnodes don't takes correct input")
         self.assertFalse(
-            sub4_callbackdone.processed,
-            "subchan4 done_callback called when nobody ask to him")
+            sub4_endok.processed,
+            "subchan4 ok_endnodes called when nobody ask to him")
         self.assertFalse(
-            sub4_callbackdone.processed,
-            "subchan4 fail_callback called when nobody ask to him")
+            sub4_endok.processed,
+            "subchan4 fail_endnodes called when nobody ask to him")
 
     def test_sub_channel(self):
         """ Whether Sub Channel is working """

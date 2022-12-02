@@ -70,12 +70,11 @@ class BaseChannel:
         self._status = BaseChannel.STOPPED
         self.processed_msgs = 0
         self.interruptable_sleeper = Sleeper(loop)  # for interruptable sleeps
-        self.done_callback = None
-        self.fail_callback = None
-        self.drop_callback = None
-        self.reject_callback = None
-        # TODO: maybe add a 'default' callback that is launch everytime
-        # (may be useful for file cleaning for example)
+        self.ok_endnodes = None
+        self.fail_endnodes = None
+        self.drop_endnodes = None
+        self.reject_endnodes = None
+        self.final_endnodes = None
 
         if name:
             self.name = name
@@ -128,14 +127,14 @@ class BaseChannel:
         self.lock = None
 
         self.sub_chan_tasks = []
-        self.sub_chan_callbacks = []
+        self.sub_chan_endnodes = []
 
-    def _reset_sub_chan_callbacks(self, fut):
+    def _reset_sub_chan_endnodes(self, fut):
         """
         Remove all subchan callbacks from the list
         called by the done_callback of subchan future callbacks
         """
-        self.sub_chan_callbacks = []
+        self.sub_chan_endnodes = []
         fut.result()
 
     @classmethod
@@ -341,42 +340,42 @@ class BaseChannel:
             try:
                 result = await self.subhandle(msg)
                 await self.message_store.change_message_state(msg_store_id, message.Message.PROCESSED)
-                if self.done_callback and not has_callback:
-                    await self.done_callback[0].handle(result.copy())
+                if self.ok_endnodes and not has_callback:
+                    await self.ok_endnodes[0].handle(result.copy())
                 return result
             except Dropped:
                 await self.message_store.change_message_state(msg_store_id, message.Message.PROCESSED)
-                if self.drop_callback and not has_callback:
-                    await self.drop_callback[0].handle(msg.copy())
+                if self.drop_endnodes and not has_callback:
+                    await self.drop_endnodes[0].handle(msg.copy())
                 raise
             except Rejected:
                 await self.message_store.change_message_state(msg_store_id, message.Message.REJECTED)
-                if self.reject_callback and not has_callback:
-                    await self.reject_callback[0].handle(msg.copy())
-                if self.fail_callback and not has_callback:
-                    await self.fail_callback[0].handle(msg.copy())
+                if self.reject_endnodes and not has_callback:
+                    await self.reject_endnodes[0].handle(msg.copy())
                 raise
             except Exception:
                 self.logger.exception('Error while processing message %s', msg)
                 await self.message_store.change_message_state(msg_store_id, message.Message.ERROR)
-                if self.fail_callback and not has_callback:
-                    await self.fail_callback[0].handle(msg.copy())
+                if self.fail_endnodes and not has_callback:
+                    await self.fail_endnodes[0].handle(msg.copy())
                 raise
             finally:
                 if self.sub_chan_tasks:
                     await asyncio.gather(*self.sub_chan_tasks)
                 self.status = BaseChannel.WAITING
                 self.processed_msgs += 1
+                if self.final_endnodes and not has_callback:
+                    await self.final_endnodes[0].handle(msg.copy())
                 try:
                     if self.sub_chan_tasks:
                         # Launch and wait for sub chans handle()
                         await asyncio.gather(*self.sub_chan_tasks)
                 finally:
-                    if self.sub_chan_callbacks:
+                    if self.sub_chan_endnodes:
                         # Launch and wait for sub chans callbacks
-                        subchan_callbacks_fut = asyncio.gather(*self.sub_chan_callbacks)
-                        subchan_callbacks_fut.add_done_callback(self._reset_sub_chan_callbacks)
-                        await subchan_callbacks_fut
+                        subchan_endnodes_fut = asyncio.gather(*self.sub_chan_endnodes)
+                        subchan_endnodes_fut.add_done_callback(self._reset_sub_chan_endnodes)
+                        await subchan_endnodes_fut
 
     async def subhandle(self, msg):
         """ Overload this method only if you know what you are doing. Called by ``handle`` method.
@@ -458,6 +457,7 @@ class BaseChannel:
         """
         Generate a text graph for this channel.
         """
+        # TODO: ask to klaus how to implement and show endnodes in the graph
         for node in self._nodes:
             if isinstance(node, SubChannel):
                 yield prefix + '|—\\ (%s)' % node.name
@@ -522,55 +522,79 @@ class BaseChannel:
             for entry in sub.graph_dot(end=end):
                 yield entry
 
-    def _init_callback_nodes(self, *callback_nodes):
-        callback_nodes = [node for node in flatten(callback_nodes) if node]
-        for node in callback_nodes:
+    def _init_end_nodes(self, *end_nodes):
+        """
+        endnodes (ok/fail/drop/reject/final) are nodes that are launched
+        after channel subhandle
+        This func permits to chain them without adding them at the end of self._nodes
+        """
+        end_nodes = [node for node in flatten(end_nodes) if node]
+        for node in end_nodes:
             node.channel = self
 
-        if len(callback_nodes) > 1:
-            previous_node = callback_nodes[0]
+        if len(end_nodes) > 1:
+            previous_node = end_nodes[0]
 
-            for node in callback_nodes[1:]:
+            for node in end_nodes[1:]:
                 previous_node.next_node = node
                 previous_node = node
-        return callback_nodes
+        return end_nodes
 
-    def add_done_callback(self, *callback_nodes):
+    def add_ok_nodes(self, *end_nodes):
         """
-        Add a callback when channel ends correctly (and without raising Dropped)
-        """
-        if self.done_callback:
-            raise PypemanConfigError(f"done_callback already existing for channel {self.name}")
-        self.done_callback = self._init_callback_nodes(*callback_nodes)
+        Add endnodes that will be launched only after a successful channel process
+        The first node take the result message of the channel as input
 
-    def add_fail_callback(self, *callback_nodes):
+        CAUTION: TODO: if an exception occurs during processing of ok_endnodes there's
+        a different comportment if it's a BaseChannel or a SubChannel (due to implementation)
+            - BaseChannel: if there's fail/drop/reject_endnodes, they will be launched
+            - SubChannel: no other endnodes will be launched (except final_endnodes)
         """
-        Add a callback when channel raise an exception (except Dropped)
-        """
-        if self.fail_callback:
-            raise PypemanConfigError(f"fail_callback already existing for channel {self.name}")
-        self.fail_callback = self._init_callback_nodes(*callback_nodes)
+        if self.ok_endnodes:
+            raise PypemanConfigError(f"ok_nodes already existing for channel {self.name}")
+        self.ok_endnodes = self._init_end_nodes(*end_nodes)
 
-    def add_drop_callback(self, *callback_nodes):
+    def add_fail_nodes(self, *end_nodes):
         """
-        Add a callback only when channel raises Dropped)
+        Add endnodes that will be launched only after a channel process that raises an Exception
+        (except Dropped and Rejected)
+        The first node take the entry message of the channel as input
         """
-        if self.drop_callback:
-            raise PypemanConfigError(f"drop_callback already existing for channel {self.name}")
-        self.drop_callback = self._init_callback_nodes(*callback_nodes)
+        if self.fail_endnodes:
+            raise PypemanConfigError(f"fail_endnodes already existing for channel {self.name}")
+        self.fail_endnodes = self._init_end_nodes(*end_nodes)
 
-    def add_reject_callback(self, *callback_nodes):
+    def add_drop_nodes(self, *end_nodes):
         """
-        Add a callback only when channel ends with a Rejected Exception
+        Add endnodes that will be launched only after a channel process that raises a Dropped
+        The first node take the entry message of the channel as input
         """
-        if self.reject_callback:
-            raise PypemanConfigError(f"reject_callback already existing for channel {self.name}")
-        self.reject_callback = self._init_callback_nodes(*callback_nodes)
+        if self.drop_endnodes:
+            raise PypemanConfigError(f"drop_endnodes already existing for channel {self.name}")
+        self.drop_endnodes = self._init_end_nodes(*end_nodes)
 
-    # def _callback(self, *callback_nodes):
+    def add_reject_nodes(self, *end_nodes):
+        """
+        Add endnodes that will be launched only after a channel process that raises a Rejected
+        The first node take the entry message of the channel as input
+        """
+        if self.reject_endnodes:
+            raise PypemanConfigError(f"reject_endnodes already existing for channel {self.name}")
+        self.reject_endnodes = self._init_end_nodes(*end_nodes)
+
+    def add_final_nodes(self, *end_nodes):
+        """
+        Add endnodes that will be launched all the time after a channel process
+        The first node take the entry message of the channel as input (TODO: ask if it's ok)
+        """
+        if self.final_endnodes:
+            raise PypemanConfigError(f"final_endnodes already existing for channel {self.name}")
+        self.final_endnodes = self._init_end_nodes(*end_nodes)
+
+    # def _callback(self, future):
     #     """
     #     Function called by subchannel future done_callback
-    #     If this function is implemented done/fail/reject/drop callbacks are not instanciated
+    #     If this function is implemented ok/fail/reject/drop/final endnodes are not instanciated
     #     in handle but in this func so take care to not implement it if you are not sure what
     #     you're doing
     #     TODO: Maybe add a warning if _callback and not isinstance(SubChannel)  ??
@@ -604,44 +628,45 @@ class SubChannel(BaseChannel):
         """
         ctx = contextvars.copy_context()
         entrymsg = ctx.get(MSG_CTXVAR)
-        callbacks_tasks = []
+        endnodes_tasks = []
         try:
             result = fut.result()
-            if self.done_callback:
-                callbacktask = asyncio.create_task(self.done_callback[0].handle(result.copy()))
-                callbacks_tasks.append(callbacktask)
+            if self.ok_endnodes:
+                endnode_task = asyncio.create_task(self.ok_endnodes[0].handle(result.copy()))
+                endnodes_tasks.append(endnode_task)
             logger.info("Subchannel %s end process message %s", repr(self), result)
         except Dropped:
-            if self.drop_callback:
-                callbacktask = asyncio.create_task(self.drop_callback[0].handle(entrymsg.copy()))
-                callbacks_tasks.append(callbacktask)
+            if self.drop_endnodes:
+                endnode_task = asyncio.create_task(self.drop_endnodes[0].handle(entrymsg.copy()))
+                endnodes_tasks.append(endnode_task)
             self.logger.info("Subchannel %s. Msg was dropped", repr(self))
         except Rejected:
-            if self.reject_callback:
-                callbacktask = asyncio.create_task(self.drop_callback[0].handle(entrymsg.copy()))
-                callbacks_tasks.append(callbacktask)
-            if self.fail_callback:
-                callbacktask = asyncio.create_task(self.fail_callback[0].handle(entrymsg.copy()))
-                callbacks_tasks.append(callbacktask)
+            if self.reject_endnodes:
+                endnode_task = asyncio.create_task(self.reject_endnodes[0].handle(entrymsg.copy()))
+                endnodes_tasks.append(endnode_task)
             self.logger.info("Subchannel %s. Msg was Rejected", repr(self))
             raise
         except Exception:
-            if self.fail_callback:
-                callbacktask = asyncio.create_task(self.fail_callback[0].handle(entrymsg.copy()))
-                callbacks_tasks.append(callbacktask)
+            if self.fail_endnodes:
+                endnode_task = asyncio.create_task(self.fail_endnodes[0].handle(entrymsg.copy()))
+                endnodes_tasks.append(endnode_task)
             self.logger.exception("Error while processing msg in subchannel %s", self)
             raise
         finally:
-            self.parent.sub_chan_callbacks.extend(callbacks_tasks)
+            if self.final_endnodes:
+                endnode_task = asyncio.create_task(self.final_endnodes[0].handle(entrymsg.copy()))
+                endnodes_tasks.append(endnode_task)
+            self.parent.sub_chan_endnodes.extend(endnodes_tasks)
             self.parent.sub_chan_tasks.remove(fut)
 
     async def process(self, msg):
         if self._nodes:
-            MSG_CTXVAR.set(msg.copy())
+            msgctxvartoken = MSG_CTXVAR.set(msg.copy())
             ctx = contextvars.copy_context()
             fut = ensure_future(self._nodes[0].handle(msg.copy()), loop=self.loop)
             fut.add_done_callback(self._callback, context=ctx)
             self.parent.sub_chan_tasks.append(fut)
+            MSG_CTXVAR.reset(msgctxvartoken)
         return msg
 
 

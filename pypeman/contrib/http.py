@@ -1,7 +1,6 @@
 import json
 import logging
 import ssl
-import warnings
 
 import aiohttp
 
@@ -25,7 +24,7 @@ class HTTPEndpoint(endpoints.SocketEndpoint):
             loop=None,
             http_args=None,
             host=None,
-            sock=None,
+            sock=None,  # TODO: Why have sock and port if it's the same ?
             reuse_port=None,
             ):
         """
@@ -45,14 +44,8 @@ class HTTPEndpoint(endpoints.SocketEndpoint):
 
         address = address or adress
         if address or port:
-            warnings.warn(
-                "HTTPEndpoint 'address', 'adress' and 'port' params are deprecated. "
-                "Replace it by 'host' or 'sock'", DeprecationWarning)
-            if host or sock:
-                raise PypemanParamError(
-                    "Obsolete params ('adress', 'address', 'port') "
-                    "can not be mixed with new params ('host', 'sock')")
-            sock = (address if address else '') + ':' + str(port if port else '')
+            raise PypemanParamError(
+                "HTTPEndpoint Obsolete params ('address', 'port') ")
 
         if host and sock:
             raise PypemanParamError("There can only be one (parameter host or sock)")
@@ -201,9 +194,9 @@ class HttpRequest(nodes.BaseNode):
             except FileNotFoundError:
                 logger.error("loading certs %s failed", self.client_cert)
                 raise
-            conn = aiohttp.TCPConnector(ssl_context=ssl_context, loop=loop)
+            conn = aiohttp.TCPConnector(ssl=ssl_context, loop=loop)
         else:
-            conn = aiohttp.TCPConnector(verify_ssl=self.verify, loop=loop)
+            conn = aiohttp.TCPConnector(ssl=self.verify, loop=loop)
 
         headers = nodes.choose_first_not_none(self.headers, msg.meta.get('headers'))
         cookies = nodes.choose_first_not_none(self.cookies, msg.meta.get('cookies'))
@@ -228,7 +221,7 @@ class HttpRequest(nodes.BaseNode):
         data = None
         if method.lower() in ['put', 'post']:
             data = msg.payload
-        with aiohttp.ClientSession(connector=conn, cookies=cookies) as session:
+        async with aiohttp.ClientSession(connector=conn, cookies=cookies) as session:
             resp = await session.request(
                     method=method,
                     url=url,
@@ -255,9 +248,3 @@ class HttpRequest(nodes.BaseNode):
         """ handles request """
         msg.payload = await self.handle_request(msg)
         return msg
-
-
-class RequestNode(HttpRequest):
-    def __init__(self, *args, **kwargs):
-        warnings.warn("RequestNode node is deprecated. New name is 'HttpRequest' node", DeprecationWarning)
-        super().__init__(*args, **kwargs)

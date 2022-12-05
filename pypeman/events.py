@@ -1,5 +1,7 @@
 import asyncio
 
+from pypeman.helpers.aio_compat import awaitify
+
 
 class Event:
     """
@@ -39,7 +41,7 @@ class Event:
         """
         for handler in self.handlers:
             if not asyncio.iscoroutinefunction(handler):
-                handler = asyncio.coroutine(handler)
+                handler = awaitify(handler)
 
             await handler(*args, **kargs)
 

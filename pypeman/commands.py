@@ -26,11 +26,6 @@ if True:
     CURRENT_DIR = os.getcwd()  # noqa: E402
     sys.path.insert(0, CURRENT_DIR)  # noqa: E402
 
-# To be imported prior to any other pypeman imports
-import pypeman.helpers.aio_compat
-if True:
-    pypeman.helpers.aio_compat.patch()  # noqa: E402
-
 import pypeman
 
 from pypeman import channels
@@ -200,7 +195,7 @@ def main(debug_asyncio=False, profile=False, cli=False, remote_admin=False):
     plugin_manager.stop_plugins()
 
     print("End started tasks...")
-    pending = asyncio.Task.all_tasks()
+    pending = asyncio.all_tasks()
     logger.debug("%d pending tasks to wait for", len(pending))
     for task in pending:
         logger.debug("shall wait for task %s", repr(task))

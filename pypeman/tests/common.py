@@ -123,7 +123,7 @@ class SimpleTestNode(nodes.BaseNode):
         if self.delay:
             time.sleep(self.delay)
         if self.async_delay is not None:
-            await asyncio.sleep(self.async_delay, loop=self.loop)
+            await asyncio.sleep(self.async_delay)
         self.logger.info("Process done: %s", msg)
         self.processed = True
         return msg
@@ -143,4 +143,5 @@ class ExceptNode(TstNode):
     # This node raises an exception
     def process(self, msg):
         super().process(msg)
+        print("Tstexception")
         raise TstException()

@@ -113,7 +113,10 @@ class BaseChannel:
         self._first_start = True
 
         # Used to avoid multiple messages processing at same time
-        self.lock = asyncio.Lock(loop=self.loop)
+        # Lock use `asyncio.get_running_loop()` that only be called from coroutines or callbacks
+        # So now, lock is instanciated at start
+        self.lock = None
+
         self.sub_chan_tasks = []
 
     @classmethod
@@ -148,6 +151,7 @@ class BaseChannel:
         Start the channel. Called before starting processus. Can be overloaded to specify specific
         start procedure.
         """
+        self.lock = asyncio.Lock()
         self.status = BaseChannel.STARTING
         if self._first_start:
             self.init_node_graph()
@@ -330,6 +334,8 @@ class BaseChannel:
                 await self.message_store.change_message_state(msg_store_id, message.Message.ERROR)
                 raise
             finally:
+                if self.sub_chan_tasks:
+                    await asyncio.gather(*self.sub_chan_tasks)
                 self.status = BaseChannel.WAITING
                 self.processed_msgs += 1
                 if self.sub_chan_tasks:
@@ -515,6 +521,7 @@ class SubChannel(BaseChannel):
 
     async def process(self, msg):
         if self._nodes:
+
             fut = ensure_future(self._nodes[0].handle(msg.copy()), loop=self.loop)
             fut.add_done_callback(self.callback)
             self.parent.sub_chan_tasks.append(fut)

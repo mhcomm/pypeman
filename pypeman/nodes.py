@@ -165,7 +165,6 @@ class BaseNode:
 
         if self.passthrough:
             old_msg = msg.copy()
-
         # Allow process as coroutine function
         if asyncio.iscoroutinefunction(self.process):
             result = await self.async_run(msg)
@@ -415,7 +414,7 @@ class Sleep(BaseNode):
         super().__init__(*args, **kwargs)
 
     async def process(self, msg):
-        await asyncio.sleep(self.duration, loop=self.channel.loop)
+        await asyncio.sleep(self.duration)
         return msg
 
 
@@ -427,7 +426,8 @@ class JsonToPython(BaseNode):
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
-        msg.payload = json.loads(msg.payload, encoding=self.encoding)
+        encoded_payload = msg.payload.encode(self.encoding)
+        msg.payload = json.loads(encoded_payload)
         msg.content_type = 'application/python'
         return msg
 
@@ -872,7 +872,7 @@ class YielderNode(BaseNode):
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
-        if not isinstance(msg.payload, collections.Iterable):
+        if not isinstance(msg.payload, collections.abc.Iterable):
             logger.error("Yielder node took a non iterable msg.payload: %r", msg.payload)
             raise Rejected()
 
@@ -911,7 +911,6 @@ wrap.add_lazy('pypeman.contrib.xml', "PythonToXML", ["xmltodict"])
 wrap.add_lazy('pypeman.contrib.hl7', "HL7ToPython", ["hl7"])
 wrap.add_lazy('pypeman.contrib.hl7', "PythonToHL7", ["hl7"])
 wrap.add_lazy('pypeman.contrib.http', "HttpRequest", ["aiohttp"])
-wrap.add_lazy('pypeman.contrib.http', "HttpJsonRequest", ["aiohttp"])
 wrap.add_lazy('pypeman.contrib.http', "RequestNode", ["aiohttp"])
 wrap.add_lazy('pypeman.contrib.ftp', "FTPFileWriter", [])
 wrap.add_lazy('pypeman.contrib.ftp', "FTPFileReader", [])

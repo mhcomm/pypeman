@@ -9,6 +9,7 @@ from pypeman import nodes
 from pypeman import events
 from pypeman.channels import BaseChannel
 from pypeman.errors import PypemanParamError
+from pypeman.helpers.aio_compat import awaitify
 from pypeman.test import TearDownProjectTestCase as TestCase
 from pypeman.tests.common import ExceptNode
 from pypeman.tests.common import generate_msg
@@ -18,11 +19,9 @@ from pypeman.tests.common import TstNode
 
 class ChannelsTests(TestCase):
     def clean_loop(self):
-        # Useful in pypeman<0.5 to execute future callbacks
-        pending = asyncio.Task.all_tasks(loop=self.loop)
-        # TODO: in Python 3.8+ asyncio.Task.all_tasks doesn't exist
-        # use asyncio.all_tasks, but doesn't have same behavior (
-        # it returns only not done tasks) so pending will be empty
+        # Useful to execute future callbacks  # TODO: remove ?
+        pending = asyncio.all_tasks(loop=self.loop)
+
         if pending:
             self.loop.run_until_complete(asyncio.gather(*pending))
 
@@ -151,7 +150,7 @@ class ChannelsTests(TestCase):
         chan.add(n1)
 
         # Nodes in this channel should not be processed
-        cond1 = chan.when(lambda x: False, name="Toto")
+        cond1 = chan.when(lambda x: False)
         # Nodes in this channel should be processed
         cond2 = chan.when(True, name="condchannel")
 
@@ -183,7 +182,9 @@ class ChannelsTests(TestCase):
 
         chan.add(n1)
 
-        cond1, cond2, cond3 = chan.case(lambda x: False, True, True, names=['first', 'second', 'third'])
+        cond1, cond2, cond3 = chan.case(
+            lambda x: False, True, True, names=['first', 'second', 'third']
+        )
 
         chan.add(n2)
 
@@ -207,11 +208,13 @@ class ChannelsTests(TestCase):
         """ Whether BaseChannel subchannel works """
         chan = BaseChannel(name="test_channel6.5", loop=self.loop)
 
-        chan_fork = chan.fork()
+        chan_fork = chan.fork("subchannel6.5")
 
-        chan_when = chan_fork.when(lambda: True)
+        chan_when = chan_fork.when(lambda: True, name="condchannel6.5.1")
 
-        chan_case1, chan_case2 = chan_when.case(lambda: True, lambda: False)
+        chan_case1, chan_case2 = chan_when.case(
+            lambda: True, lambda: False,
+            names=["condchannel6.5.2", "condchannel6.5.3"])
 
         print(chan.subchannels())
 
@@ -302,7 +305,7 @@ class ChannelsTests(TestCase):
         tests = [
             dict(out_params={'sock': '127.0.0.1:8080'}),
             dict(
-                in_params={'address': 'localhost', 'port': 8081},
+                in_params={'host': 'localhost:8081'},
                 out_params={'sock': 'localhost:8081'},
             ),
             dict(
@@ -320,12 +323,12 @@ class ChannelsTests(TestCase):
                 comment="either addr,port or sock",
             ),
             dict(
-                in_params={'address': '0.0.0.0'},
+                in_params={'host': '0.0.0.0'},
                 out_params={'sock': '0.0.0.0:8080'},
                 comment="dflt_port 8080"
             ),
             dict(
-                in_params={'port': 8081},
+                in_params={'host': ":8081"},
                 out_params={'sock': '127.0.0.1:8081'},
                 comment="dflt addr 127.0.0.1",
             ),
@@ -337,7 +340,9 @@ class ChannelsTests(TestCase):
 
         fake_socket = mock.MagicMock()
         mock_sock.return_value = fake_socket
+        test_idx = 0
         for test in tests:
+            test_idx += 1
             in_params = test.get('in_params', {})
             out_params = test.get('out_params', {})
             comment = test.get('comment', "")
@@ -382,7 +387,7 @@ class ChannelsTests(TestCase):
             for key, value in out_params.items():
                 self.assertEqual(getattr(endp, key), value, check_msg)
 
-            channels.HttpChannel(endpoint=endp, loop=self.loop)
+            channels.HttpChannel(endpoint=endp, name=f"HTTPChannel{test_idx}", loop=self.loop)
 
     def test_ftp_channel(self):
         """ Whether FTPWatcherChannel is working"""
@@ -407,7 +412,7 @@ class ChannelsTests(TestCase):
                                               basedir="testdir",  # delete_after=True,
                                               **ftp_config)
 
-            chan.watch_for_file = asyncio.coroutine(mock.Mock())
+            chan.watch_for_file = awaitify(mock.Mock())  # TODO: use AsyncMock when py3.8+
 
             n = nodes.Log(name="test_ftp_chan")
             chan.add(n)

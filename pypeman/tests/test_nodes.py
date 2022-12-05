@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import sys
 import unittest
 
 from unittest import mock
@@ -37,8 +38,8 @@ def tstfct2(msg):
 
 
 def get_mock_coro(return_value):
-    @asyncio.coroutine
-    def mock_coro(*args, **kwargs):
+
+    async def mock_coro(*args, **kwargs):
         return return_value
 
     return mock.Mock(wraps=mock_coro)
@@ -397,6 +398,8 @@ class NodesTests(TestCase):
             fake_ftp.upload_file.assert_called_once_with('test_write.part', 'message_content')
             fake_ftp.rename.assert_called_once_with('test_write.part', 'test_write')
 
+    @unittest.skipIf((sys.version_info[:2] == (3, 7)),
+                     "difficulty to mock async with statement in py3.7")  # TODO: rm in py3.8+
     def test_httprequest_node(self):
         """ Whether HttpRequest node is functional """
 
@@ -474,7 +477,7 @@ class NodesTests(TestCase):
                 'ssl.SSLContext',
                 autospec=True) as mock_ssl_context:
             mock_ctx_mgr = mock_client_session.return_value
-            mock_session = mock_ctx_mgr.__enter__.return_value
+            mock_session = mock_ctx_mgr.__aenter__.return_value
             mg = mock.MagicMock()
             mg.text = get_mock_coro(mock.MagicMock())
             mock_session.request = get_mock_coro(mg)

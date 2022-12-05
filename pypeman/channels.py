@@ -2,6 +2,7 @@ import asyncio
 import contextvars
 import logging
 import re
+import traceback
 import types
 import uuid
 import warnings
@@ -334,26 +335,36 @@ class BaseChannel:
 
         self.logger.info("%s handle %s", self, msg)
         has_callback = hasattr(self, "_callback")
+        setattr(msg, "chan_rslt", None)
+        setattr(msg, "chan_exc", None)
+        setattr(msg, "chan_exc_traceback", None)
         # Only one message processing at time
         async with self.lock:
             self.status = BaseChannel.PROCESSING
             try:
                 result = await self.subhandle(msg)
                 await self.message_store.change_message_state(msg_store_id, message.Message.PROCESSED)
+                msg.chan_rslt = result
                 if self.join_nodes and not has_callback:
                     await self.join_nodes[0].handle(result.copy())
                 return result
-            except Dropped:
+            except Dropped as exc:
+                msg.chan_exc = exc
+                msg.chan_exc_traceback = traceback.format_exc()
                 await self.message_store.change_message_state(msg_store_id, message.Message.PROCESSED)
                 if self.drop_nodes and not has_callback:
                     await self.drop_nodes[0].handle(msg.copy())
                 raise
-            except Rejected:
+            except Rejected as exc:
+                msg.chan_exc = exc
+                msg.chan_exc_traceback = traceback.format_exc()
                 await self.message_store.change_message_state(msg_store_id, message.Message.REJECTED)
                 if self.reject_nodes and not has_callback:
                     await self.reject_nodes[0].handle(msg.copy())
                 raise
-            except Exception:
+            except Exception as exc:
+                msg.chan_exc = exc
+                msg.chan_exc_traceback = traceback.format_exc()
                 self.logger.exception('Error while processing message %s', msg)
                 await self.message_store.change_message_state(msg_store_id, message.Message.ERROR)
                 if self.fail_nodes and not has_callback:

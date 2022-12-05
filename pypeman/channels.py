@@ -371,8 +371,6 @@ class BaseChannel:
                     await self.fail_nodes[0].handle(msg.copy())
                 raise
             finally:
-                if self.sub_chan_tasks:
-                    await asyncio.gather(*self.sub_chan_tasks)
                 self.status = BaseChannel.WAITING
                 self.processed_msgs += 1
                 if self.final_nodes and not has_callback:
@@ -551,7 +549,7 @@ class BaseChannel:
                 previous_node = node
         return end_nodes
 
-    def add_ok_nodes(self, *end_nodes):
+    def add_join_nodes(self, *end_nodes):
         """
         Add nodes that will be launched only after a successful channel process
         The first node take the result message of the channel as input
@@ -639,25 +637,35 @@ class SubChannel(BaseChannel):
         """
         ctx = contextvars.copy_context()
         entrymsg = ctx.get(MSG_CTXVAR)
+        setattr(entrymsg, "chan_rslt", None)
+        setattr(entrymsg, "chan_exc", None)
+        setattr(entrymsg, "chan_exc_traceback", None)
         endnodes_tasks = []
         try:
             result = fut.result()
+            entrymsg.chan_rslt = result
             if self.join_nodes:
                 endnode_task = asyncio.create_task(self.join_nodes[0].handle(result.copy()))
                 endnodes_tasks.append(endnode_task)
             logger.info("Subchannel %s end process message %s", repr(self), result)
-        except Dropped:
+        except Dropped as exc:
+            entrymsg.chan_exc = exc
+            entrymsg.chan_exc_traceback = traceback.format_exc()
             if self.drop_nodes:
                 endnode_task = asyncio.create_task(self.drop_nodes[0].handle(entrymsg.copy()))
                 endnodes_tasks.append(endnode_task)
             self.logger.info("Subchannel %s. Msg was dropped", repr(self))
-        except Rejected:
+        except Rejected as exc:
+            entrymsg.chan_exc = exc
+            entrymsg.chan_exc_traceback = traceback.format_exc()
             if self.reject_nodes:
                 endnode_task = asyncio.create_task(self.reject_nodes[0].handle(entrymsg.copy()))
                 endnodes_tasks.append(endnode_task)
             self.logger.info("Subchannel %s. Msg was Rejected", repr(self))
             raise
-        except Exception:
+        except Exception as exc:
+            entrymsg.chan_exc = exc
+            entrymsg.chan_exc_traceback = traceback.format_exc()
             if self.fail_nodes:
                 endnode_task = asyncio.create_task(self.fail_nodes[0].handle(entrymsg.copy()))
                 endnodes_tasks.append(endnode_task)

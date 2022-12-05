@@ -4,6 +4,7 @@
 * remove python 3.6 from supported versions
 * Add python 3.9 and python 3.10 compatibility
 * Exceptions in subchannels are now brought up in main channel
+* Add join/drop/reject/final nodes to lauch at end of channels
 * New Nodes:
 * - FileCleaner
 * - FileMover

@@ -61,7 +61,8 @@ class BaseChannel:
     STARTING, WAITING, PROCESSING, STOPPING, STOPPED = range(5)
     STATE_NAMES = ['STARTING', 'WAITING', 'PROCESSING', 'STOPPING', 'STOPPED']
 
-    def __init__(self, name=None, parent_channel=None, loop=None, message_store_factory=None):
+    def __init__(self, name=None, parent_channel=None, loop=None, message_store_factory=None,
+                 wait_subchans=False):
 
         self.uuid = uuid.uuid4()
 
@@ -76,6 +77,7 @@ class BaseChannel:
         self.drop_nodes = None
         self.reject_nodes = None
         self.final_nodes = None
+        self.wait_subchans = wait_subchans
 
         if name:
             self.name = name
@@ -262,7 +264,8 @@ class BaseChannel:
 
         s = SubChannel(
             name=name, parent_channel=self,
-            message_store_factory=message_store_factory, loop=self.loop)
+            message_store_factory=message_store_factory, loop=self.loop,
+            wait_subchans=self.wait_subchans)
         self._nodes.append(s)
         return s
 
@@ -278,7 +281,8 @@ class BaseChannel:
 
         s = ConditionSubChannel(
             condition=condition, name=name, parent_channel=self,
-            message_store_factory=message_store_factory, loop=self.loop)
+            message_store_factory=message_store_factory, loop=self.loop,
+            wait_subchans=self.wait_subchans)
         self._nodes.append(s)
         return s
 
@@ -305,7 +309,8 @@ class BaseChannel:
             names = [None] * len(conditions)
 
         c = Case(*conditions, names=names, parent_channel=self,
-                 message_store_factory=message_store_factory, loop=self.loop)
+                 message_store_factory=message_store_factory, loop=self.loop,
+                 wait_subchans=self.wait_subchans)
         self._nodes.append(c)
         return [chan for cond, chan in c.cases]
 
@@ -377,14 +382,17 @@ class BaseChannel:
                     await self.final_nodes[0].handle(msg.copy())
                 try:
                     if self.sub_chan_tasks:
-                        # Launch and wait for sub chans handle()
-                        await asyncio.gather(*self.sub_chan_tasks)
+                        # Launch sub chans handle()
+                        subchantasks = asyncio.gather(*self.sub_chan_tasks)
+                        if self.wait_subchans:
+                            await subchantasks
                 finally:
                     if self.sub_chan_endnodes:
                         # Launch and wait for sub chans callbacks
                         subchan_endnodes_fut = asyncio.gather(*self.sub_chan_endnodes)
                         subchan_endnodes_fut.add_done_callback(self._reset_sub_chan_endnodes)
-                        await subchan_endnodes_fut
+                        if self.wait_subchans:
+                            await subchan_endnodes_fut
 
     async def subhandle(self, msg):
         """ Overload this method only if you know what you are doing. Called by ``handle`` method.
@@ -720,7 +728,8 @@ class ConditionSubChannel(BaseChannel):
 class Case():
     """ Case node internally used for `.case()` BaseChannel method. Don't use it.
     """
-    def __init__(self, *args, names=None, parent_channel=None, message_store_factory=None, loop=None):
+    def __init__(self, *args, names=None, parent_channel=None, message_store_factory=None, loop=None,
+                 wait_subchans=False):
         self.next_node = None
         self.cases = []
 
@@ -735,7 +744,7 @@ class Case():
         for cond, name in zip(args, names):
             b = BaseChannel(name=name, parent_channel=parent_channel,
                             message_store_factory=message_store_factory,
-                            loop=self.loop)
+                            loop=self.loop, wait_subchans=wait_subchans)
             self.cases.append((cond, b))
 
     def _reset_test(self):

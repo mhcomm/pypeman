@@ -555,7 +555,7 @@ class ChannelsTests(TestCase):
         """
             Whether endnodes are working correctly in complex channels and subchannels
         """
-        chan1 = BaseChannel(name="test_subchannel_clbk", loop=self.loop)
+        chan1 = BaseChannel(name="test_subchannel_clbk", loop=self.loop, wait_subchans=True)
         n1 = TstNode(name="n1")
         chan1.add(n1)
         subchan1 = chan1.fork(name="sub1")
@@ -723,7 +723,7 @@ class ChannelsTests(TestCase):
     def test_sub_channel(self):
         """ Whether Sub Channel is working """
 
-        chan = BaseChannel(name="test_channel3", loop=self.loop)
+        chan = BaseChannel(name="test_channel3", loop=self.loop, wait_subchans=True)
         n1 = TstNode(name="main")
         n2 = TstNode(name="sub")
         n3 = TstNode(name="sub1")
@@ -755,7 +755,7 @@ class ChannelsTests(TestCase):
     def test_sub_channel_with_exception(self):
         """ Whether Sub Channel exception handling is working """
 
-        chan = BaseChannel(name="test_channel4", loop=self.loop)
+        chan = BaseChannel(name="test_channel4", loop=self.loop, wait_subchans=True)
         n1 = TstNode(name="main")
         n2 = TstNode(name="sub")
         n3 = ExceptNode(name="exc")

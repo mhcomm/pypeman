@@ -57,6 +57,9 @@ class BaseChannel:
     :param message_store_factory:     You can specify a message store (see below) at channel
         initialisation if you want to save all processed message. Use
         `message_store_factory` argument with  an instance of wanted message store factory.
+
+    :param wait_subchans: Boolean, if set to True, channels will wait for suchannel ends for sending,
+    speed response and process a new message
     """
     STARTING, WAITING, PROCESSING, STOPPING, STOPPED = range(5)
     STATE_NAMES = ['STARTING', 'WAITING', 'PROCESSING', 'STOPPING', 'STOPPED']

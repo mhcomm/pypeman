@@ -3,3 +3,9 @@ source=pypeman
 omit=
   **/tests/**
 
+[report]
+exclude_lines =
+    pragma: no cover
+    # Ignore imports
+    from
+    import

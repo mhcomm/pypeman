@@ -1,7 +1,6 @@
 import asyncio
 import sys
 
-from asyncio import ensure_future
 import warnings
 
 import hl7
@@ -58,7 +57,7 @@ class MLLPProtocol(asyncio.Protocol):
 
             # only pass messages with data
             if len(raw_message) > 0:
-                result = ensure_future(self.handler(raw_message), loop=self.loop)
+                result = asyncio.create_task(self.handler(raw_message), loop=self.loop)
                 result.add_done_callback(self.process_response)
 
     def writeMessage(self, message):

@@ -5,7 +5,6 @@ import tempfile
 import traceback
 
 import asyncio
-from asyncio import ensure_future
 
 
 async def check_for_newerfile(future, lockfile, interval):
@@ -39,9 +38,9 @@ async def check_for_newerfile(future, lockfile, interval):
         if status:
             future.set_result(status)
         else:
-            ensure_future(reccur())
+            asyncio.create_task(reccur())
 
-    ensure_future(reccur())
+    asyncio.create_task(reccur())
 
 
 def reloader_opt(to_call, reloader, interval):
@@ -76,7 +75,7 @@ def reloader_opt(to_call, reloader, interval):
             lockfile = os.environ.get('PROCESS_LOCKFILE')
 
             future = asyncio.Future()
-            ensure_future(check_for_newerfile(future, lockfile, interval))
+            asyncio.create_task(check_for_newerfile(future, lockfile, interval))
 
             def done(future):
                 # Stop event loop

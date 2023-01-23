@@ -27,7 +27,6 @@ from pypeman.channels import Rejected
 from pypeman.persistence import get_backend
 
 logger = logging.getLogger(__name__)
-loop = asyncio.get_event_loop()
 
 # All declared nodes registered here
 all_nodes = []

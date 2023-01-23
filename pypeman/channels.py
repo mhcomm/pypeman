@@ -7,7 +7,6 @@ import types
 import uuid
 import warnings
 
-from asyncio import ensure_future
 from pathlib import Path
 
 from pypeman import message, msgstore, events
@@ -161,8 +160,8 @@ class BaseChannel:
         old_state = self._status
         self._status = value
         # Launch change state event
-        ensure_future(events.channel_change_state.fire(channel=self, old_state=old_state, new_state=value),
-                      loop=self.loop)
+        asyncio.create_task(events.channel_change_state.fire(
+            channel=self, old_state=old_state, new_state=value))
 
     def is_stopped(self):
         """
@@ -693,7 +692,7 @@ class SubChannel(BaseChannel):
         if self._nodes:
             msgctxvartoken = MSG_CTXVAR.set(msg.copy())
             ctx = contextvars.copy_context()
-            fut = ensure_future(self._nodes[0].handle(msg.copy()), loop=self.loop)
+            fut = asyncio.create_task(self._nodes[0].handle(msg.copy()))
             fut.add_done_callback(self._callback, context=ctx)
             self.parent.sub_chan_tasks.append(fut)
             MSG_CTXVAR.reset(msgctxvartoken)
@@ -812,7 +811,7 @@ class FileWatcherChannel(BaseChannel):
 
     async def start(self):
         await super().start()
-        ensure_future(self.watch_for_file(), loop=self.loop)
+        asyncio.create_task(self.watch_for_file())
 
     def file_status(self, filename):
         if filename in self.data:
@@ -875,14 +874,14 @@ class FileWatcherChannel(BaseChannel):
                                 msg.payload = f.read()
                             msg.meta['filename'] = filename
                             msg.meta['filepath'] = str(filepath)
-                            fut = ensure_future(self.handle(msg), loop=self.loop)
+                            fut = asyncio.create_task(self.handle(msg))
                             fut.add_done_callback(self._handle_callback)
 
         except Exception:  # TODO: might explicitely silence some special cases.
             self.logger.exception("filewatcher problem")
         finally:
             if self.status not in (BaseChannel.STOPPING, BaseChannel.STOPPED,):
-                ensure_future(self.watch_for_file(), loop=self.loop)
+                asyncio.create_task(self.watch_for_file())
             else:
                 logger.warning("Won't watch anymore")
 

@@ -2,7 +2,6 @@ import asyncio
 import logging
 import re
 
-from asyncio import ensure_future
 from ftplib import FTP
 from io import BytesIO
 from pathlib import Path
@@ -137,7 +136,7 @@ class FTPWatcherChannel(channels.BaseChannel):
 
     async def start(self):
         await super().start()
-        ensure_future(self.watch_for_file(), loop=self.loop)
+        asyncio.create_task(self.watch_for_file())
 
     def download_file(self, filename):
         """
@@ -203,7 +202,7 @@ class FTPWatcherChannel(channels.BaseChannel):
                             "No %r related file to %s",
                             self.real_extensions, filename)
                         continue
-                ensure_future(self.get_file_and_process(filename), loop=self.loop)
+                asyncio.create_task(self.get_file_and_process(filename))
 
     async def watch_for_file(self):
         """
@@ -215,7 +214,7 @@ class FTPWatcherChannel(channels.BaseChannel):
             await self.tick()
         finally:
             if not self.is_stopped():
-                ensure_future(self.watch_for_file(), loop=self.loop)
+                asyncio.create_task(self.watch_for_file())
 
 
 class FTPFileReader(nodes.ThreadNode):

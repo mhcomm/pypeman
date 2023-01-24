@@ -57,7 +57,13 @@ git push --tags
         - Release Title can be anything you want.
     - Click Publish release at the bottom of the page
     - Now under Releases you can view all of your releases.
-    - Copy the download link (tar.gz) and save it somewhere.
+    - download the tar file (pypeman-<tag>.tar.gz) and unpack it  (tar xvf pypeman-<tag>.tar.gz)
+    - cd pypeman-<tag>
+
+- [ ] Install npm with any of below options if not existing (needed to build web client)
+   - use nodeenv (pip install nodeenv ; nodeenv install -p )
+   - use nvm
+   - install node from the node web page ( https://nodejs.org/en/download/ )
 
 - [ ] Generate webclient:
 ```
@@ -66,12 +72,16 @@ npm install
 npm run build
 cd ../..
 ```
+If the shell freezes after the message "Build complete." then press ctrl-C and continue the instructions.
+
 - [ ] Generate packages:
 ```
+pip install wheel  # if not already installed in your venv
 python setup.py sdist bdist_wheel
 ```
 - [ ] publish release on pypi and see result on https://testpypi.python.org/pypi :
 ```
+pip install twine  # if not installed in your venv
 twine upload -r testpypi dist/*
 ```
 - [ ] Then when all is ok, release on PyPI by uploading both sdist and wheel:

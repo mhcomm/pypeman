@@ -3,8 +3,8 @@
 ## [0.5.0](https://github.com/mhcomm/pypeman/compare/0.4.1...0.5.0)
 * remove python 3.6 from supported versions
 * Add python 3.9 and python 3.10 compatibility
-* Exceptions in subchannels are now brought up in main channel
 * Add join/drop/reject/final nodes to lauch at end of channels
+* Add a wait_subchans param to BaseChannel to wait subchannels and brought up their Exceptions in main channel
 * New Nodes:
 * - FileCleaner
 * - FileMover

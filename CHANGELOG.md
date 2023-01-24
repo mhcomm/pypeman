@@ -4,7 +4,7 @@
 * remove python 3.6 from supported versions
 * Add python 3.9 and python 3.10 compatibility
 * Add join/drop/reject/final nodes to lauch at end of channels
-* Add a wait_subchans param to BaseChannel to wait subchannels and brought up their Exceptions in main channel
+* Add a wait_subchans param to BaseChannel to wait for subchannels and bring up their Exceptions to main channel
 * New Nodes:
 * - FileCleaner
 * - FileMover

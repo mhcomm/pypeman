@@ -68,7 +68,7 @@ class PypeTestCase(TestCase):
     def finish_all_tasks(self):
         """
         You can use this function if you have some subchannel in you channel
-        , don't have wait_suchans param set to True and anyway want to see the
+        , don't have wait_subchans param set to True and anyway want to see the
         final result by processing all remaining tasks.
 
         :return: A list of raised exceptions during task execution.
@@ -76,7 +76,7 @@ class PypeTestCase(TestCase):
         if self.wait_subchans:
             logger.warning(
                 "PypeTestCase.finish_all_tasks called when wait_subchans is set..."
-                "unuseful there will not have pending tasks"
+                "useless, there won't be any pending tasks"
             )
         raised_exceptions = []
         pending = asyncio.all_tasks(loop=self.loop)

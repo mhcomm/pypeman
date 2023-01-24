@@ -76,7 +76,7 @@ If the shell freezes after the message "Build complete." then press ctrl-C and c
 
 - [ ] Generate packages:
 ```
-pip install wheel  # if not already installed in yor venv
+pip install wheel  # if not already installed in your venv
 python setup.py sdist bdist_wheel
 ```
 - [ ] publish release on pypi and see result on https://testpypi.python.org/pypi :

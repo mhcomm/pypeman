@@ -8,11 +8,13 @@
 from unittest import TestCase
 
 import asyncio
+import logging
 
 from pypeman import nodes
 from pypeman import channels
 
 
+logger = logging.getLogger(__name__)
 # TODO implement settings override
 # TODO implement MessageStoreMock
 
@@ -28,6 +30,7 @@ class PypeTestCase(TestCase):
         This class is necessary as asyncio and pypeman have
         some global persistent objects like
         asyncio default loop
+        channels wait_subchans param (permits to raise exc in current loop)
         pypeman.nodes.all_nodes / pypeman.channels.all_channels, ...
 
         Anybody using unittest.TestCase based tests for a pypeman
@@ -35,81 +38,54 @@ class PypeTestCase(TestCase):
     """
 
     loop = None
+    wait_subchans = True
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.addCleanup(self.cleanLoop)
 
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
+    def setUp(self):
+        if self.loop:
+            raise Exception("a loop currently exists at setuP, not normal")
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
 
-        # Create class event loop used for tests to avoid failing
-        # previous tests to impact next test ? (Not sure)
-        cls.loop = asyncio.new_event_loop()
+        # Start channels
+        for chan in channels.all_channels:
+            chan.loop = self.loop
+            chan.wait_subchans = self.wait_subchans
+            self.loop.run_until_complete(chan.start())
+            chan._reset_test()
 
-        # Remove thread event loop to be sure we are not using
-        # another event loop somewhere
+    def cleanLoop(self):
+        for chan in channels.all_channels:
+            self.loop.run_until_complete(chan.stop())
+        self.loop.close()
+        self.loop.stop()
+        self.loop = None
         asyncio.set_event_loop(None)
 
-        # Start channels
-        for chan in channels.all_channels:
-            chan.loop = cls.loop
-            cls.loop.run_until_complete(chan.start())
-            chan._reset_test()
-
-    @classmethod
-    def cleanLoop(cls):
-        """
-        Replace current loop by a new one to avoid side effect on
-        next test.
-        """
-        for chan in channels.all_channels:
-            cls.loop.run_until_complete(chan.stop())
-
-        pending = asyncio.all_tasks(loop=cls.loop)
-        if pending:
-            asyncio.gather(*pending).cancel()
-
-        cls.loop.close()
-        cls.loop = asyncio.new_event_loop()
-
-        # Start channels
-        for chan in channels.all_channels:
-            chan.loop = cls.loop
-            cls.loop.run_until_complete(chan.start())
-            chan._reset_test()
-
-    @classmethod
-    def tearDownClass(cls):
-        super().tearDownClass()
-
-        # Stop channels
-        for chan in channels.all_channels:
-            cls.loop.run_until_complete(chan.stop())
-
-        cls.finish_all_tasks()
-
-    @classmethod
-    def finish_all_tasks(cls):
+    def finish_all_tasks(self):
         """
         You can use this function if you have some subchannel in you channel
-        and want to see the final result by processing all remaining tasks.
-        TODO: maybe remove this function (all subchannels are awaited in the
-            handle so pending will be empty)
+        , don't have wait_suchans param set to True and anyway want to see the
+        final result by processing all remaining tasks.
 
         :return: A list of raised exceptions during task execution.
         """
+        if self.wait_subchans:
+            logger.warning(
+                "PypeTestCase.finish_all_tasks called when wait_subchans is set..."
+                "unuseful there will not have pending tasks"
+            )
         raised_exceptions = []
-
-        pending = asyncio.all_tasks(loop=cls.loop)
+        pending = asyncio.all_tasks(loop=self.loop)
 
         for task in pending:
             try:
-                cls.loop.run_until_complete(task)
+                self.loop.run_until_complete(task)
             except Exception as exc: # noqa
                 raised_exceptions.append(exc)
-
         return raised_exceptions
 
     def get_channel(self, name):

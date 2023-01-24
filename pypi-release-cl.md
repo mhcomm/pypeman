@@ -57,7 +57,13 @@ git push --tags
         - Release Title can be anything you want.
     - Click Publish release at the bottom of the page
     - Now under Releases you can view all of your releases.
-    - Copy the download link (tar.gz) and save it somewhere.
+    - download the tar file (pypeman-<tag>.tar.gz) and unpack it  (tar xvf pypeman-<tag>.tar.gz)
+    - cd pypeman-<tag>
+
+- [ ] Install npm with any of below options if not existing (needed to build web client)
+   - use nodeenv (pip install nodeenv ; nodeenv install -p )
+   - use nvm
+   - install node from the node web page ( https://nodejs.org/en/download/ )
 
 - [ ] Generate webclient:
 ```
@@ -66,6 +72,8 @@ npm install
 npm run build
 cd ../..
 ```
+If the shell freezes after the message "Build complete." then press ctrl-C and continue the instructions.
+
 - [ ] Generate packages:
 ```
 python setup.py sdist bdist_wheel

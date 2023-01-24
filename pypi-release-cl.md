@@ -76,10 +76,12 @@ If the shell freezes after the message "Build complete." then press ctrl-C and c
 
 - [ ] Generate packages:
 ```
+pip install wheel  # if not already installed in yor venv
 python setup.py sdist bdist_wheel
 ```
 - [ ] publish release on pypi and see result on https://testpypi.python.org/pypi :
 ```
+pip install twine  # if not installed in your venv
 twine upload -r testpypi dist/*
 ```
 - [ ] Then when all is ok, release on PyPI by uploading both sdist and wheel:

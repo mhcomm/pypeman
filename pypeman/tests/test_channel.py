@@ -1,4 +1,8 @@
 import asyncio
+import logging
+import time
+
+from hl7.client import MLLPClient
 
 from pathlib import Path
 from socket import SOL_SOCKET
@@ -13,8 +17,12 @@ from pypeman.helpers.aio_compat import awaitify
 from pypeman.test import TearDownProjectTestCase as TestCase
 from pypeman.tests.common import ExceptNode
 from pypeman.tests.common import generate_msg
+from pypeman.tests.common import MllPChannelTestThread
 from pypeman.tests.common import TstException
 from pypeman.tests.common import TstNode
+
+
+logger = logging.getLogger(__name__)
 
 
 def raise_dropped(msg):
@@ -69,6 +77,15 @@ class ChannelsTests(TestCase):
     def tearDown(self):
         super().tearDown()
         self.clean_loop()
+
+        for end in endpoints.all_endpoints:
+            self.loop.run_until_complete(end.stop())
+
+        # Stop all channels
+        for chan in channels.all_channels:
+            if not chan.is_stopped:
+                self.loop.run_until_complete(chan.stop())
+        endpoints.reset_pypeman_endpoints()
 
     def test_base_channel(self):
         """ Whether BaseChannel handling is working """
@@ -1181,3 +1198,31 @@ class ChannelsTests(TestCase):
         self.start_channels()
         with self.assertRaises(TstException):
             self.loop.run_until_complete(chan.process(msg))
+
+    def test_hl7_mllpchannel(self):
+        def send_mllp(host, port, data_to_send):
+            client = MLLPClient(host=host, port=port)
+            client.send_message(data_to_send)
+        host = "127.0.0.1"
+        port = 21000
+        name = "test_channelmllp0"
+
+        # Init and start mllp server
+        mllp_chan_thread = MllPChannelTestThread(chan_name=name, host=host, port=port)
+        n1 = TstNode()
+        mllp_chan_thread.chan.add(n1)
+        mllp_chan_thread.start()
+        n1._reset_test()
+        ftest_dir = Path(__file__).parent / "data"
+        hl7_data_fpath = ftest_dir / "hl7_test_data.HL7"
+        with open(hl7_data_fpath, "r") as fin:
+            hl7_strdata = fin.read()
+        time.sleep(0.5)  # wait to be sure server is correctly started
+        try:
+            send_mllp(host, port, hl7_strdata)
+        except Exception as exc:
+            raise exc
+        finally:
+            mllp_chan_thread.kill()
+            mllp_chan_thread.join()
+        assert n1.last_input().payload == hl7_strdata

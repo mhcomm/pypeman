@@ -76,7 +76,7 @@ class MLLPProtocol(asyncio.Protocol):
         meaning a regular EOF is received or the connection was
         aborted or closed).
         """
-        logger.info("MLLP: connection lost (exc=%r)", exc)
+        logger.info("MLLP: connection lost (exc=%s)", repr(exc))
         super().connection_lost(exc)
 
 
@@ -125,7 +125,7 @@ class MLLPEndpoint(endpoints.SocketEndpoint):
                 protocol_factory=lambda: MLLPProtocol(self.handler, loop=self.loop),
                 sock=self.sock_obj,
             )
-            logger.debug("MLLP server started at %r", self.sock)
+            logger.debug("MLLP server started at %s", repr(self.sock))
             return srv
         else:
             logger.error("No MLLP handlers.")

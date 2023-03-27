@@ -86,7 +86,7 @@ class SocketEndpoint(BaseEndpoint):
             sock_obj.bind(bind_param)
             logger.debug("socket %s created and binded", sock)
         else:
-            logger.debug("no socket to create, keeping socket %r", sock)
+            logger.debug("no socket to create, keeping socket %s", repr(sock))
             sock_obj = sock
         return sock_obj
 

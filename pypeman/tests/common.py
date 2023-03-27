@@ -147,7 +147,6 @@ class ExceptNode(TstNode):
     # This node raises an exception
     def process(self, msg):
         super().process(msg)
-        print("Tstexception")
         raise TstException()
 
 
@@ -161,10 +160,10 @@ class MllPChannelTestThread(threading.Thread):
     You can disable this feature with setting timeout arg to 0 or None
 
     params:
-        chan_name: name of the mllpChannel
-        host: default to '0.0.0.0'
-        port: default to 21000
-        timeout: default to 5 (5s)
+        chan_name: (str) name of the mllpChannel
+        host: (str) default to '0.0.0.0'
+        port: (int) default to 21000
+        timeout: (float) default to 5 (5s)
 
     """
     def __init__(self, chan_name, host="0.0.0.0", port=21000, timeout=5):
@@ -188,7 +187,7 @@ class MllPChannelTestThread(threading.Thread):
         Used to auto kill mllpChannel if it tooks too long time (call self.kill)
         """
         logger.warning(
-            "mllp chan %s keeped alive too long time (timeout=%d), killing it",
+            "mllp chan %s keeped alive too long time (timeout=%f), killing it",
             self.chan.name, self.timeout)
         self.kill()
 

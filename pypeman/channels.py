@@ -175,7 +175,7 @@ class BaseChannel:
         Start the channel. Called before starting processus. Can be overloaded to specify specific
         start procedure.
         """
-        self.logger.debug("Channel %s starting ...", self.name)
+        self.logger.debug("Channel %s starting ...", str(self))
         self.lock = asyncio.Lock()
         self.status = BaseChannel.STARTING
         if self._first_start:
@@ -183,7 +183,7 @@ class BaseChannel:
             self._first_start = False
         await self.message_store.start()
         self.status = BaseChannel.WAITING
-        self.logger.info("Channel %s started", self.name)
+        self.logger.info("Channel %s started", str(self))
 
     def init_node_graph(self):
         if self._nodes:
@@ -200,14 +200,14 @@ class BaseChannel:
         - pypeman shuts down.
         - a channel is stopped (e.g. via the admin interface)
         """
-        self.logger.debug("Channel %s stopping ...", self.name)
+        self.logger.debug("Channel %s stopping ...", str(self))
         self.status = BaseChannel.STOPPING
         # Verify that all messages are processed
         async with self.lock:
             self.status = BaseChannel.STOPPED
         # stop all pending sleeps
         await self.interruptable_sleeper.cancel_all()
-        self.logger.info("Channel %s stopped", self.name)
+        self.logger.info("Channel %s stopped", str(self))
 
     def _reset_test(self):
         """ Enable test mode and reset node data.
@@ -361,7 +361,7 @@ class BaseChannel:
         if self.status in [BaseChannel.STOPPED, BaseChannel.STOPPING]:
             raise ChannelStopped("Channel is stopped so you can't send message.")
 
-        self.logger.info("chan %s handle %s", self.name, msg)
+        self.logger.info("chan %s handle %s", str(self), str(msg))
         has_callback = hasattr(self, "_callback")
         setattr(msg, "chan_rslt", None)
         setattr(msg, "chan_exc", None)
@@ -377,7 +377,7 @@ class BaseChannel:
                     await self.join_nodes[0].handle(result.copy())
                 return result
             except Dropped as exc:
-                self.logger.info("%s DROP msg %s", self.name, msg)
+                self.logger.info("%s DROP msg %s", str(self), str(msg))
                 msg.chan_exc = exc
                 msg.chan_exc_traceback = traceback.format_exc()
                 await self.message_store.change_message_state(msg_store_id, message.Message.PROCESSED)
@@ -386,7 +386,7 @@ class BaseChannel:
                 if self.raise_dropped:
                     raise
             except Rejected as exc:
-                self.logger.info("%s REJECT msg %s", self.name, msg)
+                self.logger.info("%s REJECT msg %s", str(self), str(msg))
                 msg.chan_exc = exc
                 msg.chan_exc_traceback = traceback.format_exc()
                 await self.message_store.change_message_state(msg_store_id, message.Message.REJECTED)
@@ -396,7 +396,7 @@ class BaseChannel:
             except Exception as exc:
                 msg.chan_exc = exc
                 msg.chan_exc_traceback = traceback.format_exc()
-                self.logger.exception('Error while processing message %s (chan %s)', msg, self.name)
+                self.logger.exception('Error while processing message %s (chan %s)', str(msg), str(self))
                 await self.message_store.change_message_state(msg_store_id, message.Message.ERROR)
                 if self.fail_nodes and not has_callback:
                     await self.fail_nodes[0].handle(msg.copy())
@@ -419,7 +419,7 @@ class BaseChannel:
                         subchan_endnodes_fut.add_done_callback(self._reset_sub_chan_endnodes)
                         if self.wait_subchans:
                             await subchan_endnodes_fut
-                    self.logger.info("%s end handle %s", self.name, msg)
+                    self.logger.info("%s end handle %s", str(self), str(msg))
 
     async def subhandle(self, msg):
         """ Overload this method only if you know what you are doing. Called by ``handle`` method.
@@ -682,21 +682,21 @@ class SubChannel(BaseChannel):
             if self.join_nodes:
                 endnode_task = asyncio.create_task(self.join_nodes[0].handle(result.copy()))
                 endnodes_tasks.append(endnode_task)
-            logger.info("Subchannel %s end process message %s", self.name, result)
+            logger.info("Subchannel %s end process message %s", str(self), result)
         except Dropped as exc:
             entrymsg.chan_exc = exc
             entrymsg.chan_exc_traceback = traceback.format_exc()
             if self.drop_nodes:
                 endnode_task = asyncio.create_task(self.drop_nodes[0].handle(entrymsg.copy()))
                 endnodes_tasks.append(endnode_task)
-            self.logger.info("Subchannel %s. Msg was dropped", self.name)
+            self.logger.info("Subchannel %s. Msg was dropped", str(self))
         except Rejected as exc:
             entrymsg.chan_exc = exc
             entrymsg.chan_exc_traceback = traceback.format_exc()
             if self.reject_nodes:
                 endnode_task = asyncio.create_task(self.reject_nodes[0].handle(entrymsg.copy()))
                 endnodes_tasks.append(endnode_task)
-            self.logger.info("Subchannel %s. Msg was Rejected", self.name)
+            self.logger.info("Subchannel %s. Msg was Rejected", str(self))
             raise
         except Exception as exc:
             entrymsg.chan_exc = exc
@@ -704,7 +704,7 @@ class SubChannel(BaseChannel):
             if self.fail_nodes:
                 endnode_task = asyncio.create_task(self.fail_nodes[0].handle(entrymsg.copy()))
                 endnodes_tasks.append(endnode_task)
-            self.logger.exception("Error while processing msg in subchannel %s", self.name)
+            self.logger.exception("Error while processing msg in subchannel %s", str(self))
             raise
         finally:
             if self.final_nodes:
@@ -713,7 +713,7 @@ class SubChannel(BaseChannel):
             self.parent.sub_chan_endnodes.extend(endnodes_tasks)
             self.parent.sub_chan_tasks.remove(fut)
             self.logger.info(
-                "subchan %s end process msg %s", self.name, str(entrymsg))
+                "subchan %s end process msg %s", str(self), str(entrymsg))
 
     async def process(self, msg):
         if self._nodes:

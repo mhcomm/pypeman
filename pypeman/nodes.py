@@ -117,7 +117,7 @@ class BaseNode:
 
     _used_names = set()  # already used node names to ensure uniqueness
 
-    def __init__(self, *args, name=None, log_output=False, **kwargs):
+    def __init__(self, *args, name=None, log_output=False, **kwargs):  # TODO: set log_output to True ?
         cls = self.__class__
         self.channel = None
 
@@ -175,6 +175,10 @@ class BaseNode:
         if isinstance(result, asyncio.Future):
             result = await result
 
+        self.channel.logger.info(
+            '%s node end handle msg %s, result is msg %s',
+            str(self), str(msg), str(result))
+
         if self.next_node:
             if isinstance(result, types.GeneratorType):
                 gene = result
@@ -202,8 +206,6 @@ class BaseNode:
         Used when node logging is enabled. Log after node processing.
         """
         result = await self._handle_without_log(msg)
-
-        self.channel.logger.info('%s node from handles %s', str(self), str(result))
 
         # Log message
         result.log(logger=self.channel.logger, log_level=logging.DEBUG)

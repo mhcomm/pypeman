@@ -1102,7 +1102,6 @@ class ChannelsTests(TestCase):
             mock_list_dir.reset_mock()
 
             self.loop.run_until_complete(chan.tick())
-
             self.clean_loop()
 
             mock_list_dir.assert_called_once_with("testdir")
@@ -1133,8 +1132,8 @@ class ChannelsTests(TestCase):
             chan2.watch_for_file = asyncio.coroutine(mock.Mock())
             self.start_channels()
             self.loop.run_until_complete(chan2.tick())
-            fake_ftp2.download_file.assert_called_once_with("testdir/file1.txt")
             self.clean_loop()
+            fake_ftp2.download_file.assert_called_once_with("testdir/file1.txt")
             channels.all_channels.remove(chan2)
 
             del chan2

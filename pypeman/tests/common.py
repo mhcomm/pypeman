@@ -11,8 +11,12 @@ import time
 
 from importlib import reload
 
+from pypeman import channels
+from pypeman import endpoints
 from pypeman import nodes
 from pypeman import message
+
+logger = logging.getLogger(__name__)
 
 
 def setup_settings(module):
@@ -143,5 +147,55 @@ class ExceptNode(TstNode):
     # This node raises an exception
     def process(self, msg):
         super().process(msg)
-        print("Tstexception")
         raise TstException()
+
+
+class MllPChannelTestThread(threading.Thread):
+    """
+    Start an MLLP Channel in a thread.
+    Useful for test purpose
+    can be stopped by calling .kill() and .join() methods
+
+    MllpChannel Thread will auto destruct it to avoid infinite loops
+    You can disable this feature with setting timeout arg to 0 or None
+
+    params:
+        chan_name: (str) name of the mllpChannel
+        host: (str) default to '0.0.0.0'
+        port: (int) default to 21000
+        timeout: (float) default to 5 (5s)
+
+    """
+    def __init__(self, chan_name, host="0.0.0.0", port=21000, timeout=5):
+        self.timeout = timeout
+        self.async_loop = asyncio.new_event_loop()
+        sock = f"{host}:{port}"
+        endpoint = endpoints.MLLPEndpoint(loop=self.async_loop, sock=sock)
+        self.chan = channels.MLLPChannel(
+            name=chan_name, endpoint=endpoint, loop=self.async_loop)
+        self.auto_kill_delayedtask = None if not timeout else threading.Timer(timeout, self._auto_kill)
+        super().__init__(target=self.async_loop.run_forever)
+
+    def start(self, *args, **kwargs):
+        self.auto_kill_delayedtask.start()
+        self.async_loop.run_until_complete(self.chan.start())
+        self.async_loop.run_until_complete(self.chan.mllp_endpoint.start())
+        super().start(*args, **kwargs)
+
+    def _auto_kill(self):
+        """
+        Used to auto kill mllpChannel if it tooks too long time (call self.kill)
+        """
+        logger.warning(
+            "mllp chan %s keeped alive too long time (timeout=%f), killing it",
+            self.chan.name, self.timeout)
+        self.kill()
+
+    def kill(self):
+        logger.debug("killing MllpChanTestThread %s", self.chan.name)
+        if self.auto_kill_delayedtask and self.auto_kill_delayedtask.is_alive():
+            self.auto_kill_delayedtask.cancel()
+        pending_tasks = asyncio.all_tasks(loop=self.async_loop)
+        for pending in pending_tasks:
+            pending.cancel()
+        self.async_loop.call_soon_threadsafe(self.async_loop.stop)

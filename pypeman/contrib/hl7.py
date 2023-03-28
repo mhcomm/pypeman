@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import sys
 
 import warnings
@@ -7,6 +8,9 @@ import hl7
 
 from pypeman import endpoints, channels, nodes, message
 from pypeman.errors import PypemanParamError
+
+
+logger = logging.getLogger(__name__)
 
 
 class MLLPProtocol(asyncio.Protocol):
@@ -57,7 +61,7 @@ class MLLPProtocol(asyncio.Protocol):
 
             # only pass messages with data
             if len(raw_message) > 0:
-                result = asyncio.create_task(self.handler(raw_message), loop=self.loop)
+                result = asyncio.create_task(self.handler(raw_message))
                 result.add_done_callback(self.process_response)
 
     def writeMessage(self, message):
@@ -72,6 +76,7 @@ class MLLPProtocol(asyncio.Protocol):
         meaning a regular EOF is received or the connection was
         aborted or closed).
         """
+        logger.info("MLLP: connection lost (exc=%s)", repr(exc))
         super().connection_lost(exc)
 
 
@@ -86,11 +91,11 @@ class MLLPEndpoint(endpoints.SocketEndpoint):
             sock=None,
             reuse_port=None,
             ):
-
         self.handlers = []
         self.address = address
         self.port = port
         self.loop = loop or asyncio.get_event_loop()
+        self.handler = None
         if address or port:
             warnings.warn(
                 "HTTPEndpoint 'address', 'adress' and 'port' params are deprecated. "
@@ -120,10 +125,10 @@ class MLLPEndpoint(endpoints.SocketEndpoint):
                 protocol_factory=lambda: MLLPProtocol(self.handler, loop=self.loop),
                 sock=self.sock_obj,
             )
-            print("MLLP server started at http://{}:{}".format(self.address, self.port))
+            logger.debug("MLLP server started at %s", repr(self.sock))
             return srv
         else:
-            print("No MLLP handlers.")
+            logger.error("No MLLP handlers.")
 
 
 class MLLPChannel(channels.BaseChannel):

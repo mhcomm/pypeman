@@ -25,6 +25,9 @@ class BaseEndpoint:
     async def start(self):
         pass
 
+    async def stop(self):
+        pass
+
 
 class SocketEndpoint(BaseEndpoint):
     def __init__(self, loop=None, sock=None, default_port='8080', reuse_port=None):
@@ -41,6 +44,7 @@ class SocketEndpoint(BaseEndpoint):
         self.reuse_port = reuse_port
 
         self.sock = self.normalize_socket(sock, default_port=default_port)
+        self.sock_obj = None
 
     @staticmethod
     def normalize_socket(sock, default_port="8080"):
@@ -61,6 +65,7 @@ class SocketEndpoint(BaseEndpoint):
             if not return sock as is
         """
         if isinstance(sock, str):
+            logger.debug("trying to create socket %s", sock)
             if not sock.startswith('unix:'):
                 try:
                     host, port = sock.split(":")
@@ -79,9 +84,10 @@ class SocketEndpoint(BaseEndpoint):
                 SO_REUSEPORT = 15
                 sock_obj.setsockopt(socket.SOL_SOCKET, SO_REUSEPORT, 1)
             sock_obj.bind(bind_param)
+            logger.debug("socket %s created and binded", sock)
         else:
+            logger.debug("no socket to create, keeping socket %s", repr(sock))
             sock_obj = sock
-
         return sock_obj
 
     def make_socket(self):
@@ -89,6 +95,11 @@ class SocketEndpoint(BaseEndpoint):
             make and bind socket if string object is passed
         """
         self.sock_obj = self.mk_socket(self.sock, self.reuse_port)
+
+    async def stop(self):
+        if self.sock_obj:
+            self.sock_obj.close()
+            self.sock_obj = None
 
 
 from pypeman.helpers import lazyload  # noqa: E402

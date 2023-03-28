@@ -215,6 +215,21 @@ class BaseChannel:
         self.raise_dropped = True
         for node in self._nodes:
             node._reset_test()
+        if self.join_nodes:
+            for node in self.join_nodes:
+                node._reset_test()
+        if self.drop_nodes:
+            for node in self.drop_nodes:
+                node._reset_test()
+        if self.reject_nodes:
+            for node in self.reject_nodes:
+                node._reset_test()
+        if self.final_nodes:
+            for node in self.final_nodes:
+                node._reset_test()
+        if self.final_nodes:
+            for node in self.fail_nodes:
+                node._reset_test()
 
     def add(self, *args):
         """

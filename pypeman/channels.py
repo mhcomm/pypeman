@@ -85,7 +85,9 @@ class BaseChannel:
         if name:
             self.name = name
         else:
-            warnings.warn("Channels without names are deprecated", DeprecationWarning)
+            warnings.warn(
+                "Channels without names are deprecated and will be removed in version 0.5.2",
+                DeprecationWarning)
             self.name = self.__class__.__name__ + "_" + str(len(all_channels))
 
         self.parent = None
@@ -682,21 +684,23 @@ class SubChannel(BaseChannel):
             if self.join_nodes:
                 endnode_task = asyncio.create_task(self.join_nodes[0].handle(result.copy()))
                 endnodes_tasks.append(endnode_task)
-            logger.info("Subchannel %s end process message %s", str(self), result)
+            logger.info(
+                "Subchannel %s end process message %s, rslt is msg %s",
+                str(self), str(entrymsg), str(result))
         except Dropped as exc:
             entrymsg.chan_exc = exc
             entrymsg.chan_exc_traceback = traceback.format_exc()
             if self.drop_nodes:
                 endnode_task = asyncio.create_task(self.drop_nodes[0].handle(entrymsg.copy()))
                 endnodes_tasks.append(endnode_task)
-            self.logger.info("Subchannel %s. Msg was dropped", str(self))
+            self.logger.info("Subchannel %s. Msg %s was dropped", str(self), str(entrymsg))
         except Rejected as exc:
             entrymsg.chan_exc = exc
             entrymsg.chan_exc_traceback = traceback.format_exc()
             if self.reject_nodes:
                 endnode_task = asyncio.create_task(self.reject_nodes[0].handle(entrymsg.copy()))
                 endnodes_tasks.append(endnode_task)
-            self.logger.info("Subchannel %s. Msg was Rejected", str(self))
+            self.logger.info("Subchannel %s. Msg %s was Rejected", str(self), str(entrymsg))
             raise
         except Exception as exc:
             entrymsg.chan_exc = exc
@@ -704,7 +708,8 @@ class SubChannel(BaseChannel):
             if self.fail_nodes:
                 endnode_task = asyncio.create_task(self.fail_nodes[0].handle(entrymsg.copy()))
                 endnodes_tasks.append(endnode_task)
-            self.logger.exception("Error while processing msg in subchannel %s", str(self))
+            self.logger.exception(
+                "Error while processing msg %s in subchannel %s", str(entrymsg), str(self))
             raise
         finally:
             if self.final_nodes:

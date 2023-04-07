@@ -160,6 +160,8 @@ class MLLPChannel(channels.BaseChannel):
             ack = hl7.parse(content, encoding=self.encoding)
             return str(ack.create_ack('AR')).encode(self.encoding)
         except Exception:
+            logger.exception(
+                "MLLPChannel %s raise an error, will send AE speed response", str(self))
             ack = hl7.parse(content, encoding=self.encoding)
             return str(ack.create_ack('AE')).encode(self.encoding)
 

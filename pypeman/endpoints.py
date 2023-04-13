@@ -77,6 +77,7 @@ class SocketEndpoint(BaseEndpoint):
                     logger.exception('error on sock params in socket endpoint')
                     raise
                 sock_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock_obj.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             else:
                 bind_param = sock.split(":", 1)[1]
                 sock_obj = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)

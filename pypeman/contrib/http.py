@@ -128,7 +128,7 @@ class HttpChannel(channels.BaseChannel):
             return web.Response(body="Dropped".encode('utf-8'), status=200)
         except Exception as exc:
             logger.exception(
-                "HttpChannel %s raise an error, cannot send 200 speed response, will return 503",
+                "HttpChannel %s raised an error, cannot send 200 speed response, will return 503",
                 str(self))
             return web.Response(body=str(exc).encode('utf-8'), status=503)
 

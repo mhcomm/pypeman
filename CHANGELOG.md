@@ -1,5 +1,15 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
 
+## [0.5.1](https://github.com/mhcomm/pypeman/compare/0.5.0...0.5.1)
+* FIX hl7 mllp endpoint + add mllp chan tests
+* Add HttpRequestNode Json sending
+* add BaseChannel,MLLPChannel, HTTPChannel and BaseNode logs
+* FIX ftp channel tests that randomly fails due to don't wait end chann process before assert
+* load_graph func can now reload project if already imported
+* Fix socket endpoint address already in use + rm code covering check
+* dependabot fixes for node dependencies
+
+
 ## [0.5.0](https://github.com/mhcomm/pypeman/compare/0.4.1...0.5.0)
 * remove python 3.6 from supported versions
 * Add python 3.9 and python 3.10 compatibility

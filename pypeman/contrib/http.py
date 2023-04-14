@@ -146,11 +146,14 @@ class HttpRequest(nodes.BaseNode):
                        {'param1': 'omega', param2: ['alpha', 'beta']}
         :param client_cert: tuple with .crt and .key path
         :param binary: bool, Get response content as bytes
+        :param send_as_json: bool, If the method is a PATCH/POST/PUT, send data as json
+        :param json: bool, Parse Json response content
+        # TODO maybe add an auto parser if for example Content-Type header is application/json
     """
 
     def __init__(self, url, *args, method=None, headers=None, auth=None,
                  verify=True, params=None, client_cert=None, cookies=None,
-                 binary=False, json=False, **kwargs):
+                 binary=False, json=False, send_as_json=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.url = url
         self.method = method
@@ -164,6 +167,7 @@ class HttpRequest(nodes.BaseNode):
         self.payload_in_url_dict = 'payload.' in self.url
         self.binary = binary
         self.json = json
+        self.send_as_json = send_as_json
         # TODO: create used payload keys for better perf of generate_request_url()
 
     def generate_request_url(self, msg):
@@ -225,14 +229,24 @@ class HttpRequest(nodes.BaseNode):
         if method.lower() in ['put', 'post']:
             data = msg.payload
         async with aiohttp.ClientSession(connector=conn, cookies=cookies) as session:
-            resp = await session.request(
-                    method=method,
-                    url=url,
-                    auth=basic_auth,
-                    headers=headers,
-                    params=get_params,
-                    data=data
-                    )
+            if self.send_as_json:
+                resp = await session.request(
+                        method=method,
+                        url=url,
+                        auth=basic_auth,
+                        headers=headers,
+                        params=get_params,
+                        json=data
+                        )
+            else:
+                resp = await session.request(
+                        method=method,
+                        url=url,
+                        auth=basic_auth,
+                        headers=headers,
+                        params=get_params,
+                        data=data
+                        )
             if self.binary:
                 resp_content = await resp.read()
             else:

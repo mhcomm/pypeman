@@ -460,6 +460,14 @@ class NodesTests(TestCase):
             binary=True,
         )
         http_node3.channel = channel
+        http_node4 = nodes.HttpRequest(
+            url=url,
+            method='post',
+            send_as_json=True,
+            headers=args_headers,
+            params=args_params
+        )
+        http_node4.channel = channel
         msg3 = msg1.copy()
         req_kwargs3 = dict(req_kwargs1)
         req_kwargs3['method'] = 'post'
@@ -470,6 +478,10 @@ class NodesTests(TestCase):
         req_kwargs3['headers'] = args_headers
         req_kwargs3['data'] = content1
         msg4 = msg1.copy()
+        req_kwargs4 = dict(req_kwargs3)
+        req_kwargs4['json'] = req_kwargs4.pop("data")
+        req_kwargs4['auth'] = None
+        msg5 = msg1.copy()
 
         with mock.patch(
             'pypeman.contrib.http.aiohttp.ClientSession',
@@ -551,6 +563,18 @@ class NodesTests(TestCase):
             mock_session.request = get_mock_coro(mg)
             outdata = self.loop.run_until_complete(http_jsonnode.process(emptymsg))
             self.assertEqual(data, outdata.payload)
+
+            """
+                Test 6:
+                - post json with data from content
+            """
+            mock_session.reset_mock()
+            mock_load_cert_chain.reset_mock()
+            self.loop.run_until_complete(http_node4.handle(msg5))
+            mock_session.request.assert_called_once_with(**req_kwargs4)
+            mock_load_cert_chain.assert_not_called()
+
+            mock_session.reset_mock()
 
     def test_file_reader_node(self):
         """if FileReader are functionnal"""

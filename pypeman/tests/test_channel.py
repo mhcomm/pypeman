@@ -140,10 +140,10 @@ class ChannelsTests(TestCase):
         endnode = TstNode()
         chan1.add(n1)
         chan1.add_drop_nodes(endnode)
+        chan1._reset_test()
         msg1 = generate_msg(message_content="startmsg")
         n1.mock(output=raise_dropped)
         self.start_channels()
-        endnode._reset_test()
         with self.assertRaises(Dropped):
             self.loop.run_until_complete(chan1.handle(msg1))
         self.assertTrue(endnode.processed, "Channel drop_endnodes not working")
@@ -252,12 +252,8 @@ class ChannelsTests(TestCase):
         msg1 = generate_msg(message_content="startmsg")
 
         # Test with ok output
+        chan1._reset_test()
         self.start_channels()
-        n_endreject._reset_test()
-        n_endfail._reset_test()
-        n_enddrop._reset_test()
-        n_endok._reset_test()
-        n_endfinal._reset_test()
         self.loop.run_until_complete(chan1.handle(msg1))
         self.assertTrue(
             n_endok.processed,
@@ -276,13 +272,9 @@ class ChannelsTests(TestCase):
             "Channel fail_endnodes called when nobody ask to him")
 
         # Test with an exception
+        chan1._reset_test()
         n1.mock(output=raise_exc)
         self.start_channels()
-        n_endreject._reset_test()
-        n_endfail._reset_test()
-        n_enddrop._reset_test()
-        n_endok._reset_test()
-        n_endfinal._reset_test()
         with self.assertRaises(Exception):
             self.loop.run_until_complete(chan1.handle(msg1))
         self.assertTrue(
@@ -302,13 +294,9 @@ class ChannelsTests(TestCase):
             "Channel ok_endnodes called when nobody ask to him")
 
         # Test with a drop
+        chan1._reset_test()
         n1.mock(output=raise_dropped)
         self.start_channels()
-        n_endreject._reset_test()
-        n_endfail._reset_test()
-        n_enddrop._reset_test()
-        n_endok._reset_test()
-        n_endfinal._reset_test()
         with self.assertRaises(Dropped):
             self.loop.run_until_complete(chan1.handle(msg1))
         self.assertTrue(
@@ -328,13 +316,9 @@ class ChannelsTests(TestCase):
             "Channel ok_endnodes called when nobody ask to him")
 
         # Test with a rejected
+        chan1._reset_test()
         n1.mock(output=raise_rejected)
         self.start_channels()
-        n_endreject._reset_test()
-        n_endfail._reset_test()
-        n_enddrop._reset_test()
-        n_endok._reset_test()
-        n_endfinal._reset_test()
         with self.assertRaises(Rejected):
             self.loop.run_until_complete(chan1.handle(msg1))
         self.assertTrue(
@@ -366,7 +350,6 @@ class ChannelsTests(TestCase):
         n2 = TstNode(name="n2")
         n3exc = TstNode(name="n3")
         chan1.add(n2)
-        n3exc.mock(output=raise_exc)
         condchan.add(n3exc)
 
         chan1_endok = TstNode(name="chan1_endok")
@@ -375,9 +358,7 @@ class ChannelsTests(TestCase):
         chan1.add_fail_nodes(chan1_endfail)
         chan1.add_join_nodes(chan1_endok)
         chan1.add_final_nodes(chan1_endfinal)
-        chan1_endfail._reset_test()
-        chan1_endok._reset_test()
-        chan1_endfinal._reset_test()
+        chan1._reset_test()
 
         startmsg = generate_msg(message_content="startmsg")
         self.start_channels()
@@ -392,9 +373,8 @@ class ChannelsTests(TestCase):
             chan1_endfail.processed,
             "chan1 fail_callback called when nobody ask to him")
 
-        chan1_endfail._reset_test()
-        chan1_endok._reset_test()
-        chan1_endfinal._reset_test()
+        chan1._reset_test()
+        n3exc.mock(output=raise_exc)
         excmsg = generate_msg(message_content="exc")
         with self.assertRaises(Exception):
             self.loop.run_until_complete(chan1.handle(excmsg))

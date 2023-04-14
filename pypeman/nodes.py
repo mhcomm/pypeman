@@ -175,6 +175,10 @@ class BaseNode:
         if isinstance(result, asyncio.Future):
             result = await result
 
+        self.channel.logger.debug(
+            '%s node end handle msg %s, result is msg %s',
+            str(self), str(msg), str(result))
+
         if self.next_node:
             if isinstance(result, types.GeneratorType):
                 gene = result
@@ -202,8 +206,6 @@ class BaseNode:
         Used when node logging is enabled. Log after node processing.
         """
         result = await self._handle_without_log(msg)
-
-        self.channel.logger.info('%s node from handles %s', str(self), str(result))
 
         # Log message
         result.log(logger=self.channel.logger, log_level=logging.DEBUG)

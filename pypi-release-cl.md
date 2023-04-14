@@ -8,7 +8,7 @@ Create account on pypi and pypitest by going on websites.
 Then create a ~/.pypirc file with:
 ```
 [pypi]
-repository: https://pypi.python.org/pypi
+repository: https://upload.pypi.org/legacy/
 username: YOUR_USERNAME_HERE
 password: YOUR_PASSWORD_HERE
 

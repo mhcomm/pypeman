@@ -226,7 +226,7 @@ class HttpRequest(nodes.BaseNode):
             basic_auth = self.auth
 
         data = None
-        if method.lower() in ['put', 'post']:
+        if method.lower() in ['put', 'post', 'patch']:
             data = msg.payload
         async with aiohttp.ClientSession(connector=conn, cookies=cookies) as session:
             if self.send_as_json:

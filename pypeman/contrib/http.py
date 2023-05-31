@@ -195,7 +195,7 @@ class HttpRequest(nodes.BaseNode):
             if self.verify:
                 ssl_context = ssl.create_default_context()
             else:
-                ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+                ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
             try:
                 ssl_context.load_cert_chain(self.client_cert[0], self.client_cert[1])
             except FileNotFoundError:

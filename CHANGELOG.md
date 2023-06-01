@@ -1,5 +1,9 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
 
+## [0.5.2](https://github.com/mhcomm/pypeman/compare/0.5.1...0.5.2)
+* Fix for nodes.HTTPRequest PATCH method that don't send anything
+* rm ssl.PROTOCOL warning
+
 ## [0.5.1](https://github.com/mhcomm/pypeman/compare/0.5.0...0.5.1)
 * FIX hl7 mllp endpoint + add mllp chan tests
 * Add HttpRequestNode Json sending

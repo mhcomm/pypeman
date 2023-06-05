@@ -179,7 +179,7 @@ class HttpRequest(nodes.BaseNode):
                 for key, val in msg.payload.items():
                     url_dict['payload.' + key] = val
             except AttributeError:
-                self.channel.logger.exception(
+                self.channel.logger.error(
                     "Payload must be a python dict if used to generate url. "
                     "This can be fixed using JsonToPython node before your "
                     "RequestNode")

@@ -399,7 +399,7 @@ class BaseChannel:
             except Exception as exc:
                 msg.chan_exc = exc
                 msg.chan_exc_traceback = traceback.format_exc()
-                self.logger.exception('Error while processing message %s (chan %s)', str(msg), str(self))
+                self.logger.error('Error while processing message %s (chan %s)', str(msg), str(self))
                 await self.message_store.change_message_state(msg_store_id, message.Message.ERROR)
                 if self.fail_nodes and not has_callback:
                     await self.fail_nodes[0].handle(msg.copy())

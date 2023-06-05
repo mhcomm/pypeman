@@ -387,6 +387,7 @@ class BaseChannel:
                     await self.drop_nodes[0].handle(msg.copy())
                 if self.raise_dropped:
                     raise
+                return msg
             except Rejected as exc:
                 self.logger.info("%s REJECT msg %s", str(self), str(msg))
                 msg.chan_exc = exc

@@ -122,7 +122,8 @@ class HttpChannel(channels.BaseChannel):
         try:
             result = await self.handle(msg)
             encoding = self.encoding or 'utf-8'
-            return web.Response(body=result.payload.encode(encoding), status=result.meta.get('status', 200))
+            return web.Response(
+                body=str(result.payload).encode(encoding), status=result.meta.get('status', 200))
 
         except channels.Dropped:
             return web.Response(body="Dropped".encode('utf-8'), status=200)
@@ -196,6 +197,8 @@ class HttpRequest(nodes.BaseNode):
                 ssl_context = ssl.create_default_context()
             else:
                 ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
             try:
                 ssl_context.load_cert_chain(self.client_cert[0], self.client_cert[1])
             except FileNotFoundError:

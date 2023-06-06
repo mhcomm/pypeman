@@ -255,6 +255,7 @@ class HttpRequest(nodes.BaseNode):
     async def process(self, msg):
         """ handles request """
         resp = await self.handle_request(msg)
+        msg.meta["status_code"] = resp.status
         if self.binary:
             resp_content = await resp.read()
         else:
@@ -262,11 +263,9 @@ class HttpRequest(nodes.BaseNode):
         if self.json:
             try:
                 resp_content = json.loads(resp_content)
-            except Exception as exc:
-                logger.error(
+            except Exception:
+                logger.exception(
                     "cannot json parse response from url %s (response=%r)",
                     self.generate_request_url(msg), resp_content)
-                raise exc
         msg.payload = resp_content
-        msg.meta["status_code"] = resp.status
         return msg

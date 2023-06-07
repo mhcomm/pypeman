@@ -170,11 +170,12 @@ class MLLPChannel(channels.BaseChannel):
 class HL7ToPython(nodes.BaseNode):
     """ Convert hl7 payload to python struct."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, encoding="utf-8", **kwargs):
+        self.encoding = encoding
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
-        msg.payload = hl7.parse(msg.payload)
+        msg.payload = hl7.parse(msg.payload, encoding=self.encoding)
         msg.content_type = 'application/python'
         return msg
 

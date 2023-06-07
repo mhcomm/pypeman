@@ -187,7 +187,7 @@ class HttpRequest(nodes.BaseNode):
         try:
             request_url = self.url % url_dict
         except Exception as exc:
-            logger.error("cannot create url %r with args %r", self.url, url_dict)
+            logger.error("cannot create url %r with args %r", self.url, repr(url_dict))
             raise exc
         return request_url
 

@@ -151,8 +151,9 @@ class MLLPChannel(channels.BaseChannel):
         content = hl7_message.decode(self.encoding)
         msg = message.Message(content_type='text/hl7', payload=content, meta={})
         try:
-            result = await self.handle(msg)
-            return result.payload.encode(self.encoding)
+            await self.handle(msg)
+            ack = hl7.parse(content, encoding=self.encoding)
+            return str(ack.create_ack('AA')).encode(self.encoding)
         except channels.Dropped:
             ack = hl7.parse(content, encoding=self.encoding)
             return str(ack.create_ack('AA')).encode(self.encoding)

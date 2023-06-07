@@ -184,7 +184,12 @@ class HttpRequest(nodes.BaseNode):
                     "This can be fixed using JsonToPython node before your "
                     "RequestNode")
                 raise
-        return self.url % url_dict
+        try:
+            request_url = self.url % url_dict
+        except Exception as exc:
+            logger.error("cannot create url %r with args %r", self.url, repr(url_dict))
+            raise exc
+        return request_url
 
     async def handle_request(self, msg):
         """ generate url and handle request """

@@ -1,5 +1,13 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
 
+## [0.5.3](https://github.com/mhcomm/pypeman/compare/0.5.2...0.5.3)
+* Fix HttpRequest: ssl_verify = False not working
+* Fix Mllp and http speed responses not working
+* Change some logging.exceptions to logging.error to avoid duplicate traceback
+* HttpRequest: move parsing outside the handle_request func to simplify overwriting
+* add log
+* Add HL72Python encoding extension
+
 ## [0.5.2](https://github.com/mhcomm/pypeman/compare/0.5.1...0.5.2)
 * Fix for nodes.HTTPRequest PATCH method that don't send anything
 * rm ssl.PROTOCOL warning

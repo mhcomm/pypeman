@@ -255,16 +255,17 @@ class HttpRequest(nodes.BaseNode):
                         params=get_params,
                         data=data
                         )
+            if self.binary:
+                setattr(resp, "content", await resp.read())
+            else:
+                setattr(resp, "content", str(await resp.text()))
         return resp
 
     async def process(self, msg):
         """ handles request """
         resp = await self.handle_request(msg)
         msg.meta["status_code"] = resp.status
-        if self.binary:
-            resp_content = await resp.read()
-        else:
-            resp_content = str(await resp.text())
+        resp_content = resp.content
         if self.json:
             try:
                 resp_content = json.loads(resp_content)

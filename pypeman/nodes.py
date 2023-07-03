@@ -161,7 +161,6 @@ class BaseNode:
         # TODO : Make sure exceptions are well raised (does not happen if i.e 1/0 here atm)
         if self.store_input_as:
             msg.add_context(self.store_input_as, msg)
-
         if self.passthrough:
             old_msg = msg.copy()
         # Allow process as coroutine function

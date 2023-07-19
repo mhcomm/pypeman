@@ -358,35 +358,49 @@ class ChannelsTests(TestCase):
         chan1.add_fail_nodes(chan1_endfail)
         chan1.add_join_nodes(chan1_endok)
         chan1.add_final_nodes(chan1_endfinal)
+
+        condchan_end = TstNode(name="condchan_end")
+        condchan.add_final_nodes(condchan_end)
+
         chan1._reset_test()
 
+        # Test Msg don't enter in exc subchan
         startmsg = generate_msg(message_content="startmsg")
         self.start_channels()
         self.loop.run_until_complete(chan1.handle(startmsg))
-        self.assertTrue(
-            chan1_endok.processed,
-            "chan1 ok_endnodes not called")
-        self.assertTrue(
-            chan1_endfinal.processed,
-            "chan1 final_endnodes not called")
-        self.assertFalse(
-            chan1_endfail.processed,
+        self.assertEqual(
+            chan1_endok.processed, 1,
+            "chan1 ok_endnodes not called or called multiple times")
+        self.assertEqual(
+            chan1_endfinal.processed, 1,
+            "chan1 final_endnodes not called or called multiple times")
+        self.assertEqual(
+            chan1_endfail.processed, 0,
             "chan1 fail_callback called when nobody ask to him")
+        self.assertEqual(
+            chan1_endfail.processed, 0,
+            "chan1 fail_callback called when nobody ask to him")
+        self.assertEqual(
+            condchan_end.processed, 0,
+            "condchan1 final_callback called when nobody ask to him")
 
         chan1._reset_test()
         n3exc.mock(output=raise_exc)
         excmsg = generate_msg(message_content="exc")
         with self.assertRaises(Exception):
             self.loop.run_until_complete(chan1.handle(excmsg))
-        self.assertTrue(
-            chan1_endfail.processed,
-            "chan1 fail_endnodes not called")
-        self.assertTrue(
-            chan1_endfinal.processed,
-            "chan1 final_endnodes not called")
-        self.assertFalse(
-            chan1_endok.processed,
+        self.assertEqual(
+            chan1_endfail.processed, 1,
+            "chan1 fail_endnodes not called or called multiple times")
+        self.assertEqual(
+            chan1_endfinal.processed, 1,
+            "chan1 final_endnodes not called or called multiple times")
+        self.assertEqual(
+            chan1_endok.processed, 0,
             "chan1 ok_callback called when nobody ask to him")
+        self.assertEqual(
+            condchan_end.processed, 1,
+            "condchan1 final_callback not called or called multiple times")
 
     def test_casecondchan_endnodes(self):
         """

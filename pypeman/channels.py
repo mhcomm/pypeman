@@ -229,7 +229,7 @@ class BaseChannel:
         if self.final_nodes:
             for node in self.final_nodes:
                 node._reset_test()
-        if self.final_nodes:
+        if self.fail_nodes:
             for node in self.fail_nodes:
                 node._reset_test()
 
@@ -362,7 +362,6 @@ class BaseChannel:
 
         if self.status in [BaseChannel.STOPPED, BaseChannel.STOPPING]:
             raise ChannelStopped("Channel is stopped so you can't send message.")
-
         self.logger.info("chan %s handle %s", str(self), str(msg))
         has_callback = hasattr(self, "_callback")
         setattr(msg, "chan_rslt", None)
@@ -749,8 +748,12 @@ class ConditionSubChannel(BaseChannel):
             return self.condition
 
     async def subhandle(self, msg):
+        result = await self.process(msg)
+        return result
+
+    async def handle(self, msg):
         if self.test_condition(msg):
-            result = await self.process(msg)
+            result = await super().handle(msg)
         else:
             if self.next_node:
                 result = await self.next_node.handle(msg)

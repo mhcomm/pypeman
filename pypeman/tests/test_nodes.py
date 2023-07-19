@@ -438,12 +438,11 @@ class NodesTests(TestCase):
                 ('zeta', 'un'),
                 ('zeta', 'deux'),
                 ('zeta', 'trois'),
-                # ('omega', 'meta_params')
                 ]
         req_kwargs2['data'] = content1
 
         args_headers = {'args_headers': 'args_headers'}
-        args_params = {'theta': ['uno', 'dos']}
+        args_params = {'theta': ['uno', 'dos'], 'omega': tstfct2}
         http_node2 = nodes.HttpRequest(
             url=url,
             method='post',
@@ -474,6 +473,7 @@ class NodesTests(TestCase):
         req_kwargs3['params'] = [
                 ('theta', 'uno'),
                 ('theta', 'dos'),
+                ('omega', 'fctname'),
                 ]
         req_kwargs3['headers'] = args_headers
         req_kwargs3['data'] = content1
@@ -524,7 +524,7 @@ class NodesTests(TestCase):
                 Test 3:
                 - post in node args,
                 - object BasicAuth for auth,
-                - list in dict params from args,
+                - list in dict params from args + callable str param,
                 - headers from args
                 - client_cert
             """

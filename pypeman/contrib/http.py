@@ -145,6 +145,7 @@ class HttpRequest(nodes.BaseNode):
         :param verify: verify ssl. Default True.
         :param params: get params in dict. List for multiple elements, ex :
                        {'param1': 'omega', param2: ['alpha', 'beta']}
+                       The key can be a function that takes a msg as input param
         :param client_cert: tuple with .crt and .key path
         :param binary: bool, Get response content as bytes
         :param send_as_json: bool, If the method is a PATCH/POST/PUT, send data as json
@@ -220,8 +221,11 @@ class HttpRequest(nodes.BaseNode):
 
         get_params = None
         if params:
+            params = params.copy()
             get_params = []
             for key, param in params.items():
+                if callable(param):
+                    param = param(msg)
                 if isinstance(param, list):
                     for value in param:
                         get_params.append((key, value))

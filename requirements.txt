@@ -8,4 +8,3 @@ jsonrpcclient
 requests # For jsonrpcclient
 ipython
 sqlitedict>=2.1  # Python 3.10 DeprecationWarning: setDaemon() is deprecated
-

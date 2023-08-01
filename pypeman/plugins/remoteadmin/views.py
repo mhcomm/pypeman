@@ -45,7 +45,7 @@ async def start_channel(request, channelname, ws=None):
 
     :params channel: The channel name to start.
     """
-    if not ws:
+    if ws is None:
         ws = web.WebSocketResponse()
         await ws.prepare(request)
 
@@ -65,7 +65,7 @@ async def stop_channel(request, channelname, ws=None):
 
     :params channel: The channel name to stop.
     """
-    if not ws:
+    if ws is None:
         ws = web.WebSocketResponse()
         await ws.prepare(request)
 
@@ -119,7 +119,7 @@ async def replay_msg(request, channelname, message_id, ws=None):
     :params channel: The channel name.
     :params msg_ids: The message ids list to replay.
     """
-    if not ws:
+    if ws is None:
         ws = web.WebSocketResponse()
         await ws.prepare(request)
 
@@ -142,7 +142,7 @@ async def view_msg(request, channelname, message_id, ws=None):
     :params channel: The channel name.
     :params msg_ids: The message ids list to replay.
     """
-    if not ws:
+    if ws is None:
         ws = web.WebSocketResponse()
         await ws.prepare(request)
 
@@ -165,7 +165,7 @@ async def preview_msg(request, channelname, message_id, ws=None):
     :params channel: The channel name.
     :params msg_ids: The message ids list to replay.
     """
-    if not ws:
+    if ws is None:
         ws = web.WebSocketResponse()
         await ws.prepare(request)
 

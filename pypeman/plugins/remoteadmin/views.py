@@ -1,11 +1,15 @@
 import json
+import logging
 
 from aiohttp import web
+from jsonrpcserver.response import SuccessResponse
 
 from pypeman import channels
 
+logger = logging.getLogger(__name__)
 
-def get_channel(self, name):
+
+def get_channel(name):
     """
     return channel by is name.all_channels
     """
@@ -15,19 +19,18 @@ def get_channel(self, name):
     return None
 
 
-async def list_channels(request):
+async def list_channels(request, ws=None):
     """
     Return a list of available channels.
     """
-    ws = web.WebSocketResponse()
-    await ws.prepare(request)
+    if ws is None:
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
 
     chans = []
-    print(channels.all_channels)
     for chan in channels.all_channels:
         if not chan.parent:
             chan_dict = chan.to_dict()
-            print(chan_dict)
             chan_dict['subchannels'] = chan.subchannels()
 
             chans.append(chan_dict)
@@ -36,14 +39,15 @@ async def list_channels(request):
     await ws.send_str(resp_message)
 
 
-async def start_channel(request, channelname):
+async def start_channel(request, channelname, ws=None):
     """
     Start the specified channel
 
     :params channel: The channel name to start.
     """
-    ws = web.WebSocketResponse()
-    await ws.prepare(request)
+    if not ws:
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
 
     chan = get_channel(channelname)
     await chan.start()
@@ -55,14 +59,15 @@ async def start_channel(request, channelname):
     await ws.send_str(resp_message)
 
 
-async def stop_channel(request, channelname):
+async def stop_channel(request, channelname, ws=None):
     """
     Stop the specified channel
 
     :params channel: The channel name to stop.
     """
-    ws = web.WebSocketResponse()
-    await ws.prepare(request)
+    if not ws:
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
 
     chan = get_channel(channelname)
     await chan.stop()
@@ -74,14 +79,15 @@ async def stop_channel(request, channelname):
     await ws.send_str(resp_message)
 
 
-async def list_msgs(request, channelname):
+async def list_msgs(request, channelname, ws=None):
     """
     List first `count` messages from message store of specified channel.
 
     :params channel: The channel name.
     """
-    ws = web.WebSocketResponse()
-    await ws.prepare(request)
+    if ws is None:
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
 
     chan = get_channel(channelname)
 
@@ -106,15 +112,16 @@ async def list_msgs(request, channelname):
     await ws.send_str(resp_message)
 
 
-async def replay_msg(request, channelname, message_id):
+async def replay_msg(request, channelname, message_id, ws=None):
     """
     Replay messages from message store.
 
     :params channel: The channel name.
     :params msg_ids: The message ids list to replay.
     """
-    ws = web.WebSocketResponse()
-    await ws.prepare(request)
+    if not ws:
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
 
     chan = get_channel(channelname)
     result = []
@@ -128,15 +135,16 @@ async def replay_msg(request, channelname, message_id):
     await ws.send_str(resp_message)
 
 
-async def view_msg(request, channelname, message_id):
+async def view_msg(request, channelname, message_id, ws=None):
     """
     Permit to get the content of a message
 
     :params channel: The channel name.
     :params msg_ids: The message ids list to replay.
     """
-    ws = web.WebSocketResponse()
-    await ws.prepare(request)
+    if not ws:
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
 
     chan = get_channel(channelname)
     result = []
@@ -150,16 +158,16 @@ async def view_msg(request, channelname, message_id):
     await ws.send_str(resp_message)
 
 
-async def preview_msg(request, channelname, message_id):
+async def preview_msg(request, channelname, message_id, ws=None):
     """
     Permits to get the 1000 chars of a message payload
 
     :params channel: The channel name.
     :params msg_ids: The message ids list to replay.
     """
-    print(vars(request))
-    ws = web.WebSocketResponse()
-    await ws.prepare(request)
+    if not ws:
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
 
     chan = get_channel(channelname)
     result = []
@@ -171,3 +179,63 @@ async def preview_msg(request, channelname, message_id):
 
     resp_message = json.dumps(result)
     await ws.send_str(resp_message)
+
+
+class RPCWebSocketResponse(web.WebSocketResponse):
+    """
+    Mocked aiohttp.web.WebSocketResponse to return JSOn RPC responses
+    Workaround to have a backport compatibility with old json rpc client
+    """
+
+    def set_rpc_attrs(self, request_data):
+        self.rpc_data = request_data
+
+    async def send_str(self, message):
+        message = SuccessResponse(json.loads(message), id=self.rpc_data["id"])
+        await super().send_str(str(message))
+
+
+async def backport_old_client(request):
+    ws = RPCWebSocketResponse()
+    await ws.prepare(request)
+    async for msg in ws:
+        try:
+            cmd_data = json.loads(msg.data)
+        except Exception:
+            await ws.send_str(f"cannot parse ws json data ({msg.data})")
+            return ws
+        ws.set_rpc_attrs(cmd_data)
+        cmd_method = cmd_data.pop("method")
+        params = cmd_data.get("params", [None])
+        channelname = params[0]
+
+        if cmd_method == "channels":
+            await list_channels(request, ws=ws)
+        elif cmd_method == "preview_msg":
+            message_id = params[1]
+            await preview_msg(request, channelname=channelname, message_id=message_id, ws=ws)
+        elif cmd_method == "view_msg":
+            message_id = params[1]
+            await view_msg(request=request, channelname=channelname, message_id=message_id, ws=ws)
+        elif cmd_method == "replay_msg":
+            message_id = params[1]
+            await replay_msg(request=request, channelname=channelname, message_id=message_id, ws=ws)
+        elif cmd_method == "list_msgs":
+            query_params = {
+                "start": params[1],
+                "count": params[2],
+                "order_by": params[3],
+                "start_dt": params[4],
+                "end_dt": params[5],
+                "text": params[6],
+                "rtext": params[7],
+            }
+            query_params = {k: v for k, v in query_params.items() if v is not None}
+            request.rel_url.update_query(query_params)
+            await list_msgs(request=request, channelname=channelname, ws=ws)
+        elif cmd_method == "start_channel":
+            await start_channel(request=request, channelname=channelname, ws=ws)
+        elif cmd_method == "stop_channel":
+            await stop_channel(request=request, channelname=channelname, ws=ws)
+        else:
+            await ws.send_str(f"{cmd_method} is not a valid method")

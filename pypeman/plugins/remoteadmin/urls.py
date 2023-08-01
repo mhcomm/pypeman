@@ -12,6 +12,7 @@ def init_urls(app):
                                         url routing have to be added
     """
     app.add_routes([
+        web.get('/', views.backport_old_client),
         web.get('/channels', views.list_channels),
         web.get(r'/channels/{channelname}/start', views.list_channels),
         web.get(r'/channels/{channelname}/stop', views.stop_channel),

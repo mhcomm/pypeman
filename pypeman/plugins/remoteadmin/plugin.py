@@ -6,7 +6,7 @@ from pypeman.plugins.remoteadmin import urls
 
 class WSRemoteAdminPlugin(BasePlugin):
 
-    def __init__(self, host="127.0.0.1", port=8000):
+    def __init__(self, host="127.0.0.1", port=8091):
         super().__init__()
         self.app = web.Application()
         self.host = host

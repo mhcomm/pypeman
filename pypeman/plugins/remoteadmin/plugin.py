@@ -17,6 +17,7 @@ class WSRemoteAdminPlugin(BasePlugin):
         urls.init_urls(self.app)
 
     async def start(self):
+        await self.runner.setup()
         site = web.TCPSite(self.runner, self.host, self.port)
         await site.start()
 

@@ -38,13 +38,13 @@ async def list_channels(request, ws=None):
     return web.json_response(chans)
 
 
-async def start_channel(request, channelname, ws=None):
+async def start_channel(request, ws=None):
     """
     Start the specified channel
 
     :params channelname: The channel name to start.
     """
-
+    channelname = request.match_info['channelname']
     chan = get_channel(channelname)
     await chan.start()
 
@@ -58,12 +58,13 @@ async def start_channel(request, channelname, ws=None):
     return web.json_response(resp_dict)
 
 
-async def stop_channel(request, channelname, ws=None):
+async def stop_channel(request, ws=None):
     """
     Stop the specified channel
 
     :params channelname: The channel name to stop.
     """
+    channelname = request.match_info['channelname']
 
     chan = get_channel(channelname)
     await chan.stop()
@@ -78,7 +79,7 @@ async def stop_channel(request, channelname, ws=None):
     return web.json_response(resp_dict)
 
 
-async def list_msgs(request, channelname, ws=None):
+async def list_msgs(request, ws=None):
     """
     List first `count` messages from message store of specified channel.
 
@@ -95,6 +96,8 @@ async def list_msgs(request, channelname, ws=None):
         rtext (str): same as 'text' param but for regex
     """
 
+    channelname = request.match_info['channelname']
+
     chan = get_channel(channelname)
 
     args = request.rel_url.query
@@ -105,7 +108,6 @@ async def list_msgs(request, channelname, ws=None):
     end_dt = args.get("end_dt", None)
     text = args.get("text", None)
     rtext = args.get("rtext", None)
-
     messages = await chan.message_store.search(
         start=start, count=count, order_by=order_by, start_dt=start_dt, end_dt=end_dt,
         text=text, rtext=rtext) or []
@@ -121,13 +123,15 @@ async def list_msgs(request, channelname, ws=None):
     return web.json_response(resp_dict)
 
 
-async def replay_msg(request, channelname, message_id, ws=None):
+async def replay_msg(request, ws=None):
     """
     Replay messages from message store.
 
     :params channel: The channel name.
     :params msg_ids: The message ids list to replay.
     """
+    channelname = request.match_info['channelname']
+    message_id = request.match_info['message_id']
 
     chan = get_channel(channelname)
     result = []
@@ -143,13 +147,16 @@ async def replay_msg(request, channelname, message_id, ws=None):
     return web.json_response(result)
 
 
-async def view_msg(request, channelname, message_id, ws=None):
+async def view_msg(request, ws=None):
     """
     Permit to get the content of a message
 
     :params channelname: The channel name.
     :params message_id: The message id to view
     """
+
+    channelname = request.match_info['channelname']
+    message_id = request.match_info['message_id']
 
     chan = get_channel(channelname)
     result = []
@@ -165,13 +172,15 @@ async def view_msg(request, channelname, message_id, ws=None):
     return web.json_response(result)
 
 
-async def preview_msg(request, channelname, message_id, ws=None):
+async def preview_msg(request, ws=None):
     """
     Permits to get the first 1000 chars of a message payload
 
     :params channelname: The channel name.
     :params message_id: The message id to preview
     """
+    channelname = request.match_info['channelname']
+    message_id = request.match_info['message_id']
 
     chan = get_channel(channelname)
     result = []
@@ -214,18 +223,23 @@ async def backport_old_client(request):
         cmd_method = cmd_data.pop("method")
         params = cmd_data.get("params", [None])
         channelname = params[0]
+        if channelname:
+            request.match_info["channelname"] = channelname
 
         if cmd_method == "channels":
             await list_channels(request, ws=ws)
         elif cmd_method == "preview_msg":
             message_id = params[1]
-            await preview_msg(request, channelname=channelname, message_id=message_id, ws=ws)
+            request.match_info["message_id"] = message_id
+            await preview_msg(request, ws=ws)
         elif cmd_method == "view_msg":
             message_id = params[1]
-            await view_msg(request=request, channelname=channelname, message_id=message_id, ws=ws)
+            request.match_info["message_id"] = message_id
+            await view_msg(request=request, ws=ws)
         elif cmd_method == "replay_msg":
             message_id = params[1]
-            await replay_msg(request=request, channelname=channelname, message_id=message_id, ws=ws)
+            request.match_info["message_id"] = message_id
+            await replay_msg(request=request, ws=ws)
         elif cmd_method == "list_msgs":
             query_params = {
                 "start": params[1],
@@ -237,11 +251,12 @@ async def backport_old_client(request):
                 "rtext": params[7],
             }
             query_params = {k: v for k, v in query_params.items() if v is not None}
-            request.rel_url.update_query(query_params)
-            await list_msgs(request=request, channelname=channelname, ws=ws)
+            query_url = request.rel_url.with_query(query_params)
+            new_req = request.clone(rel_url=query_url)
+            await list_msgs(request=new_req, ws=ws)
         elif cmd_method == "start_channel":
-            await start_channel(request=request, channelname=channelname, ws=ws)
+            await start_channel(request=request, ws=ws)
         elif cmd_method == "stop_channel":
-            await stop_channel(request=request, channelname=channelname, ws=ws)
+            await stop_channel(request=request, ws=ws)
         else:
             await ws.send_str(f"{cmd_method} is not a valid method")

@@ -51,10 +51,10 @@ class PluginManager():
         if self.plugins:
             for plugin in self.plugins:
                 if plugin.status == plugin.STARTED:
-                    self.plugin.do_stop()
+                    plugin.do_stop()
             for plugin in self.plugins:
                 if plugin.status == plugin.STOPPED:
-                    self.plugin.do_destroy()
+                    plugin.do_destroy()
 
         # instantiate plugins
         self.plugins = []

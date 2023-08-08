@@ -14,7 +14,7 @@ def init_urls(app, prefix=""):
     app.add_routes([
         # API :
         web.get(prefix + '/channels', views.list_channels),
-        web.get(prefix + '/channels/{channelname}/start', views.list_channels),
+        web.get(prefix + '/channels/{channelname}/start', views.start_channel),
         web.get(prefix + '/channels/{channelname}/stop', views.stop_channel),
         web.get(prefix + '/channels/{channelname}/messages', views.list_msgs),
         web.get(prefix + '/channels/{channelname}/messages/{message_id}/replay', views.replay_msg),

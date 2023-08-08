@@ -4,7 +4,7 @@ from pypeman.plugins.base import BasePlugin
 from pypeman.plugins.remoteadmin import urls
 
 
-class WSRemoteAdminPlugin(BasePlugin):
+class RemoteAdminPlugin(BasePlugin):
 
     def __init__(self, host="127.0.0.1", port=8091, url_prefix=""):
         super().__init__()

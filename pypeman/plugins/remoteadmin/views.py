@@ -47,7 +47,6 @@ async def start_channel(request, ws=None):
     channelname = request.match_info['channelname']
     chan = get_channel(channelname)
     await chan.start()
-
     resp_dict = {
         'name': chan.name,
         'status': channels.BaseChannel.status_id_to_str(chan.status)

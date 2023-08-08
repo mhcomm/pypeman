@@ -4,4 +4,5 @@ xmltodict
 aiohttp
 aiocron
 pytest-asyncio
+pytest-aiohttp
 pytest-cov

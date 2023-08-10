@@ -191,6 +191,10 @@ class FakeMessageStore(MessageStore):
         return 0
 
     async def delete(self, id):
+        """
+            we delete nothing here, but return what would have been deleted
+            (for testing)
+        """
         return {'id': id, 'state': 'processed', 'message': None}
 
 
@@ -517,7 +521,7 @@ class FileMessageStore(MessageStore):
         if not fpath.exists():
             raise IndexError
 
-        with open(fpath, "rb") as f:
+        with fpath.open("rb") as f:
             msg = Message.from_json(f.read().decode('utf-8'))
 
         data_to_return = {'id': id, 'state': await self.get_message_state(id), 'message': msg}

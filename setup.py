@@ -46,6 +46,7 @@ setup(
 
     test_suite="nose.collector",
     install_requires=[
+        "asyncssh",
         "click",
         "daemonlite",
         "python-dateutil",

@@ -191,7 +191,8 @@ class SFTPWatcherChannel(channels.BaseChannel):
         return mtime_value
 
     async def start(self):
-        self.backend = await persistence.get_backend(loop=self.loop)
+        if not self.backend:
+            self.backend = await persistence.get_backend(loop=self.loop)
         self.last_read_mtime = await self.get_last_read_mtime()
         logger.debug("last_read_mtime at start is %s", str(self.last_read_mtime))
         await super().start()
@@ -246,11 +247,17 @@ class SFTPWatcherChannel(channels.BaseChannel):
         One iteration of watching.
         """
         sftp_ls = await self.sftphelper.list_dir(self.basedir)
+        logger.critical(sftp_ls)
         for filestat in sftp_ls:
+            logger.critical(filestat)
+            logger.critical(vars(filestat))
             fname = filestat.filename
             if self.re.match(fname):
                 file_mtime = filestat.attrs.mtime
                 if self.last_read_mtime < file_mtime:
+                    logger.critical(filestat)
+                    logger.critical(self.last_read_mtime)
+                    logger.critical(filestat.filename)
                     try:
                         # TODO: ask if a try/finally here is a good idea
                         await self.get_file_and_process(fname)
@@ -268,6 +275,7 @@ class SFTPWatcherChannel(channels.BaseChannel):
                 await self.tick()
             except Exception as exc:
                 logger.exception(exc)
+                raise exc
 
 
 class SFTPFileReader(nodes.BaseNode):

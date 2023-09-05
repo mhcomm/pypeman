@@ -27,7 +27,8 @@ from pypeman.tests.common import generate_msg
 from pypeman.tests.common import MllPChannelTestThread
 from pypeman.tests.common import TstException
 from pypeman.tests.common import TstNode
-
+from pypeman.tests.test_sftp import MockedSFTPHelper
+from pypeman.persistence import MemoryBackend
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,10 @@ def raise_exc(msg):
 def return_text(msg, text):
     msg.payload = text
     return msg
+
+
+# async def mocked_get_backend(loop):
+#     return MemoryBackend(loop=loop)
 
 
 class ChannelsTests(TestCase):
@@ -72,7 +77,7 @@ class ChannelsTests(TestCase):
     def start_channels(self):
         # Start channels
         for chan in channels.all_channels:
-            self.loop.run_until_complete(chan.start())
+            self.loop.create_task(chan.start())
 
     def setUp(self):
         # Create class event loop used for tests to avoid failing
@@ -1640,3 +1645,26 @@ class ChannelsTests(TestCase):
             processed_nodes=processed_nodes,
             not_processed_nodes=not_processed_nodes
         )
+    def test_sftpwatcher_channel(self):
+        fake_sftp_config = dict(host="fake", port=22, credentials=("fake", "fake"))
+        ftest_dir = Path(__file__).parent / "data"
+        ok_fpath = ftest_dir / "testfile.ok"
+
+        with mock.patch('pypeman.contrib.sftp.SFTPHelper', new=MockedSFTPHelper):
+            chan = channels.SFTPWatcherChannel(
+                name="sftpchan", regex=".*", loop=self.loop,
+                basedir=str(ftest_dir), **fake_sftp_config)
+            n = nodes.Log(name="test_sftpwatch_chan")
+            chan.add(n)
+            chan.backend = MemoryBackend()
+            asyncio.run(chan.backend.start())
+            n._reset_test()
+            self.start_channels()
+            # raise Exception
+            self.loop.run_until_complete(chan.tick())
+            raise Exception
+            self.assertEqual(n.last_input(), None)
+            ok_fpath.touch()
+            self.loop.run_until_complete(chan.tick())
+            self.assertEqual(n.last_input().payload, "testfilecontent")
+            self.clean_loop()

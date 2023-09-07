@@ -481,7 +481,7 @@ class PypemanShell(cmd.Cmd):
         args_copy = [i for i in args]
         # Parsing of naming args
         for arg in args_copy:
-            if type(arg) == str:
+            if isinstance(arg, str):
                 if arg.startswith("start_dt="):
                     start_dt = arg.split("=")[1]
                     args.remove(arg)

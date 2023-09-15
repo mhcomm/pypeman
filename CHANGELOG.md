@@ -1,5 +1,12 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
 
+## [0.5.4](https://github.com/mhcomm/pypeman/compare/0.5.3...0.5.4)
+* Change ReadTheDocs config file from v1 to v2
+* FIX subchannel endnodes that was launched ever if the msg doesn't enter in the subchan
+* HTTPRequest node: allow callable http params + nested dicts in url building
+* First Version of the remote Admin Plugin
+* Fix endnodes that have a modified msg
+
 ## [0.5.3](https://github.com/mhcomm/pypeman/compare/0.5.2...0.5.3)
 * Fix HttpRequest: ssl_verify = False not working
 * Fix Mllp and http speed responses not working

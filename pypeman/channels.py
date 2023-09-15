@@ -371,7 +371,7 @@ class BaseChannel:
         async with self.lock:
             self.status = BaseChannel.PROCESSING
             try:
-                result = await self.subhandle(msg)
+                result = await self.subhandle(msg.copy())
                 await self.message_store.change_message_state(msg_store_id, message.Message.PROCESSED)
                 msg.chan_rslt = result
                 if self.join_nodes and not has_callback:

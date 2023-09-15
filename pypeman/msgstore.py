@@ -6,6 +6,7 @@ import re
 
 from itertools import islice
 from collections import OrderedDict
+from pathlib import Path
 
 from pypeman.message import Message
 
@@ -112,6 +113,17 @@ class MessageStore():
         :return: total count of messages
         """
 
+    async def delete(self, id):
+        """
+        Delete one message in the store corresponding to given `id` with his status.
+        Useful for tests and maybe in the future to permits cleanup of message store
+
+        !CAUTION! : cannot be undone
+
+        :param id: Message id. Message store dependant.
+        :return: A dict `{'id':<message_id>, 'state': <message_state>, 'message': <message_object>}`.
+        """
+
 
 class NullMessageStoreFactory(MessageStoreFactory):
     """ Return an NullMessageStore that do nothing at all. """
@@ -139,6 +151,9 @@ class NullMessageStore(MessageStore):
 
     async def total(self):
         return 0
+
+    async def delete(self, id):
+        return None
 
 
 class FakeMessageStoreFactory(MessageStoreFactory):
@@ -174,6 +189,13 @@ class FakeMessageStore(MessageStore):
 
     async def total(self):
         return 0
+
+    async def delete(self, id):
+        """
+            we delete nothing here, but return what would have been deleted
+            (for testing)
+        """
+        return {'id': id, 'state': 'processed', 'message': None}
 
 
 class MemoryMessageStoreFactory(MessageStoreFactory):
@@ -280,6 +302,11 @@ class MemoryMessageStore(MessageStore):
 
     async def total(self):
         return len(self.messages)
+
+    async def delete(self, id):
+        resp = dict(self.messages.pop(id))
+        resp['message'] = Message.from_dict(resp['message'])
+        return resp
 
 
 class FileMessageStoreFactory(MessageStoreFactory):
@@ -484,3 +511,20 @@ class FileMessageStore(MessageStore):
 
     async def total(self):
         return self._total
+
+    async def _delete_meta_file(self, id):
+        meta_fpath = (Path(self.base_path) / str(id)).with_suffix(".meta")
+        meta_fpath.unlink()
+
+    async def delete(self, id):
+        fpath = Path(self.base_path) / str(id)
+        if not fpath.exists():
+            raise IndexError
+
+        with fpath.open("rb") as f:
+            msg = Message.from_json(f.read().decode('utf-8'))
+
+        data_to_return = {'id': id, 'state': await self.get_message_state(id), 'message': msg}
+        fpath.unlink()
+        self._delete_meta_file(id=id)
+        return data_to_return

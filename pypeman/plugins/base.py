@@ -130,5 +130,5 @@ class BasePlugin:
         self.destroy()
 
     def destroy(self):
-        assert self.status in (self.INITIAL, self.STOPPED)
+        assert self.status in (self.INITIALIZED, self.STOPPED)
         self.status = self.DESTROYED

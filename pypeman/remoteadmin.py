@@ -3,7 +3,6 @@ import cmd
 import functools
 import json
 import logging
-import os
 import re
 import sys
 
@@ -574,7 +573,7 @@ class WebAdmin():
 
     async def start(self):
 
-        client_dir = os.path.join(os.path.dirname(os.path.join(__file__)), 'client/dist')
+        # client_dir = os.path.join(os.path.dirname(os.path.join(__file__)), 'client/dist')
         app = web.Application()
         app.router.add_get(
             '/configs.js',
@@ -584,11 +583,11 @@ class WebAdmin():
         # redirect to index.html
         app.router.add_get('/', self.redirect_to_index)
 
-        app.router.add_static(
-            '/',
-            path=os.path.join(client_dir),
-            name='static'
-        )
+        # app.router.add_static(
+        #     '/',
+        #     path=os.path.join(client_dir),
+        #     name='static'
+        # )
 
         await self.loop.create_server(
             protocol_factory=app.make_handler(),

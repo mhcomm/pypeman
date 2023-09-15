@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 # Yields 2 results: "gigi.gogo" and "rigo"
 str_named_param_regex = re.compile(r"%\((?P<keyval>[^\)]*)\)[r|s|d|]")
 
-# Regex used to split a string by not escaped .
+# Regex used to split a string by not escaped "."
 # example:
 # "titi.toto.tutu" yields 3 results: "titi", "toto", "tutu"
 # "titi.toto\.tutu" yields 2 results: "titi", "toto\.tutu" (the \ will be removed in code)

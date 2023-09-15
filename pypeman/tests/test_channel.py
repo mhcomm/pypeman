@@ -452,10 +452,18 @@ class ChannelsTests(TestCase):
         self.assertFalse(
             chan1_endfail.processed,
             "chan1 fail_callback called when nobody ask to him")
+        # Test that the msg_rslt attr in the msg entering in the final nodes
+        # is the same that the message that came out from the chan process
         chan1_endfinal_input = chan1_endfinal.last_input()
         self.assertTrue(chan1_endfinal_input.chan_rslt,
                         "Channel final_nodes doesn't have rslt attr when it haves to")
-        self.assertDictEqual(vars(chan1_endfinal_input), vars(chan1_endfinal_input.chan_rslt),
+        # Must pop msg_rslt attr, because the msg in msg_rslt doesn't
+        # have itself a msg_rslt attr set
+        chan1_endfinal_msg_rlst_dict = vars(chan1_endfinal_input.chan_rslt)
+        chan1_endfinal_msg_rlst_dict.pop("chan_rslt")
+        chan1_endfinal_input_dict = vars(chan1_endfinal_input)
+        chan1_endfinal_input_dict.pop("chan_rslt")
+        self.assertDictEqual(chan1_endfinal_input_dict, chan1_endfinal_msg_rlst_dict,
                              "final nodes don't have correct rslt extra data in msg")
         self.assertFalse(chan1_endfinal_input.chan_exc, "Channel final_nodes have exc as msg attr ..")
         self.assertFalse(chan1_endfinal_input.chan_exc_traceback,
@@ -604,6 +612,7 @@ class ChannelsTests(TestCase):
         chan1_endfail = TstNode(name="chan1_endfail")
         chan1_endreject = TstNode(name="chan1_endreject")
         chan1_endfinal = TstNode(name="chan1_endfinal")
+        chan1_endok._reset_test()
         chan1_endfinal._reset_test()
         chan1.add_reject_nodes(chan1_endreject)
         chan1.add_fail_nodes(chan1_endfail)
@@ -644,6 +653,8 @@ class ChannelsTests(TestCase):
             self.loop.run_until_complete(chan1.handle(startmsg))
 
         # chan1 : only ok and final end nodes have to be called
+        # + checks that the message that enters the final nodes is the startmsg with the
+        # origin payload (not modified by other node)
         self.assertTrue(
             chan1_endok.processed,
             "chan1 ok_endnodes not called")
@@ -659,11 +670,16 @@ class ChannelsTests(TestCase):
         self.assertFalse(
             chan1_endreject.processed,
             "chan1 rejected_callback called when nobody ask to him")
+        chan1_endok_input = chan1_endok.last_input()
+        self.assertDictEqual(vars(n3_endmsg), vars(chan1_endok_input),
+                             "ok end nodes don't have correct rslt extra data in msg")
         chan1_endfinal_input = chan1_endfinal.last_input()
         self.assertTrue(chan1_endfinal_input.chan_rslt,
                         "Channel final_nodes doesn't have rslt attr when it haves to")
         self.assertDictEqual(vars(n3_endmsg), vars(chan1_endfinal_input.chan_rslt),
                              "final nodes don't have correct rslt extra data in msg")
+        self.assertEqual(startmsg.payload, chan1_endfinal_input.payload,
+                         "final nodes don't have the start msg in entry")
 
         # subchan2 : only join nodes have to be called
         self.assertTrue(
@@ -884,9 +900,9 @@ class ChannelsTests(TestCase):
         """ Whether BaseChannel handling return a good result """
 
         chan = BaseChannel(name="test_channel7", loop=self.loop)
-        msg = generate_msg()
+        msg = generate_msg(message_content={"test": 1})
 
-        chan.add(nodes.JsonToPython(), nodes.PythonToJson())
+        chan.add(nodes.PythonToJson(), nodes.JsonToPython())
 
         # Launch channel processing
         self.start_channels()

@@ -407,7 +407,7 @@ class NodesTests(TestCase):
 
         auth = ("login", "mdp")
         url = 'http://url/%(meta.beta)s/%(payload.alpha)s'
-        b_auth = aiohttp.BasicAuth(auth[0], auth[1])
+        b_auth = aiohttp.BasicAuth(*auth)
         client_cert = ('/cert.key', '/cert.crt')
         http_node1 = nodes.HttpRequest(url=url, verify=False, auth=auth)
         http_node1.channel = channel
@@ -585,7 +585,7 @@ class NodesTests(TestCase):
 
         auth = ("login", "mdp")
         url = 'http://url/%(meta.beta.beta2)s/%(payload.alpha.toto)s'
-        b_auth = aiohttp.BasicAuth(auth[0], auth[1])
+        b_auth = aiohttp.BasicAuth(*auth)
         client_cert = ('/cert.key', '/cert.crt')
         http_node1 = nodes.HttpRequest(
             url=url, verify=False, auth=auth,

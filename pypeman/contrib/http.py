@@ -13,7 +13,18 @@ from pypeman.errors import PypemanParamError
 
 logger = logging.getLogger(__name__)
 
-str_named_param_regex = re.compile(r"%\((?P<keyval>.*?)\)[r|s|d|]")
+# Regex to extract dynamic params from a string to permits complex search
+# in nested dicts:
+#
+# Example:
+# url = "toto/tutu/%(gigi.gogo)s/bla/%(rigo)r/toto"
+# Give 2 results: "gigi.gogo" and "rigo"
+str_named_param_regex = re.compile(r"%\((?P<keyval>[^\)]*)\)[r|s|d|]")
+
+# Regex use to split a string by not escaped .
+# example:
+# "titi.toto.tutu" give 3 results: "titi", "toto", "tutu"
+# "titi.toto\.tutu" give 2 results: "titi", "toto\.tutu" (the \ will be removed in code)
 not_escaped_dot_regex = re.compile(r"(?<!\\)\.")
 
 

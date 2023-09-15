@@ -407,7 +407,7 @@ class NodesTests(TestCase):
 
         auth = ("login", "mdp")
         url = 'http://url/%(meta.beta)s/%(payload.alpha)s'
-        b_auth = aiohttp.BasicAuth(auth[0], auth[1])
+        b_auth = aiohttp.BasicAuth(*auth)
         client_cert = ('/cert.key', '/cert.crt')
         http_node1 = nodes.HttpRequest(url=url, verify=False, auth=auth)
         http_node1.channel = channel
@@ -572,6 +572,101 @@ class NodesTests(TestCase):
             mock_load_cert_chain.reset_mock()
             self.loop.run_until_complete(http_node4.handle(msg5))
             mock_session.request.assert_called_once_with(**req_kwargs4)
+            mock_load_cert_chain.assert_not_called()
+
+            mock_session.reset_mock()
+
+    @unittest.skipIf((sys.version_info[:2] == (3, 7)),
+                     "difficulty to mock async with statement in py3.7")  # TODO: rm in py3.8+
+    def test_httprequest_node2_new_parsing(self):
+        """ Whether HttpRequest node recursive url parser is functional """
+
+        channel = FakeChannel(self.loop)
+
+        auth = ("login", "mdp")
+        url = 'http://url/%(meta.beta.beta2)s/%(payload.alpha.toto)s'
+        b_auth = aiohttp.BasicAuth(*auth)
+        client_cert = ('/cert.key', '/cert.crt')
+        http_node1 = nodes.HttpRequest(
+            url=url, verify=False, auth=auth,
+            old_url_parsing=False,)
+        http_node1.channel = channel
+
+        content1 = {"alpha": {"toto": "payload_url"}}
+        msg1 = generate_msg(message_content=content1)
+        meta_params = {'omega': 'meta_params'}
+        headers1 = {'test': 'test'}
+        msg1.meta = {
+            "beta": {"beta2": "meta_url"}, 'params': meta_params, 'headers': headers1}
+        req_url1 = 'http://url/meta_url/payload_url'
+        req_kwargs1 = {
+            'data': None,
+            'params': [('omega', 'meta_params')],
+            'url': req_url1,
+            'headers': headers1,
+            'method': 'get',
+            'auth': b_auth
+            }
+
+        msg2 = generate_msg(message_content=content1)
+        msg2.meta = dict(msg1.meta)
+        msg2.meta['method'] = 'post'
+        msg2.meta['params'] = {'zeta': ['un', 'deux', 'trois']}
+        req_kwargs2 = dict(req_kwargs1)
+        req_kwargs2['method'] = 'post'
+        req_kwargs2['params'] = [
+                ('zeta', 'un'),
+                ('zeta', 'deux'),
+                ('zeta', 'trois'),
+                ]
+        req_kwargs2['data'] = content1
+
+        args_headers = {'args_headers': 'args_headers'}
+        args_params = {'theta': ['uno', 'dos'], 'omega': tstfct2}
+        http_node2 = nodes.HttpRequest(
+            url=url,
+            method='post',
+            client_cert=client_cert,
+            auth=b_auth,
+            headers=args_headers,
+            params=args_params,
+            old_url_parsing=False,
+        )
+        http_node2.channel = channel
+
+        with mock.patch(
+            'pypeman.contrib.http.aiohttp.ClientSession',
+            autospec=True) as mock_client_session, mock.patch(
+                'ssl.SSLContext',
+                autospec=True) as mock_ssl_context:
+            mock_ctx_mgr = mock_client_session.return_value
+            mock_session = mock_ctx_mgr.__aenter__.return_value
+            mg = mock.MagicMock()
+            mg.text = get_mock_coro(mock.MagicMock())
+            mock_session.request = get_mock_coro(mg)
+            mock_load_cert_chain = mock_ssl_context.return_value.load_cert_chain
+
+            """
+                Test 1:
+                - default get,
+                - auth tuple in object BasicAuth,
+                - imbricated dict params from meta,
+                - headers from meta
+                - url construction
+            """
+            self.loop.run_until_complete(http_node1.handle(msg1))
+            mock_session.request.assert_called_once_with(**req_kwargs1)
+            mock_load_cert_chain.assert_not_called()
+
+            mock_session.reset_mock()
+
+            """
+                Test 2:
+                - post in meta with data from content,
+                - imbricated dict params from meta,
+            """
+            self.loop.run_until_complete(http_node1.handle(msg2))
+            mock_session.request.assert_called_once_with(**req_kwargs2)
             mock_load_cert_chain.assert_not_called()
 
             mock_session.reset_mock()

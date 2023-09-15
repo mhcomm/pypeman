@@ -1,6 +1,7 @@
 import json
 import logging
 import ssl
+import re
 
 import aiohttp
 
@@ -11,6 +12,20 @@ from pypeman.errors import PypemanParamError
 
 
 logger = logging.getLogger(__name__)
+
+# Regex to extract dynamic params from a string to permits complex search
+# in nested dicts:
+#
+# Example:
+# url = "toto/tutu/%(gigi.gogo)s/bla/%(rigo)r/toto"
+# Yields 2 results: "gigi.gogo" and "rigo"
+str_named_param_regex = re.compile(r"%\((?P<keyval>[^\)]*)\)[r|s|d|]")
+
+# Regex used to split a string by not escaped "."
+# example:
+# "titi.toto.tutu" yields 3 results: "titi", "toto", "tutu"
+# "titi.toto\.tutu" yields 2 results: "titi", "toto\.tutu" (the \ will be removed in code)
+not_escaped_dot_regex = re.compile(r"(?<!\\)\.")
 
 
 class HTTPEndpoint(endpoints.SocketEndpoint):
@@ -155,7 +170,7 @@ class HttpRequest(nodes.BaseNode):
 
     def __init__(self, url, *args, method=None, headers=None, auth=None,
                  verify=True, params=None, client_cert=None, cookies=None,
-                 binary=False, json=False, send_as_json=False, **kwargs):
+                 binary=False, json=False, send_as_json=False, old_url_parsing=True, **kwargs):
         super().__init__(*args, **kwargs)
         self.url = url
         self.method = method
@@ -165,31 +180,58 @@ class HttpRequest(nodes.BaseNode):
         self.verify = verify
         self.params = params
         self.client_cert = client_cert
-        self.url = self.url.replace('%(meta.', '%(')
-        self.payload_in_url_dict = 'payload.' in self.url
+        self.url = self.url.replace('%(meta.', '%(')  # TODO: why ???
+        self.payload_in_url_dict = 'payload.' in self.url  # TODO: should I remove ?
+        self.params_in_url = str_named_param_regex.findall(self.url)
         self.binary = binary
         self.json = json
         self.send_as_json = send_as_json
+        self.old_url_parsing = old_url_parsing
         # TODO: create used payload keys for better perf of generate_request_url()
 
     def generate_request_url(self, msg):
-        url_dict = msg.meta
-        if self.payload_in_url_dict:
-            url_dict = dict(url_dict)
+        request_url = self.url
+        if self.old_url_parsing:
+            url_dict = msg.meta
+            if self.payload_in_url_dict:
+                url_dict = dict(url_dict)
+                try:
+                    for key, val in msg.payload.items():
+                        url_dict['payload.' + key] = val
+                except AttributeError:
+                    self.channel.logger.error(
+                        "Payload must be a python dict if used to generate url. "
+                        "This can be fixed using JsonToPython node before your "
+                        "RequestNode")
+                    raise
             try:
-                for key, val in msg.payload.items():
-                    url_dict['payload.' + key] = val
-            except AttributeError:
-                self.channel.logger.error(
-                    "Payload must be a python dict if used to generate url. "
-                    "This can be fixed using JsonToPython node before your "
-                    "RequestNode")
-                raise
-        try:
-            request_url = self.url % url_dict
-        except Exception as exc:
-            logger.error("cannot create url %r with args %r", self.url, repr(url_dict))
-            raise exc
+                request_url = self.url % url_dict
+            except Exception as exc:
+                logger.error("cannot create url %r with args %r", self.url, repr(url_dict))
+                raise exc
+        else:
+            # New recursive params parsing
+            if self.params_in_url:
+                params = {}
+                for param in self.params_in_url:
+                    subparams = not_escaped_dot_regex.split(param)
+                    if subparams[0] == "payload":
+                        data = msg.payload
+                        subparams.pop(0)
+                    elif subparams[0] == "meta":
+                        data = msg.meta
+                        subparams.pop(0)
+                    else:
+                        data = msg.meta
+                    for subparam in subparams:
+                        subparam = subparam.replace(r"\.", ".")
+                        data = data[subparam]
+                    params[param] = data
+                try:
+                    request_url = self.url % params
+                except Exception as exc:
+                    logger.error("cannot create url %r with args %r", self.url, repr(params))
+                    raise exc
         return request_url
 
     async def handle_request(self, msg):

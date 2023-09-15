@@ -653,7 +653,7 @@ class ChannelsTests(TestCase):
             self.loop.run_until_complete(chan1.handle(startmsg))
 
         # chan1 : only ok and final end nodes have to be called
-        # + chack that the message that enter in final nodes is the startmsg with the
+        # + checks that the message that enters the final nodes is the startmsg with the
         # origin payload (not modified by other node)
         self.assertTrue(
             chan1_endok.processed,

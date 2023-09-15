@@ -18,13 +18,13 @@ logger = logging.getLogger(__name__)
 #
 # Example:
 # url = "toto/tutu/%(gigi.gogo)s/bla/%(rigo)r/toto"
-# Give 2 results: "gigi.gogo" and "rigo"
+# Yields 2 results: "gigi.gogo" and "rigo"
 str_named_param_regex = re.compile(r"%\((?P<keyval>[^\)]*)\)[r|s|d|]")
 
-# Regex use to split a string by not escaped .
+# Regex used to split a string by not escaped .
 # example:
-# "titi.toto.tutu" give 3 results: "titi", "toto", "tutu"
-# "titi.toto\.tutu" give 2 results: "titi", "toto\.tutu" (the \ will be removed in code)
+# "titi.toto.tutu" yields 3 results: "titi", "toto", "tutu"
+# "titi.toto\.tutu" yields 2 results: "titi", "toto\.tutu" (the \ will be removed in code)
 not_escaped_dot_regex = re.compile(r"(?<!\\)\.")
 
 

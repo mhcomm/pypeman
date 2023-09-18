@@ -36,7 +36,13 @@ setup(
     author_email="jeremie@jeremiez.net",
 
     license="Apache Software License",
-    packages=["pypeman", "pypeman.helpers", "pypeman.contrib"],
+    packages=[
+        "pypeman",
+        "pypeman.contrib",
+        "pypeman.helpers",
+        "pypeman.plugins",
+        "pypeman.plugins.remoteadmin"
+    ],
 
     entry_points={
         "console_scripts": [

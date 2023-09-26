@@ -129,21 +129,24 @@ async def list_msgs(request, ws=None):
 
 async def replay_msg(request, ws=None):
     """
-    Replay messages from message store.
+    Replay message from message store.
 
     :params channel: The channel name.
-    :params msg_ids: The message ids list to replay.
+    :params msg_id: The message id to replay.
     """
     channelname = request.match_info['channelname']
     message_id = request.match_info['message_id']
-
     chan = get_channel(channelname)
-    result = []
     try:
         msg_res = await chan.replay(message_id)
-        result.append(msg_res.to_dict())
+        result = msg_res.to_dict()
+    except IndexError:
+        message = f"Cannot replay msg, id {message_id} probably doesn't exists"
+        logger.error(message)
+        result = {'error': message}
     except Exception as exc:
-        result.append({'error': str(exc)})
+        logger.exception(f"Cannot replay msg {message_id}")
+        result = {'error': str(exc)}
 
     if ws is not None:
         await ws.send_jsonrpcresp(result)
@@ -163,12 +166,17 @@ async def view_msg(request, ws=None):
     message_id = request.match_info['message_id']
 
     chan = get_channel(channelname)
-    result = []
+
     try:
         msg_res = await chan.message_store.get_msg_content(message_id)
-        result.append(msg_res.to_dict())
+        result = msg_res.to_dict()
+    except IndexError:
+        message = f"Cannot view msg, id {message_id} probably doesn't exists"
+        logger.error(message)
+        result = {'error': message}
     except Exception as exc:
-        result.append({'error': str(exc)})
+        logger.exception(f"Cannot view msg {message_id}")
+        result = {'error': str(exc)}
 
     if ws is not None:
         await ws.send_jsonrpcresp(result)
@@ -187,12 +195,16 @@ async def preview_msg(request, ws=None):
     message_id = request.match_info['message_id']
 
     chan = get_channel(channelname)
-    result = []
     try:
         msg_res = await chan.message_store.get_preview_str(message_id)
-        result.append(msg_res.to_dict())
+        result = msg_res.to_dict()
+    except IndexError:
+        message = f"Cannot preview msg, id {message_id} probably doesn't exists"
+        logger.error(message)
+        result = {'error': message}
     except Exception as exc:
-        result.append({'error': str(exc)})
+        logger.exception(f"Cannot preview msg {message_id}")
+        result = {'error': str(exc)}
 
     if ws is not None:
         await ws.send_jsonrpcresp(result)

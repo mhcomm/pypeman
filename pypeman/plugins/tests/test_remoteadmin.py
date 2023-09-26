@@ -167,15 +167,15 @@ class TestRemoteAdminPlugin(RemoteAdminBaseMixin):
         assert json_resp['messages'][0]['id'] == self.msg3.uuid
 
     async def test_replay_message(self, webremoteclient):
+        assert await self.chan.message_store.total() == 4
         resp = await webremoteclient.get(f"/channels/{self.chan_name}/messages/{self.msg3.uuid}/replay")
         assert resp.status == 200
 
         json_resp = json.loads(await resp.text())
-        assert len(json_resp) == 1
         assert await self.chan.message_store.total() == 5
 
         # Clean
-        await self.chan.message_store.delete(json_resp[0]["uuid"])
+        await self.chan.message_store.delete(json_resp["uuid"])
 
     async def test_push_message(self, webremoteclient):
         pass  # actually not implemented

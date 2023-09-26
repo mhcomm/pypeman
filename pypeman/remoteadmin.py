@@ -6,6 +6,7 @@ import logging
 import re
 import sys
 
+from datetime import datetime
 # TODO use readline for history ?
 # import readline
 
@@ -154,8 +155,14 @@ class RemoteAdminServer():
             text=text, rtext=rtext) or []
 
         for res in messages:
-            res['timestamp'] = res['message'].timestamp_str()
-            res['message'] = res['message'].to_json()
+            timestamp = res['timestamp']
+            if isinstance(timestamp, datetime):
+                timestamp = datetime.timestamp(timestamp)
+            res['timestamp'] = timestamp
+            res['id'] = res['id']
+            res['state'] = res["state"]
+            if "message" in res:
+                res.pop("message")
 
         return {'messages': messages, 'total': await chan.message_store.total()}
 
@@ -309,7 +316,8 @@ class RemoteAdminClient():
         result = self.send_command('list_msgs', list_msg_args)
 
         for m in result['messages']:
-            m['message'] = message.Message.from_json(m['message'])
+            if "message" in m:
+                m.pop("message")
 
         return result
 
@@ -460,7 +468,6 @@ class PypemanShell(cmd.Cmd):
             to filter messages
             - to filter messages, you can pass text and rtext (string between double quotes)
             to filter messages
-            - to preview 100 firsts characters of the message payload, pass the argument `--preview`
         """
         dquote_args_regex = r'\w+=".*?"'
         dquote_args = re.findall(dquote_args_regex, arg)
@@ -473,7 +480,6 @@ class PypemanShell(cmd.Cmd):
         start, end, order_by = 0, 100, '-timestamp'
         start_dt = None
         end_dt = None
-        to_preview = False
         text = None
         rtext = None
 
@@ -486,9 +492,6 @@ class PypemanShell(cmd.Cmd):
                     args.remove(arg)
                 if arg.startswith("end_dt="):
                     end_dt = arg.split("=")[1]
-                    args.remove(arg)
-                if arg == "--preview":
-                    to_preview = True
                     args.remove(arg)
                 if arg.startswith("text="):
                     text = arg.split("=", 1)[1]
@@ -512,9 +515,7 @@ class PypemanShell(cmd.Cmd):
             print('No message yet.')
 
         for res in result['messages']:
-            print(res['message'].timestamp, res['id'], res['state'])
-            if to_preview:
-                print(res['message'].payload[:100])
+            print(res['timestamp'], res['id'], res['state'])
 
     @_with_current_channel
     def do_replay(self, channel, arg):

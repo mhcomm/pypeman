@@ -80,7 +80,9 @@ async def stop_channel(request, ws=None):
 
 async def list_msgs(request, ws=None):
     """
-    List first `count` messages from message store of specified channel.
+    List first `count` message infos from message store of specified channel.
+    Return list of dicts with the id, the status and the timestamp of the message
+    without the content.
 
     :params channelname: The channel name.
 
@@ -112,8 +114,11 @@ async def list_msgs(request, ws=None):
         text=text, rtext=rtext) or []
 
     for res in messages:
+        res["id"] = res["id"]
+        res["state"] = res.get("state", "UNKNOWN")
         res['timestamp'] = res['message'].timestamp_str()
-        res['message'] = res['message'].to_json()
+        if "message" in res:
+            res.pop("message")
 
     resp_dict = {'messages': messages, 'total': await chan.message_store.total()}
     if ws is not None:
@@ -211,6 +216,7 @@ class RPCWebSocketResponse(web.WebSocketResponse):
 
 async def backport_old_client(request):
     ws = RPCWebSocketResponse()
+    logger.debug("Receiving a request from the shell client (%r)", vars(request))
     await ws.prepare(request)
     async for msg in ws:
         try:

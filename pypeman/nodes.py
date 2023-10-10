@@ -190,7 +190,7 @@ class BaseNode:
                     # TODO Here result is last value returned. Is it a good idea ?
             else:
                 if self.store_output_as:
-                    msg.add_context(self.store_output_as, msg)
+                    result.add_context(self.store_output_as, result)
 
                 if self.passthrough:
                     result.payload = old_msg.payload

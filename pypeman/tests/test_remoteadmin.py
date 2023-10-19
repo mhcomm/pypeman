@@ -145,11 +145,11 @@ class RemoteAdminTests(TestCase):
         self.assertEqual(msg_list['messages'][0]['id'], idref_msg3, 'List channel messages broken')
 
         # Replay message
-        result = client.replay_msg('test_remote050', [idref_msg3])
+        result = client.replay_msg('test_remote050', idref_msg3)
 
         msg_list = client.list_msgs(channel='test_remote050', start=0, count=5, order_by='-timestamp')
         self.assertEqual(msg_list['total'], 5, 'List channel messages broken')
-        self.assertEqual(msg_list['messages'][0]['id'], result[0].uuid, 'Replay messages broken')
+        self.assertEqual(msg_list['messages'][0]['id'], result.uuid, 'Replay messages broken')
 
         # Push message
         result = client.push_msg(channel='test_remote050', text="Yaaay")
@@ -159,15 +159,13 @@ class RemoteAdminTests(TestCase):
         self.assertEqual(msg_list['messages'][0]['id'], result.uuid, 'Push message broken')
 
         # View message
-        msg_list = client.view_msg(channel='test_remote050', msg_ids=[idref_msg3])
-        print(msg_list)
+        msg_infos = client.view_msg(channel='test_remote050', msg_id=idref_msg3)
+        print(msg_infos)
 
-        self.assertEqual(len(msg_list), 1, 'View messages broken')
-        self.assertEqual(msg_list[0].payload, msg3.payload, 'View messages broken')
+        self.assertEqual(msg_infos.payload, msg3.payload, 'View messages broken')
 
         # Preview message
-        msg_list = client.preview_msg(channel='test_remote050', msg_ids=[idref_msg3])
-        print(msg_list)
+        msg_infos = client.preview_msg(channel='test_remote050', msg_id=idref_msg3)
+        print(msg_infos)
 
-        self.assertEqual(len(msg_list), 1, 'Preview messages broken')
-        self.assertEqual(msg_list[0].payload, msg3.payload[:1000], 'Preview messages broken')
+        self.assertEqual(msg_infos.payload, msg3.payload[:1000], 'Preview messages broken')

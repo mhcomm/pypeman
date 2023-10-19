@@ -1,5 +1,9 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
 
+## [0.5.4](https://github.com/mhcomm/pypeman/compare/0.5.4...0.5.5)
+* Fix store_output_as
+* Fix remote admin
+
 ## [0.5.4](https://github.com/mhcomm/pypeman/compare/0.5.3...0.5.4)
 * Change ReadTheDocs config file from v1 to v2
 * FIX subchannel endnodes that was launched ever if the msg doesn't enter in the subchan

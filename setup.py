@@ -41,9 +41,16 @@ setup(
         "pypeman.contrib",
         "pypeman.helpers",
         "pypeman.plugins",
-        "pypeman.plugins.remoteadmin"
+        "pypeman.plugins.remoteadmin",
+        "pypeman.tests",
+        "pypeman.tests.test_app",
+        "pypeman.tests.test_app_testing",
+        "pypeman.tests.settings",
     ],
 
+    package_data={
+        "pypeman.tests": ["data/*"],
+    },
     entry_points={
         "console_scripts": [
             "pypeman = pypeman.commands:cli",

@@ -69,6 +69,10 @@ class HTTPEndpoint(endpoints.SocketEndpoint):
         super().__init__(loop=loop, sock=sock, reuse_port=reuse_port)
 
     def add_route(self, *args, **kwargs):
+        """
+        Adds a route to the http server.
+        This is normally called when an http channel is added to this endpoint
+        """
         if self._app is None:
             self._app = web.Application(**self.http_args)
 
@@ -93,19 +97,31 @@ class HTTPEndpoint(endpoints.SocketEndpoint):
 
 class HttpChannel(channels.BaseChannel):
     """
-    Channel that handles Http connection. The Http message is the message payload and some headers
+    Channel that handles Http requests to a given path of the url.
+    The Http message is the message payload and some headers
     become metadata of message. Needs ``aiohttp`` python dependency to work.
 
-    :param endpoint: HTTP endpoint used to get connections.
+    :param endpoint: HTTP endpoin the channel will be using. ( scheme://fqdn:port for example)
     :param method: Method filter.
     :param url: Only matching urls messages will be sent to this channel.
     :param encoding: Encoding of message. Default to 'utf-8'.
+    :param add_headers: if True headers will be added to the message meta data
 
     """
     app = None
 
-    def __init__(self, *args, endpoint=None, method='*', url='/', encoding=None, **kwargs):
+    def __init__(
+        self,
+        *args,
+        endpoint=None,
+        method='*',
+        url='/',
+        encoding=None,
+        add_headers=False,
+        **kwargs
+    ):
         super().__init__(*args, **kwargs)
+        self.add_headers = add_headers
         self.method = method
         self.url = url
         self.encoding = encoding
@@ -132,6 +148,8 @@ class HttpChannel(channels.BaseChannel):
             'url': str(request.url),
             'get_params': dict(request.query),
             })
+        if self.add_headers:
+            meta["headers"] = [(hdr, val) for (hdr, val) in request.headers.items()]
 
         msg = message.Message(content_type='http_request', payload=content, meta=meta)
         try:

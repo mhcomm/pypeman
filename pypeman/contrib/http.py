@@ -138,7 +138,10 @@ class HttpChannel(channels.BaseChannel):
             result = await self.handle(msg)
             encoding = self.encoding or 'utf-8'
             return web.Response(
-                body=str(result.payload).encode(encoding), status=result.meta.get('status', 200))
+                body=str(result.payload).encode(encoding),
+                status=result.meta.get('status', 200),
+                content_type=getattr(result, "content_type", None),
+            )
 
         except channels.Dropped:
             return web.Response(body="Dropped".encode('utf-8'), status=200)

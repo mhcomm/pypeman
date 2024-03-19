@@ -101,7 +101,7 @@ class HttpChannel(channels.BaseChannel):
     The Http message is the message payload and some headers
     become metadata of message. Needs ``aiohttp`` python dependency to work.
 
-    :param endpoint: HTTP endpoin the channel will be using. ( scheme://fqdn:port for example)
+    :param endpoint: HTTP endpoint the channel will be using. ( scheme://fqdn:port for example)
     :param method: Method filter.
     :param url: Only matching urls messages will be sent to this channel.
     :param encoding: Encoding of message. Default to 'utf-8'.

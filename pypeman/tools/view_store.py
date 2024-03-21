@@ -72,7 +72,7 @@ def handle_store_entry(path, pl_type=None, filters=None, action=print):
 
 
 def process_file_store(
-        path, pl_type=None, filters=None, action=print):
+        path, pl_type=None, filters=None, action=print_msg):
     """
     handles one or multiple file store messages
     must later see how to make code handle also other stores
@@ -83,7 +83,8 @@ def process_file_store(
     """
 
     if path.is_file():
-        handle_store_entry(path, pl_type=pl_type, filters=filters)
+        handle_store_entry(
+            path, pl_type=pl_type, filters=filters, action=action)
 
     all_entries = path.glob("**/*")
     f_paths = (

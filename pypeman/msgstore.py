@@ -505,6 +505,10 @@ class FileMessageStore(MessageStore):
                                 if not await self.is_regex_in_msg(mid, rtext):
                                     continue
                             if start <= position < end:
+                                # TODO: need to do processing of payload
+                                #       before filtering (HL7 / json-str)
+                                # TODO: add filter here
+                                # TODO: can we transfoer into a generator?
                                 result.append(await self.get(mid))
                             position += 1
         return result

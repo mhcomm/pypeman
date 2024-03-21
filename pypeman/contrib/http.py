@@ -197,6 +197,8 @@ class HttpRequest(nodes.BaseNode):
         self.method = method
         self.headers = headers
         self.cookies = cookies
+        if isinstance(auth, tuple):
+            auth = aiohttp.BasicAuth(*auth)
         self.auth = auth
         self.verify = verify
         self.params = params
@@ -295,10 +297,7 @@ class HttpRequest(nodes.BaseNode):
                 else:
                     get_params.append((key, param))
 
-        if isinstance(self.auth, tuple):
-            basic_auth = aiohttp.BasicAuth(self.auth[0], self.auth[1])
-        else:
-            basic_auth = self.auth
+        basic_auth = self.auth
 
         data = None
         if method.lower() in ['put', 'post', 'patch']:

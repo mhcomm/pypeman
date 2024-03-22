@@ -6,12 +6,15 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from collections import defaultdict
 import importlib
+import logging
 
 from sqlitedict import SqliteDict
 
 from pypeman.conf import settings
 
 SENTINEL = object()
+
+logger = logging.getLogger(__name__)
 
 _backend = None
 
@@ -33,7 +36,9 @@ async def get_backend(loop):
         _backend = getattr(loaded_module, class_)(loop=loop, **settings.PERSISTENCE_CONFIG)
 
         await _backend.start()
-
+    if _backend.loop != loop:
+        logger.warning("Backend loop not the same as loop argument, changing it")
+        _backend.loop = loop
     return _backend
 
 

@@ -46,6 +46,7 @@ setup(
         "pypeman.tests.test_app",
         "pypeman.tests.test_app_testing",
         "pypeman.tests.settings",
+        "pypeman.tools",
     ],
 
     package_data={
@@ -54,6 +55,7 @@ setup(
     entry_points={
         "console_scripts": [
             "pypeman = pypeman.commands:cli",
+            "pypeman_tool = pypeman.tool_commands:main",
         ]
     },
 

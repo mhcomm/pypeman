@@ -491,7 +491,12 @@ class FileMessageStore(MessageStore):
 
         with open(os.path.join(self.base_path, id), "rb") as f:
             msg = Message.from_json(f.read().decode('utf-8'))
-            return {'id': id, 'state': await self.get_message_state(id), 'message': msg}
+            return {
+                'id': id,
+                'state': await self.get_message_state(id),
+                'message': msg,
+                "meta": await self.get_message_meta_infos(id)
+            }
 
     async def get_preview_str(self, id):
         msg = await self.get_msg_content(id)

@@ -1,5 +1,6 @@
 import datetime
 import dateutil.parser
+import json
 import logging
 import os
 import re
@@ -41,6 +42,24 @@ class MessageStore():
 
         :param msg: The message to store.
         :return: Id for this specific message.
+        """
+
+    async def add_message_meta_infos(self, id, meta_info_name, info):
+        """
+        Add message meta infos in the store
+
+        :param id: Message specific store id.
+        :param meta_info_name: The name of the meta info to create/update
+        :param info: The info value
+        """
+
+    async def get_message_meta_infos(self, id, meta_info_name=None):
+        """
+        Get message meta infos in the store
+
+        :param id: Message specific store id.
+        :param meta_info_name: (optional) The name of the meta info to get,
+            if not set returns the entire dict
         """
 
     async def change_message_state(self, id, new_state):
@@ -140,6 +159,12 @@ class NullMessageStore(MessageStore):
     async def get(self, id):
         return None
 
+    async def add_message_meta_infos(self, id, meta_info_name, info):
+        return None
+
+    async def get_message_meta_infos(self, id, meta_info_name=None):
+        return None
+
     async def get_preview_str(self, id):
         return None
 
@@ -168,6 +193,12 @@ class FakeMessageStore(MessageStore):
     async def store(self, msg):
         logger.debug("Should store message %s", msg)
         return 'fake_id'
+
+    async def add_message_meta_infos(self, id, meta_info_name, info):
+        return None
+
+    async def get_message_meta_infos(self, id, meta_info_name=None):
+        return "processed"
 
     async def get(self, id):
         return {'id': id, 'state': 'processed', 'message': None}
@@ -222,7 +253,13 @@ class MemoryMessageStore(MessageStore):
         return msg_id
 
     async def change_message_state(self, id, new_state):
-        self.messages[id]['state'] = new_state
+        await self.add_message_meta_infos(id, "state", new_state)
+
+    async def add_message_meta_infos(self, id, meta_info_name, info):
+        self.messages[id][meta_info_name] = info
+
+    async def get_message_meta_infos(self, id, meta_info_name=None):
+        return self.messages[id][meta_info_name]
 
     async def get(self, id):
         resp = dict(self.messages[id])
@@ -378,14 +415,75 @@ class FileMessageStore(MessageStore):
 
         return file_path
 
+    def _is_json_meta(self, id):
+        """Check if the message meta file is a json. If it's not,
+        the message is an old message that doesnt contains other infos in
+        meta except the state
+
+        Args:
+            id (str): The id of the message
+        """
+        meta_fpath = (Path(self.base_path) / id).with_suffix(".meta")
+        if not meta_fpath.exists():
+            return False
+        with meta_fpath.open("r") as fin:
+            try:
+                json.load(fin)
+                return True
+            except json.JSONDecodeError:
+                return False
+
+    def _convert_meta_to_json(self, id):
+        """Convert an old message meta to a new one (json)
+
+        Args:
+            id (str): The id of the message to convert
+        """
+        meta_fpath = (Path(self.base_path) / id).with_suffix(".meta")
+        with meta_fpath.open("r") as fin:
+            state = fin.read()
+        meta_data = {"state": state}
+        with meta_fpath.open("w") as fout:
+            json.dump(meta_data, fout)
+        return meta_data
+
+    async def get_message_meta_infos(self, id, meta_info_name=None):
+        meta_fpath = (Path(self.base_path) / id).with_suffix(".meta")
+        if meta_fpath.exists():
+            is_new_meta_file = self._is_json_meta(id)
+            if not is_new_meta_file:
+                meta_data = self._convert_meta_to_json(id)
+            else:
+                with meta_fpath.open("r") as fin:
+                    meta_data = json.load(fin)
+        else:
+            meta_data = {}
+
+        if meta_info_name:
+            meta_data = meta_data.get(meta_info_name)
+        return meta_data
+
+    async def add_message_meta_infos(self, id, meta_info_name, info):
+        meta_fpath = (Path(self.base_path) / id).with_suffix(".meta")
+        if meta_fpath.exists():
+            is_new_meta_file = self._is_json_meta(id)
+            if not is_new_meta_file:
+                meta_data = self._convert_meta_to_json(id)
+            else:
+                with meta_fpath.open("r") as fin:
+                    meta_data = json.load(fin)
+        else:
+            meta_data = {}
+
+        meta_data[meta_info_name] = info
+        with meta_fpath.open("w") as fout:
+            json.dump(meta_data, fout)
+
     async def change_message_state(self, id, new_state):
-        with open(os.path.join(self.base_path, id + '.meta'), "w") as f:
-            f.write(new_state)
+        await self.add_message_meta_infos(id, "state", new_state)
 
     async def get_message_state(self, id):
-        with open(os.path.join(self.base_path, id + '.meta'), "r") as f:
-            state = f.read()
-            return state
+        return await self.get_message_meta_infos(id, "state")
 
     async def get(self, id):
         if not os.path.exists(os.path.join(self.base_path, id)):

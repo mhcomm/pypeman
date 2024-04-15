@@ -335,6 +335,7 @@ class HttpRequest(nodes.BaseNode):
         """ handles request """
         resp = await self.handle_request(msg)
         msg.meta["status_code"] = resp.status
+        msg.meta["url"] = str(resp.url)
         resp_content = resp.content
         if self.json:
             try:

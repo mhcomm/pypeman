@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import shutil
+import tempfile
 import time
 
 from hl7.client import MLLPClient
@@ -1235,3 +1237,68 @@ class ChannelsTests(TestCase):
             mllp_chan_thread.kill()
             mllp_chan_thread.join()
         assert n1.last_input().payload == hl7_strdata
+
+    def test_mergechannel(self):
+        ftest_dir = Path(__file__).parent / "data"
+        txt_fpath = ftest_dir / "testfile.txt"
+
+        with tempfile.TemporaryDirectory() as tmpdirpath1:
+            with tempfile.TemporaryDirectory() as tmpdirpath2:
+                # Conf file watcher 1
+                file_chan1_bdir = tmpdirpath1
+                file_chan1_regex = r".*\.txt$"
+                file_chan1_name = "test_channelfile1"
+
+                # Conf file watcher 2
+                file_chan2_bdir = tmpdirpath2
+                file_chan2_regex = r".*\.txt$"
+                file_chan2_name = "test_channelfile2"
+
+                # Conf Merge Channel
+                merge_chan_name = "test_channelmerge0"
+                # Init channels
+                file_chan1 = channels.FileWatcherChannel(
+                    name=file_chan1_name,
+                    basedir=file_chan1_bdir,
+                    regex=file_chan1_regex,
+                    interval=0.1,
+                    loop=self.loop
+                )
+                file_chan2 = channels.FileWatcherChannel(
+                    name=file_chan2_name,
+                    basedir=file_chan2_bdir,
+                    regex=file_chan2_regex,
+                    interval=0.1,
+                    loop=self.loop
+                )
+                merge_chan = channels.MergeChannel(
+                    name=merge_chan_name, chans=[file_chan1, file_chan2], loop=self.loop)
+                delete_node = nodes.FileCleaner()
+                merge_chan.add(delete_node)
+                merge_chan._reset_test()
+
+                # Test that only merge chan is in all_channels
+                self.assertNotIn(file_chan1, channels.all_channels)
+                self.assertNotIn(file_chan2, channels.all_channels)
+                self.assertIn(merge_chan, channels.all_channels)
+                self.start_channels()
+
+                time.sleep(0.1)  # wait to be sure channels are started
+
+                self.assertEqual(merge_chan.processed_msgs, 0)
+
+                # Test file chan1 processing
+                infpath_chan1 = Path(tmpdirpath1) / txt_fpath.name
+                shutil.copy(txt_fpath, infpath_chan1)
+                self.loop.run_until_complete(file_chan1.watch_for_file())
+                self.loop.run_until_complete(file_chan2.watch_for_file())
+                self.assertEqual(merge_chan.processed_msgs, 1)
+                self.assertFalse(infpath_chan1.exists())
+
+                # Test File2 processing
+                infpath_chan2 = Path(tmpdirpath2) / txt_fpath.name
+                shutil.copy(txt_fpath, infpath_chan2)
+                self.loop.run_until_complete(file_chan1.watch_for_file())
+                self.loop.run_until_complete(file_chan2.watch_for_file())
+                self.assertEqual(merge_chan.processed_msgs, 2)
+                self.assertFalse(infpath_chan2.exists())

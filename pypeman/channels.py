@@ -815,6 +815,33 @@ class Case():
         return result
 
 
+class MergeChannel(BaseChannel):
+    """
+    This class permits to have multiple watchers as inputs to a same channel
+
+    Args:
+        channels (list of channel watchers): List of channel watchers to use as inputs
+    """
+
+    def __init__(self, *args, chans, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.channels = chans
+        for channel in self.channels:
+            all_channels.remove(channel)
+            channel.handle = self.handle
+            channel.handle_and_wait = self.handle_and_wait
+
+    async def start(self):
+        for channel in self.channels:
+            await channel.start()
+        await super().start()
+
+    async def stop(self):
+        for channel in self.channels:
+            await channel.stop()
+        await super().stop()
+
+
 class FileWatcherChannel(BaseChannel):
     """
     Watch for file change or creation. File content becomes message payload.

@@ -822,6 +822,21 @@ class MergeChannel(BaseChannel):
     TODO: CAUTION: Not sure that input channels works with end nodes + they don't
         appears in graph
 
+    TODO: check why we need
+        if channel.loop != self.loop:
+            channel.loop = self.loop
+    There's a bug with event loop (maybe only on tests) but weird
+    (traceback: RuntimeError: Task <Task pending name='Task-126' coro=<MergeChannel.start()
+    running at
+    /home/quentin/projects/interop2/app/vendor/common/custom_channels.py:51>
+    cb=[_run_until_complete_cb()
+    at /home/quentin/.pyenv/versions/3.10.10/lib/python3.10/asyncio/base_events.py:184]>
+    got Future
+    <Future pending cb=[_chain_future.<locals>._call_check_cancel() at
+    /home/quentin/.pyenv/versions/3.10.10/lib/python3.10/asyncio/futures.py:385]>
+    attached to a different loop
+    )
+
     Args:
         channels (list of channels): List of channels to use as inputs
     """
@@ -833,14 +848,20 @@ class MergeChannel(BaseChannel):
             all_channels.remove(channel)
             channel.handle = self.handle
             channel.handle_and_wait = self.handle_and_wait
+            if channel.loop != self.loop:
+                channel.loop = self.loop
 
     async def start(self):
         for channel in self.channels:
+            if channel.loop != self.loop:
+                channel.loop = self.loop
             await channel.start()
         await super().start()
 
     async def stop(self):
         for channel in self.channels:
+            if channel.loop != self.loop:
+                channel.loop = self.loop
             await channel.stop()
         await super().stop()
 

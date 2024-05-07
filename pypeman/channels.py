@@ -817,12 +817,13 @@ class Case():
 
 class MergeChannel(BaseChannel):
     """
-    This class permits to have multiple watchers as inputs to a same channel
+    This class permits to have multiple channel classes (watchers/listeners/..)
+    as inputs to a single channel
     TODO: CAUTION: Not sure that input channels works with end nodes + they don't
         appears in graph
 
     Args:
-        channels (list of channel watchers): List of channel watchers to use as inputs
+        channels (list of channels): List of channels to use as inputs
     """
 
     def __init__(self, *args, chans, **kwargs):

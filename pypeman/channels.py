@@ -818,6 +818,8 @@ class Case():
 class MergeChannel(BaseChannel):
     """
     This class permits to have multiple watchers as inputs to a same channel
+    TODO: CAUTION: Not sure that input channels works with end nodes + they don't
+        appears in graph
 
     Args:
         channels (list of channel watchers): List of channel watchers to use as inputs

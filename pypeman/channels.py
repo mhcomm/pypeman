@@ -64,7 +64,7 @@ class BaseChannel:
     STATE_NAMES = ['STARTING', 'WAITING', 'PROCESSING', 'STOPPING', 'STOPPED']
 
     def __init__(self, name=None, parent_channel=None, loop=None, message_store_factory=None,
-                 wait_subchans=False):
+                 wait_subchans=False, verbose_name=None):
 
         self.uuid = uuid.uuid4()
 
@@ -111,6 +111,10 @@ class BaseChannel:
                 "Duplicate channel name %r . "
                 "Channel names must be unique !" % self.name
             )
+        if verbose_name:
+            self.verbose_name = verbose_name
+        else:
+            self.verbose_name = self.name
 
         _channel_names.add(self.name)
 
@@ -479,6 +483,7 @@ class BaseChannel:
     def to_dict(self):
         return {
             'name': self.name,
+            'verbose_name': self.verbose_name,
             'status': BaseChannel.status_id_to_str(self.status),
             'has_message_store': not isinstance(self.message_store, msgstore.NullMessageStore),
             'processed': self.processed_msgs,

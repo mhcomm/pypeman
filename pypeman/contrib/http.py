@@ -302,7 +302,11 @@ class HttpRequest(nodes.BaseNode):
         data = None
         if method.lower() in ['put', 'post', 'patch']:
             data = msg.payload
-        async with aiohttp.ClientSession(connector=conn, cookies=cookies) as session:
+        async with aiohttp.ClientSession(
+            connector=conn,
+            cookies=cookies,
+            trust_env=True,  # respect e.g. http_proxy env vars
+        ) as session:
             if self.send_as_json:
                 resp = await session.request(
                         method=method,

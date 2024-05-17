@@ -1,6 +1,15 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
 
-## [0.5.4](https://github.com/mhcomm/pypeman/compare/0.5.4...0.5.5)
+## [0.5.6](https://github.com/mhcomm/pypeman/compare/0.5.5...0.5.6)
+* Fix backend loop argument for tests
+* Robustify CI
+* HttpChannel: add headers and msg.content_type meta data
+* Add command to view and send from store
+* HttpRequest node: Respect of env vars + add url meta info in out msg
+* MsgStore: Add infos in msg meta
+* Add a verbose name to channels
+
+## [0.5.5](https://github.com/mhcomm/pypeman/compare/0.5.4...0.5.5)
 * Fix store_output_as
 * Fix remote admin
 

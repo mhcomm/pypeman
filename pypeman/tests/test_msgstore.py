@@ -1,7 +1,11 @@
-import os
+
 import asyncio
+import json
+import os
 import shutil
 import tempfile
+
+from pathlib import Path
 
 from pypeman import channels
 from pypeman import msgstore
@@ -328,3 +332,26 @@ class MsgstoreTests(TestCase):
 
         # TODO put in tear_down ?
         shutil.rmtree(tempdir, ignore_errors=True)
+
+    def test_file_message_store_meta(self):
+        """Tests for meta in file message store"""
+        data_tst_path = Path(__file__).resolve().parent / "data"
+        old_meta_tst_path = data_tst_path / "old_meta.meta"
+        new_meta_tst_path = data_tst_path / "new_meta.meta"
+        with new_meta_tst_path.open("r") as fin:
+            new_meta_data = json.load(fin)
+        msg_id = "msgid"
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            print(tempdir)
+            store_factory = msgstore.FileMessageStoreFactory(path=tempdir)
+            store = store_factory.get_store(store_id="")
+            meta_dst_path = Path(tempdir) / f"{msg_id}.meta"
+            shutil.copy(old_meta_tst_path, meta_dst_path)
+            # Tests that msgstore could read an old meta file
+            msg_state = asyncio.run(store.get_message_state(msg_id))
+            self.assertEqual(msg_state, "processed")
+            # Test that the old meta file is converted to a new json meta file
+            with meta_dst_path.open("r") as fin:
+                meta_data = json.load(fin)
+            self.assertDictEqual(new_meta_data, meta_data)

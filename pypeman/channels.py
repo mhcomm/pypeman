@@ -396,6 +396,7 @@ class BaseChannel:
                 msg.chan_exc = exc
                 msg.chan_exc_traceback = traceback.format_exc()
                 await self.message_store.change_message_state(msg_store_id, message.Message.REJECTED)
+                await self.message_store.add_message_meta_infos(msg_store_id, "err_msg", str(exc))
                 if self.reject_nodes and not has_callback:
                     await self.reject_nodes[0].handle(msg.copy())
                 raise
@@ -404,6 +405,7 @@ class BaseChannel:
                 msg.chan_exc_traceback = traceback.format_exc()
                 self.logger.error('Error while processing message %s (chan %s)', str(msg), str(self))
                 await self.message_store.change_message_state(msg_store_id, message.Message.ERROR)
+                await self.message_store.add_message_meta_infos(msg_store_id, "err_msg", str(exc))
                 if self.fail_nodes and not has_callback:
                     await self.fail_nodes[0].handle(msg.copy())
                 raise

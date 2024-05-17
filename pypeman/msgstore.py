@@ -417,7 +417,7 @@ class FileMessageStore(MessageStore):
 
     def _is_json_meta(self, id):
         """Check if the message meta file is a json. If it's not,
-        the message is an old message that doesnt contains other infos in
+        the message is an old message that doesnt contain other infos in
         meta except the state
 
         Args:

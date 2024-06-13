@@ -288,12 +288,12 @@ class MsgstoreTests(TestCase):
 
         # Test processed message
         dict_msg = self.loop.run_until_complete(
-            chan.message_store.get('1982/11/28/19821128_1235_%s' % msg3.uuid))
+            chan.message_store.get('19821128_1235_%s' % msg3.uuid))
         self.assertEqual(dict_msg['state'], 'processed', "Message %s should be in processed state!" % msg3)
 
         # Test failed message
         dict_msg = self.loop.run_until_complete(
-            chan.message_store.get('1982/11/12/19821112_1435_%s' % msg5.uuid))
+            chan.message_store.get('19821112_1435_%s' % msg5.uuid))
         self.assertEqual(dict_msg['state'], 'error', "Message %s should be in error state!" % msg5)
 
         self.assertTrue(os.path.exists("%s/%s/1982/11/28/19821128_1235_%s"
@@ -320,12 +320,12 @@ class MsgstoreTests(TestCase):
 
         # Test view message
         msg_content = self.loop.run_until_complete(chan.message_store.get_msg_content(
-            '1982/11/12/19821112_1435_%s' % msg5.uuid))
+            '19821112_1435_%s' % msg5.uuid))
         self.assertEqual(msg_content.payload, msg5.payload, "Failure of message %s view!" % msg5)
 
         # Test preview message
         msg_content = self.loop.run_until_complete(chan.message_store.get_preview_str(
-            '1982/11/12/19821112_1435_%s' % msg5.uuid))
+            '19821112_1435_%s' % msg5.uuid))
         self.assertEqual(msg_content.payload, msg5.payload[:1000], "Failure of message %s preview!" % msg5)
 
         self.clean_loop()
@@ -340,13 +340,20 @@ class MsgstoreTests(TestCase):
         new_meta_tst_path = data_tst_path / "new_meta.meta"
         with new_meta_tst_path.open("r") as fin:
             new_meta_data = json.load(fin)
-        msg_id = "msgid"
+        msg_uid = "msgid"
+        msg_year = "2024"
+        msg_month = "06"
+        msg_day = "13"
+        msg_date = f"{msg_year}{msg_month}{msg_day}"
+        msg_time = "0000"
+        msg_id = f"{msg_date}_{msg_time}_{msg_uid}"
 
         with tempfile.TemporaryDirectory() as tempdir:
-            print(tempdir)
             store_factory = msgstore.FileMessageStoreFactory(path=tempdir)
             store = store_factory.get_store(store_id="")
-            meta_dst_path = Path(tempdir) / f"{msg_id}.meta"
+            meta_dst_folder_path = Path(tempdir) / msg_year / msg_month / msg_day
+            meta_dst_folder_path.mkdir(parents=True, exist_ok=True)
+            meta_dst_path = meta_dst_folder_path / f"{msg_id}.meta"
             shutil.copy(old_meta_tst_path, meta_dst_path)
             # Tests that msgstore could read an old meta file
             msg_state = asyncio.run(store.get_message_state(msg_id))

@@ -88,16 +88,24 @@ class Message():
             payload=copy.deepcopy(msg.payload),
         )
 
-    def to_dict(self):
+    def to_dict(self, encode_payload=True):
         """
-        Convert the current message object to a dict. Payload is pickled.
+        Convert the current message object to a dict.
+        Payload is pickled and b64 encoded if encode_payload not set to False
 
         :return: A dict with an equivalent of message
         """
         result = {}
         result['timestamp'] = self.timestamp.strftime(DATE_FORMAT)
         result['uuid'] = self.uuid
-        result['payload'] = base64.b64encode(pickle.dumps(self.payload)).decode('ascii')
+        if encode_payload:
+            result['payload'] = base64.b64encode(pickle.dumps(self.payload)).decode('ascii')
+        else:
+            try:
+                result['payload'] = str(self.payload)
+            except Exception:
+                default_logger.warning("Cannot convert to string payload %r, pickling it")
+                result['payload'] = base64.b64encode(pickle.dumps(self.payload)).decode('ascii')
         result['meta'] = self.meta
         result['ctx'] = {}
 

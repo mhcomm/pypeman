@@ -133,13 +133,18 @@ async def replay_msg(request, ws=None):
 
     :params channel: The channel name.
     :params msg_id: The message id to replay.
+
+    :queryparams:
+        encode_payload (Bool, default=False): Force pickling and encoding the payload or not
     """
     channelname = request.match_info['channelname']
     message_id = request.match_info['message_id']
+    args = request.rel_url.query
+    encode_payload = args.get("encode_payload", False)
     chan = get_channel(channelname)
     try:
         msg_res = await chan.replay(message_id)
-        result = msg_res.to_dict()
+        result = msg_res.to_dict(encode_payload=encode_payload)
     except IndexError:
         message = f"Cannot replay msg, id {message_id} probably doesn't exists"
         logger.error(message)
@@ -160,16 +165,22 @@ async def view_msg(request, ws=None):
 
     :params channelname: The channel name.
     :params message_id: The message id to view
+
+    :queryparams:
+        encode_payload (Bool, default=False): Force pickling and encoding the payload or not
     """
 
     channelname = request.match_info['channelname']
     message_id = request.match_info['message_id']
 
+    args = request.rel_url.query
+    encode_payload = args.get("encode_payload", False)
+
     chan = get_channel(channelname)
 
     try:
         msg_res = await chan.message_store.get_msg_content(message_id)
-        result = msg_res.to_dict()
+        result = msg_res.to_dict(encode_payload=encode_payload)
     except IndexError:
         message = f"Cannot view msg, id {message_id} probably doesn't exists"
         logger.error(message)
@@ -190,14 +201,20 @@ async def preview_msg(request, ws=None):
 
     :params channelname: The channel name.
     :params message_id: The message id to preview
+
+    :queryparams:
+        encode_payload (Bool, default=False): Force pickling and encoding the payload or not
     """
     channelname = request.match_info['channelname']
     message_id = request.match_info['message_id']
 
+    args = request.rel_url.query
+    encode_payload = args.get("encode_payload", False)
+
     chan = get_channel(channelname)
     try:
         msg_res = await chan.message_store.get_preview_str(message_id)
-        result = msg_res.to_dict()
+        result = msg_res.to_dict(encode_payload=encode_payload)
     except IndexError:
         message = f"Cannot preview msg, id {message_id} probably doesn't exists"
         logger.error(message)
@@ -248,11 +265,15 @@ async def backport_old_client(request):
         elif cmd_method == "preview_msg":
             message_id = params[1]
             request.match_info["message_id"] = message_id
-            await preview_msg(request, ws=ws)
+            query_url = request.rel_url.with_query({"encode_payload": "True"})
+            new_req = request.clone(rel_url=query_url)
+            await preview_msg(request=new_req, ws=ws)
         elif cmd_method == "view_msg":
             message_id = params[1]
             request.match_info["message_id"] = message_id
-            await view_msg(request=request, ws=ws)
+            query_url = request.rel_url.with_query({"encode_payload": "True"})
+            new_req = request.clone(rel_url=query_url)
+            await view_msg(request=new_req, ws=ws)
         elif cmd_method == "replay_msg":
             message_id = params[1]
             request.match_info["message_id"] = message_id

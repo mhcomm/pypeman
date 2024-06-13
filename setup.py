@@ -61,6 +61,7 @@ setup(
 
     test_suite="nose.collector",
     install_requires=[
+        "asyncssh",
         "click",
         "daemonlite",
         "python-dateutil",
@@ -73,10 +74,11 @@ setup(
         "requests"
     ],
     extras_require={
+        "sftp": ["asyncssh"],
         "hl7": ["hl7"],
         "xml": ["xmltodict"],
         "time": ["aiocron"],
-        "all": ["hl7", "xmltodict", "aiocron"]
+        "all": ["asyncssh", "hl7", "xmltodict", "aiocron"]
     },
     setup_requires=["pytest-runner"],
     tests_require=[

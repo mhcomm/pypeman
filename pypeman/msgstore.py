@@ -349,7 +349,7 @@ class MemoryMessageStore(MessageStore):
 class FileMessageStoreFactory(MessageStoreFactory):
     """
     Generate a FileMessageStore message store instance.
-    Store a file in `<base_path>/<store_id>/<month>/<day>/` hierachy.
+    Store a file in `<base_path>/<store_id>/<year>/<month>/<day>/` hierachy.
     """
 
     # TODO add an option to reguraly archive old file or delete them
@@ -364,7 +364,7 @@ class FileMessageStoreFactory(MessageStoreFactory):
 
 
 class FileMessageStore(MessageStore):
-    """ Store a file in `<base_path>/<store_id>/<month>/<day>/` hierachy."""
+    """ Store a file in `<base_path>/<store_id>/<year>/<month>/<day>/` hierachy."""
     # TODO file access should be done in another thread. Waiting for file backend.
 
     def __init__(self, path, store_id):
@@ -374,7 +374,7 @@ class FileMessageStore(MessageStore):
 
         # Match msg file name
         self.msg_re = re.compile(
-            r'^(?P<msg_date>[0-9]{8})_(?P<msg_time>[0-9]{2}[0-9]{2})_(?P<msg_uid>[0-9abcdef]*)$')
+            r'^(?P<msg_date>[0-9]{8})_(?P<msg_time>[0-9]{2}[0-9]{2})_(?P<msg_uid>[0-9a-zA-Z]*)$')
 
         try:
             # Try to make dirs if necessary
@@ -383,6 +383,17 @@ class FileMessageStore(MessageStore):
             pass
 
         self._total = 0
+
+    def id2path(self, id):
+        match = self.msg_re.match(id)
+        if not match:
+            raise ValueError(f"Id '{id}' not a correct id")
+        msg_str_date = match.groupdict()["msg_date"]
+        year = msg_str_date[:4]
+        month = msg_str_date[4:6]
+        day = msg_str_date[6:8]
+        msg_path = Path(self.base_path) / year / month / day / id
+        return msg_path
 
     async def start(self):
         self._total = await self.count_msgs()
@@ -393,27 +404,18 @@ class FileMessageStore(MessageStore):
 
         # The filename is the file id
         filename = "{}_{}".format(msg.timestamp.strftime(DATE_FORMAT), msg.uuid)
-        dirs = os.path.join(str(msg.timestamp.year),
-                            "%02d" % msg.timestamp.month,
-                            "%02d" % msg.timestamp.day)
-
-        try:
-            # Try to make dirs if necessary
-            os.makedirs(os.path.join(self.base_path, dirs))
-        except FileExistsError:
-            pass
-
-        file_path = os.path.join(dirs, filename)
+        msg_path = self.id2path(filename)
+        msg_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Write message to file
-        with open(os.path.join(self.base_path, file_path), "w") as f:
+        with msg_path.open("w") as f:
             f.write(msg.to_json())
 
-        await self.change_message_state(file_path, Message.PENDING)
+        await self.change_message_state(filename, Message.PENDING)
 
         self._total += 1
 
-        return file_path
+        return filename
 
     def _is_json_meta(self, id):
         """Check if the message meta file is a json. If it's not,
@@ -423,7 +425,8 @@ class FileMessageStore(MessageStore):
         Args:
             id (str): The id of the message
         """
-        meta_fpath = (Path(self.base_path) / id).with_suffix(".meta")
+        msg_fpath = self.id2path(id)
+        meta_fpath = msg_fpath.with_suffix(".meta")
         if not meta_fpath.exists():
             return False
         with meta_fpath.open("r") as fin:
@@ -439,7 +442,8 @@ class FileMessageStore(MessageStore):
         Args:
             id (str): The id of the message to convert
         """
-        meta_fpath = (Path(self.base_path) / id).with_suffix(".meta")
+        msg_fpath = self.id2path(id)
+        meta_fpath = msg_fpath.with_suffix(".meta")
         with meta_fpath.open("r") as fin:
             state = fin.read()
         meta_data = {"state": state}
@@ -448,7 +452,8 @@ class FileMessageStore(MessageStore):
         return meta_data
 
     async def get_message_meta_infos(self, id, meta_info_name=None):
-        meta_fpath = (Path(self.base_path) / id).with_suffix(".meta")
+        msg_fpath = self.id2path(id)
+        meta_fpath = msg_fpath.with_suffix(".meta")
         if meta_fpath.exists():
             is_new_meta_file = self._is_json_meta(id)
             if not is_new_meta_file:
@@ -464,7 +469,8 @@ class FileMessageStore(MessageStore):
         return meta_data
 
     async def add_message_meta_infos(self, id, meta_info_name, info):
-        meta_fpath = (Path(self.base_path) / id).with_suffix(".meta")
+        msg_fpath = self.id2path(id)
+        meta_fpath = msg_fpath.with_suffix(".meta")
         if meta_fpath.exists():
             is_new_meta_file = self._is_json_meta(id)
             if not is_new_meta_file:
@@ -486,10 +492,11 @@ class FileMessageStore(MessageStore):
         return await self.get_message_meta_infos(id, "state")
 
     async def get(self, id):
-        if not os.path.exists(os.path.join(self.base_path, id)):
+        fpath = self.id2path(id)
+        if not fpath.exists():
             raise IndexError
 
-        with open(os.path.join(self.base_path, id), "rb") as f:
+        with fpath.open("rb") as f:
             msg = Message.from_json(f.read().decode('utf-8'))
             return {
                 'id': id,
@@ -527,8 +534,8 @@ class FileMessageStore(MessageStore):
         for year in await self.sorted_list_directories(os.path.join(self.base_path)):
             for month in await self.sorted_list_directories(os.path.join(self.base_path, year)):
                 for day in await self.sorted_list_directories(os.path.join(self.base_path, year, month)):
-                    for msg_name in sorted(os.listdir(os.path.join(self.base_path, year, month, day))):
-                        found = self.msg_re.match(msg_name)
+                    for msg_id in sorted(os.listdir(os.path.join(self.base_path, year, month, day))):
+                        found = self.msg_re.match(msg_id)
                         if found:
                             count += 1
         return count
@@ -583,18 +590,17 @@ class FileMessageStore(MessageStore):
                     if end_dt:
                         if msg_date > end_dt.date():
                             continue
-                    for msg_name in sorted(
+                    for msg_id in sorted(
                             os.listdir(os.path.join(
                                 self.base_path, year, month, day)),
                             reverse=reverse):
-                        found = self.msg_re.match(msg_name)
+                        found = self.msg_re.match(msg_id)
                         if found:
                             msg_str_time = found.groupdict()["msg_time"]
                             hour = int(msg_str_time[:2])
                             minute = int(msg_str_time[2:4])
                             msg_time = datetime.time(hour=hour, minute=minute, second=0)
                             msg_dt = datetime.datetime.combine(msg_date, msg_time)
-                            mid = os.path.join(year, month, day, msg_name)
                             if start_dt:
                                 if msg_dt < start_dt:
                                     continue
@@ -602,17 +608,17 @@ class FileMessageStore(MessageStore):
                                 if msg_dt > end_dt:
                                     continue
                             if text:
-                                if not await self.is_txt_in_msg(mid, text):
+                                if not await self.is_txt_in_msg(msg_id, text):
                                     continue
                             if rtext:
-                                if not await self.is_regex_in_msg(mid, rtext):
+                                if not await self.is_regex_in_msg(msg_id, rtext):
                                     continue
                             if start <= position < end:
                                 # TODO: need to do processing of payload
                                 #       before filtering (HL7 / json-str)
                                 # TODO: add filter here
                                 # TODO: can we transfoer into a generator?
-                                result.append(await self.get(mid))
+                                result.append(await self.get(msg_id))
                             position += 1
         return result
 
@@ -620,11 +626,12 @@ class FileMessageStore(MessageStore):
         return self._total
 
     async def _delete_meta_file(self, id):
-        meta_fpath = (Path(self.base_path) / str(id)).with_suffix(".meta")
+        msg_path = self.id2path(id)
+        meta_fpath = msg_path.with_suffix(".meta")
         meta_fpath.unlink()
 
     async def delete(self, id):
-        fpath = Path(self.base_path) / str(id)
+        fpath = self.id2path(id)
         if not fpath.exists():
             raise IndexError
 

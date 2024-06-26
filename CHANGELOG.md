@@ -2,7 +2,7 @@
 
 ## [0.5.7](https://github.com/mhcomm/pypeman/compare/0.5.6...0.5.7)
 * Add MergeChannel
-* FileMessageStore: don't use path as id, only fname
+* FileMessageStore: don't use path as id, only basename
 * Message.to_dict: add a param to avoid pickling and encoding the payload
 
 ## [0.5.6](https://github.com/mhcomm/pypeman/compare/0.5.5...0.5.6)

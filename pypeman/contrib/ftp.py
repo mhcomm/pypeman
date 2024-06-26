@@ -166,7 +166,7 @@ class FTPWatcherChannel(channels.BaseChannel):
         msg.meta['filepath'] = self.basedir + '/' + filename
 
         if not self.is_stopped():
-            result = await super().handle(msg)
+            result = await self.handle(msg)
 
             if self.delete_after:
                 await self.loop.run_in_executor(

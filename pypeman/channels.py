@@ -846,6 +846,7 @@ class MergeChannel(BaseChannel):
         self.channels = chans
         for channel in self.channels:
             all_channels.remove(channel)
+            channel.add = None
             channel.handle = self.handle
             channel.handle_and_wait = self.handle_and_wait
             if channel.loop != self.loop:
@@ -853,6 +854,8 @@ class MergeChannel(BaseChannel):
 
     async def start(self):
         for channel in self.channels:
+            if channel._nodes:
+                raise AttributeError(f"A merged channel cannot have nodes (chan {channel.name})")
             if channel.loop != self.loop:
                 channel.loop = self.loop
             await channel.start()

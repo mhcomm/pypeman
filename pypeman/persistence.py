@@ -79,6 +79,16 @@ class MemoryBackend():
         else:
             return self._data[namespace][key]
 
+    async def search_ids_by_value(self, namespace, value):
+        found_ids = []
+        for id, val in self._data[namespace].items():
+            if val == value:
+                found_ids.append(id)
+        return found_ids
+
+    async def table_lenght(self, namespace):
+        return len(self._data[namespace])
+
 
 class SqliteBackend():
     """
@@ -112,6 +122,18 @@ class SqliteBackend():
             else:
                 return pdict[key]
 
+    async def _search_ids_by_value(self, namespace, value):
+        found_ids = []
+        with SqliteDict(self.path, tablename=namespace) as pdict:
+            for id, val in pdict.items():
+                if val == value:
+                    found_ids.append(id)
+        return found_ids
+
+    def _get_table_lenght(self, namespace):
+        with SqliteDict(self.path, tablename=namespace) as pdict:
+            return len(pdict)
+
     async def store(self, namespace, key, value):
         """ Store the value in a dict saved in sqlite db.
 
@@ -130,3 +152,9 @@ class SqliteBackend():
         :param default: Default value if key missing.
         """
         return await self.loop.run_in_executor(self.executor, self._sync_get, namespace, key, default)
+
+    async def table_lenght(self, namespace):
+        return await self.loop.run_in_executor(self.executor, self._get_table_lenght, namespace)
+
+    async def search_ids_by_value(self, namespace):
+        return await self.loop.run_in_executor(self.executor, self._search_ids_by_value, namespace)

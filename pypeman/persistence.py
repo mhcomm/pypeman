@@ -86,7 +86,7 @@ class MemoryBackend():
                 found_ids.append(id)
         return found_ids
 
-    async def table_lenght(self, namespace):
+    async def get_num_entries(self, namespace):
         return len(self._data[namespace])
 
 
@@ -122,7 +122,7 @@ class SqliteBackend():
             else:
                 return pdict[key]
 
-    async def _search_ids_by_value(self, namespace, value):
+    def _search_ids_by_value(self, namespace, value):
         found_ids = []
         with SqliteDict(self.path, tablename=namespace) as pdict:
             for id, val in pdict.items():
@@ -153,8 +153,9 @@ class SqliteBackend():
         """
         return await self.loop.run_in_executor(self.executor, self._sync_get, namespace, key, default)
 
-    async def table_lenght(self, namespace):
+    async def get_num_entries(self, namespace):
         return await self.loop.run_in_executor(self.executor, self._get_table_lenght, namespace)
 
-    async def search_ids_by_value(self, namespace):
-        return await self.loop.run_in_executor(self.executor, self._search_ids_by_value, namespace)
+    async def search_ids_by_value(self, namespace, value):
+        return await self.loop.run_in_executor(
+            self.executor, self._search_ids_by_value, namespace, value)

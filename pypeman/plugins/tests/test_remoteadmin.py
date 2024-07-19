@@ -143,8 +143,8 @@ class TestRemoteAdminPlugin(RemoteAdminBaseMixin):
         json_resp = json.loads(await resp.text())
         assert json_resp['total'] == 4
         assert len(json_resp['messages']) == 2
-        assert json_resp['messages'][0]['id'] == self.msg2.uuid
-        assert json_resp['messages'][1]['id'] == self.msg3.uuid
+        assert json_resp['messages'][0]['id'] == self.msg3.uuid
+        assert json_resp['messages'][1]['id'] == self.msg2.uuid
 
     async def test_search_messages_with_text_flt(self, webremoteclient):
         params = {

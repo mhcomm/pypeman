@@ -1,5 +1,9 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
 
+## [0.5.8](https://github.com/mhcomm/pypeman/compare/0.5.7...0.5.8)
+* Persistence: add search_ids_by_value and get_num_entries functions
+* Http Plugin: list message view default order reversed (-timestamp)
+
 ## [0.5.7](https://github.com/mhcomm/pypeman/compare/0.5.6...0.5.7)
 * Add MergeChannel
 * FileMessageStore: don't use path as id, only basename

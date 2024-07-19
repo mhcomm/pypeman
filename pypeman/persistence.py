@@ -130,7 +130,7 @@ class SqliteBackend():
                     found_ids.append(id)
         return found_ids
 
-    def _get_table_lenght(self, namespace):
+    def _get_table_length(self, namespace):
         with SqliteDict(self.path, tablename=namespace) as pdict:
             return len(pdict)
 
@@ -154,7 +154,7 @@ class SqliteBackend():
         return await self.loop.run_in_executor(self.executor, self._sync_get, namespace, key, default)
 
     async def get_num_entries(self, namespace):
-        return await self.loop.run_in_executor(self.executor, self._get_table_lenght, namespace)
+        return await self.loop.run_in_executor(self.executor, self._get_table_length, namespace)
 
     async def search_ids_by_value(self, namespace, value):
         return await self.loop.run_in_executor(

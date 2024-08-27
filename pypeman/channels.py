@@ -10,7 +10,6 @@ import warnings
 from pathlib import Path
 
 from pypeman import message, msgstore, events
-from pypeman.errors import PypemanConfigError
 from pypeman.helpers.itertools import flatten
 from pypeman.helpers.sleeper import Sleeper
 
@@ -441,7 +440,6 @@ class BaseChannel:
         """
 
         result = await self.process(msg)
-
         if self.next_node:
             if isinstance(result, types.GeneratorType):
                 gene = result
@@ -616,7 +614,7 @@ class BaseChannel:
             - SubChannel: no other endnodes will be launched (except final_nodes)
         """
         if self.join_nodes:
-            raise PypemanConfigError(f"join_nodes already existing for channel {self.name}")
+            end_nodes = self.join_nodes.extend(end_nodes)
         self.join_nodes = self._init_end_nodes(*end_nodes)
 
     def add_fail_nodes(self, *end_nodes):
@@ -626,7 +624,7 @@ class BaseChannel:
         The first node take the entry message of the channel as input
         """
         if self.fail_nodes:
-            raise PypemanConfigError(f"fail_nodes already existing for channel {self.name}")
+            end_nodes = self.fail_nodes.extend(end_nodes)
         self.fail_nodes = self._init_end_nodes(*end_nodes)
 
     def add_drop_nodes(self, *end_nodes):
@@ -635,7 +633,7 @@ class BaseChannel:
         The first node take the entry message of the channel as input
         """
         if self.drop_nodes:
-            raise PypemanConfigError(f"drop_nodes already existing for channel {self.name}")
+            end_nodes = self.drop_nodes.extend(end_nodes)
         self.drop_nodes = self._init_end_nodes(*end_nodes)
 
     def add_reject_nodes(self, *end_nodes):
@@ -644,7 +642,7 @@ class BaseChannel:
         The first node take the entry message of the channel as input
         """
         if self.reject_nodes:
-            raise PypemanConfigError(f"reject_nodes already existing for channel {self.name}")
+            end_nodes = self.reject_nodes.extend(end_nodes)
         self.reject_nodes = self._init_end_nodes(*end_nodes)
 
     def add_final_nodes(self, *end_nodes):
@@ -653,7 +651,7 @@ class BaseChannel:
         The first node take the entry message of the channel as input (TODO: ask if it's ok)
         """
         if self.final_nodes:
-            raise PypemanConfigError(f"final_nodes already existing for channel {self.name}")
+            end_nodes = self.final_nodes.extend(end_nodes)
         self.final_nodes = self._init_end_nodes(*end_nodes)
 
     # def _callback(self, future):

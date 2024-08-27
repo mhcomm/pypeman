@@ -79,6 +79,7 @@ class BaseChannel:
         self.drop_nodes = None
         self.reject_nodes = None
         self.final_nodes = None
+        self.init_nodes = None
         self.wait_subchans = wait_subchans
         self.raise_dropped = False
 
@@ -375,6 +376,8 @@ class BaseChannel:
         async with self.lock:
             self.status = BaseChannel.PROCESSING
             try:
+                if self.init_nodes:
+                    msg = await self.init_nodes[0].handle(msg.copy())
                 result = await self.subhandle(msg.copy())
                 await self.message_store.change_message_state(msg_store_id, message.Message.PROCESSED)
                 msg.chan_rslt = result
@@ -592,6 +595,15 @@ class BaseChannel:
                 previous_node.next_node = node
                 previous_node = node
         return end_nodes
+
+    def add_init_nodes(self, *nodes):
+        """
+        Add nodes that will be launched at the start of the channel before all
+        processing nodes
+        """
+        if self.init_nodes:
+            nodes = self.init_nodes.extend(nodes)
+        self.init_nodes = self._init_end_nodes(*nodes)
 
     def add_join_nodes(self, *end_nodes):
         """

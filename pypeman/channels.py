@@ -859,10 +859,7 @@ class MergeChannel(BaseChannel):
         for channel in self.channels:
             all_channels.remove(channel)
             channel.add = None
-            channel.handle = self.handle
-            channel.handle_and_wait = self.handle_and_wait
-            if channel.loop != self.loop:
-                channel.loop = self.loop
+            channel.subhandle = self.handle
 
     async def start(self):
         for channel in self.channels:

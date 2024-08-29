@@ -41,7 +41,7 @@ def raise_exc(msg):
     raise Exception()
 
 
-def return_text(msg, text="toto"):
+def return_text(msg, text):
     msg.payload = text
     return msg
 
@@ -244,7 +244,7 @@ class ChannelsTests(TestCase):
     def test_init_nodes(self):
         """ Whether BaseChannel init_nodes is working """
         chan1 = BaseChannel(name="test_channel_init_clbk", loop=self.loop)
-        initouttext = "tutu"
+        initouttext = "inittxt"
 
         n1 = TstNode(name="n1")
         initnode = TstNode(name="initnode")
@@ -261,7 +261,7 @@ class ChannelsTests(TestCase):
         n1_input = n1.last_input()
         self.assertEqual(
             n1_input.payload, initouttext,
-            "Channel init_nodes doesn't seems to work")
+            "Channel init_nodes doesn't seem to work")
 
     def test_multiple_callbacks(self):
         """

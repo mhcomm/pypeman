@@ -4,6 +4,8 @@ import shutil
 import tempfile
 import time
 
+from functools import partial
+
 from hl7.client import MLLPClient
 
 from pathlib import Path
@@ -37,6 +39,11 @@ def raise_rejected(msg):
 
 def raise_exc(msg):
     raise Exception()
+
+
+def return_text(msg, text):
+    msg.payload = text
+    return msg
 
 
 class ChannelsTests(TestCase):
@@ -233,6 +240,28 @@ class ChannelsTests(TestCase):
         self.assertDictEqual(
             vars(self.clean_msg(msg1)), vars(self.clean_msg(endnode_input)),
             "Channel final_nodes don't takes event msg in input")
+
+    def test_init_nodes(self):
+        """ Whether BaseChannel init_nodes is working """
+        chan1 = BaseChannel(name="test_channel_init_clbk", loop=self.loop)
+        initouttext = "inittxt"
+
+        n1 = TstNode(name="n1")
+        initnode = TstNode(name="initnode")
+        n1._reset_test()
+        initnode._reset_test()
+        initnode.mock(output=partial(return_text, text=initouttext))
+        chan1.add_init_nodes(initnode)
+        chan1.add(n1)
+        msg1 = generate_msg(message_content="startmsg")
+        self.start_channels()
+
+        self.loop.run_until_complete(chan1.handle(msg1))
+
+        n1_input = n1.last_input()
+        self.assertEqual(
+            n1_input.payload, initouttext,
+            "Channel init_nodes doesn't seem to work")
 
     def test_multiple_callbacks(self):
         """

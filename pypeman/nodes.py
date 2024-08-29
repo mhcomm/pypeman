@@ -168,7 +168,6 @@ class BaseNode:
             result = await self.async_run(msg)
         else:
             result = self.run(msg)
-
         self.processed += 1
 
         if isinstance(result, asyncio.Future):

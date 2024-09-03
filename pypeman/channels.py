@@ -24,6 +24,17 @@ _channel_names = set()
 MSG_CTXVAR = contextvars.ContextVar("msg")
 
 
+def get_channel(name):
+    """Permits retrieving a channel by its name or short_name
+
+    Args:
+        name (str): The channel's name
+    """
+    for chan in all_channels:
+        if chan.name == name or chan.short_name == name:
+            return chan
+
+
 class Dropped(Exception):
     """ Used to stop process as message is processed. Default success should be returned.
     """
@@ -83,12 +94,12 @@ class BaseChannel:
         self.raise_dropped = False
 
         if name:
-            self.name = name
+            self.short_name = self.name = name
         else:
             warnings.warn(
                 "Channels without names are deprecated and will be removed in version 0.5.2",
                 DeprecationWarning)
-            self.name = self.__class__.__name__ + "_" + str(len(all_channels))
+            self.short_name = self.name = self.__class__.__name__ + "_" + str(len(all_channels))
 
         self.parent = None
         if parent_channel:
@@ -116,7 +127,7 @@ class BaseChannel:
         else:
             self.verbose_name = self.name
 
-        _channel_names.add(self.name)
+        _channel_names.add(self.short_name)
 
         if loop is None:
             self.loop = asyncio.get_event_loop()
@@ -263,8 +274,23 @@ class BaseChannel:
 
         :return: Instance of Node or None if none found.
         """
-
-        return self._node_map.get(name)
+        node_map = self._node_map
+        if self.init_nodes:
+            for node in self.init_nodes:
+                node_map[node.name] = node
+        if self.join_nodes:
+            for node in self.join_nodes:
+                node_map[node.name] = node
+        if self.drop_nodes:
+            for node in self.drop_nodes:
+                node_map[node.name] = node
+        if self.reject_nodes:
+            for node in self.reject_nodes:
+                node_map[node.name] = node
+        if self.final_nodes:
+            for node in self.final_nodes:
+                node_map[node.name] = node
+        return node_map.get(name)
 
     def append(self, *args):
         """

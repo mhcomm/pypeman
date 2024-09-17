@@ -20,6 +20,7 @@ def init_urls(app, prefix=""):
         web.get(prefix + '/channels/{channelname}/messages/{message_id}/replay', views.replay_msg),
         web.get(prefix + '/channels/{channelname}/messages/{message_id}/view', views.view_msg),
         web.get(prefix + '/channels/{channelname}/messages/{message_id}/preview', views.preview_msg),
+        web.get(prefix + '/channels/{channelname}/messages/push', views.push_msg),
         # WEBSOCKETS :
         web.get(prefix + '/', views.backport_old_client),
     ])

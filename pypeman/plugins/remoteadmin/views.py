@@ -5,6 +5,7 @@ from aiohttp import web
 from jsonrpcserver.response import SuccessResponse
 
 from pypeman import channels
+from pypeman.message import Message
 
 logger = logging.getLogger(__name__)
 
@@ -159,6 +160,34 @@ async def replay_msg(request, ws=None):
     return web.json_response(result)
 
 
+async def push_msg(request, ws=None):
+    """
+    Push a new message.
+
+    :params channel: The channel name.
+
+    :queryparams:
+        encode_payload (Bool, default=False): Force pickling and encoding the payload or not
+    """
+    args = request.rel_url.query
+    channelname = request.match_info['channelname']
+    post_data = await request.post()
+    encode_payload = args.get("encode_payload", False)
+    chan = get_channel(channelname)
+    try:
+        msg = Message(payload=post_data)
+        msg_res = await chan.handle(msg)
+        result = msg_res.to_dict(encode_payload=encode_payload)
+    except Exception as exc:
+        logger.exception(f"Cannot play msg : {post_data}")
+        result = {'error': str(exc)}
+
+    if ws is not None:
+        await ws.send_jsonrpcresp(result)
+        return ws
+    return web.json_response(result)
+
+
 async def view_msg(request, ws=None):
     """
     Permit to get the content of a message
@@ -296,5 +325,8 @@ async def backport_old_client(request):
             await start_channel(request=request, ws=ws)
         elif cmd_method == "stop_channel":
             await stop_channel(request=request, ws=ws)
+        elif cmd_method == "push_msg":
+            msg = params[1]
+            await push_msg(request=request, ws=ws)
         else:
             await ws.send_str(f"{cmd_method} is not a valid method")

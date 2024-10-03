@@ -941,7 +941,7 @@ class FileWatcherChannel(BaseChannel):
 
     async def start(self):
         await super().start()
-        asyncio.create_task(self.watch_for_file())
+        asyncio.create_task(self.infinite_watcher())
 
     def file_status(self, filename):
         if filename in self.data:
@@ -961,9 +961,14 @@ class FileWatcherChannel(BaseChannel):
         except Dropped:
             pass
 
+    async def infinite_watcher(self):
+        while not self.is_stopped():
+            await self.watch_for_file()
+            await self.interruptable_sleeper.sleep(self.interval)
+        logger.warning("Won't watch anymore")
+
     async def watch_for_file(self):
         # self.logger.debug("Will sleep")
-        await self.interruptable_sleeper.sleep(self.interval)
         # await asyncio.sleep(self.interval, loop=self.loop)
         # self.logger.debug("sleep done")
         try:
@@ -1004,16 +1009,10 @@ class FileWatcherChannel(BaseChannel):
                                 msg.payload = f.read()
                             msg.meta['filename'] = filename
                             msg.meta['filepath'] = str(filepath)
-                            fut = asyncio.create_task(self.handle(msg))
-                            fut.add_done_callback(self._handle_callback)
+                            await self.handle(msg)
 
         except Exception:  # TODO: might explicitely silence some special cases.
             self.logger.exception("filewatcher problem")
-        finally:
-            if self.status not in (BaseChannel.STOPPING, BaseChannel.STOPPED,):
-                asyncio.create_task(self.watch_for_file())
-            else:
-                logger.warning("Won't watch anymore")
 
 
 from pypeman.helpers import lazyload  # noqa: E402

@@ -85,15 +85,16 @@ class ChannelsTests(TestCase):
 
     def tearDown(self):
         super().tearDown()
-        self.clean_loop()
 
         for end in endpoints.all_endpoints:
             self.loop.run_until_complete(end.stop())
 
         # Stop all channels
         for chan in channels.all_channels:
-            if not chan.is_stopped:
+            if not chan.is_stopped():
+                print(f"stopping chan {chan.name}")
                 self.loop.run_until_complete(chan.stop())
+        self.clean_loop()
         endpoints.reset_pypeman_endpoints()
 
     def test_base_channel(self):
@@ -1190,7 +1191,6 @@ class ChannelsTests(TestCase):
             chan2.watch_for_file = asyncio.coroutine(mock.Mock())
             self.start_channels()
             self.loop.run_until_complete(chan2.tick())
-            self.clean_loop()
             fake_ftp2.download_file.assert_called_once_with("testdir/file1.txt")
             channels.all_channels.remove(chan2)
 
@@ -1208,7 +1208,6 @@ class ChannelsTests(TestCase):
         ok_fpath.touch()
         self.loop.run_until_complete(chan.watch_for_file())
         self.assertEqual(n.last_input().payload, "testfilecontent")
-        self.clean_loop()
 
     def test_channel_stopped_dont_process_message(self):
         """ Whether BaseChannel handling return a good result """

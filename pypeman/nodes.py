@@ -333,6 +333,19 @@ class Drop(BaseNode):
             raise Dropped()
 
 
+class Reject(BaseNode):
+    """ Use this node to tell the channel the message is Rejected. """
+    def __init__(self, message=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.message = message
+
+    def process(self, msg):
+        if self.message:
+            raise Rejected(self.message)
+        else:
+            raise Rejected()
+
+
 class DropNode(Drop):
     def __init__(self, *args, **kwargs):
         warnings.warn("DropNode node is deprecated. Replace it by Drop node", DeprecationWarning)

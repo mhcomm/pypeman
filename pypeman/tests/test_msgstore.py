@@ -98,7 +98,7 @@ class MsgstoreTests(TestCase):
         msg5 = generate_msg(timestamp=(1982, 11, 12, 14, 35),
                             message_content='{"test1": "shall_fail"}')
         msg6 = generate_msg(timestamp=(1982, 11, 28, 14, 35), message_content=ObjectWithoutStr())
-
+        msg2_uuid = msg2.uuid
         chan.add(n)
         chan.add(n_error)
 
@@ -149,7 +149,7 @@ class MsgstoreTests(TestCase):
         self.assertEqual(dict_msg['state'], 'error', "Message %s should be in error state!" % msg5)
 
         # Test list messages
-        msgs = self.loop.run_until_complete(chan.message_store.search(start=2, count=5))
+        msgs = self.loop.run_until_complete(chan.message_store.search(start_id=msg2_uuid, count=5))
         self.assertEqual(len(msgs), 4, "Failure of listing messages from memory msg store")
 
         # Test list messages with date filters
@@ -245,7 +245,6 @@ class MsgstoreTests(TestCase):
         msg5 = generate_msg(timestamp=(1982, 11, 12, 14, 35),
                             message_content='{"test1": "shall_fail"}')
         msg6 = generate_msg(timestamp=(1982, 11, 28, 14, 35), message_content=ObjectWithoutStr())
-
         chan.add(n)
         chan.add(n_error)
 
@@ -255,7 +254,6 @@ class MsgstoreTests(TestCase):
         self.loop.run_until_complete(chan.handle(msg2))
         self.loop.run_until_complete(chan.handle(msg3))
         self.loop.run_until_complete(chan.handle(msg4))
-
         with self.assertRaises(TstException):
             # This message should be in error state
             self.loop.run_until_complete(chan.handle(msg5))
@@ -264,13 +262,13 @@ class MsgstoreTests(TestCase):
         self.assertEqual(self.loop.run_until_complete(chan.message_store.total()),
                          6, "Should be a total of 6 messages in store!")
 
-        msg_stored1 = list(self.loop.run_until_complete(chan.message_store.search(0, 2)))
+        msg_stored = list(self.loop.run_until_complete(chan.message_store.search()))
+        msg2_id = msg_stored[1]["id"]
+        msg_stored1 = list(self.loop.run_until_complete(chan.message_store.search(count=2)))
         self.assertEqual(len(msg_stored1), 2, "Should be 2 results from search!")
 
-        msg_stored2 = list(self.loop.run_until_complete(chan.message_store.search(2, 5)))
+        msg_stored2 = list(self.loop.run_until_complete(chan.message_store.search(start_id=msg2_id, count=5)))
         self.assertEqual(len(msg_stored2), 4, "Should be 4 results from search!")
-
-        msg_stored = list(self.loop.run_until_complete(chan.message_store.search()))
 
         # All message stored ?
         self.assertEqual(len(msg_stored), 6, "Should be 6 messages in store!")
@@ -300,7 +298,7 @@ class MsgstoreTests(TestCase):
                         % (tempdir, chan.name, msg3.uuid)))
 
         # Test list messages
-        msgs = self.loop.run_until_complete(chan.message_store.search(start=2, count=5))
+        msgs = self.loop.run_until_complete(chan.message_store.search(start_id=msg2_id, count=5))
         self.assertEqual(len(msgs), 4, "Failure of listing messages for file msg store")
 
         # Test list messages with date filters

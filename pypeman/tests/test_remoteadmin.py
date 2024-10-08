@@ -110,7 +110,8 @@ class RemoteAdminTests(TestCase):
         self.assertEqual(chan.status, BaseChannel.WAITING, "Starting channel doesn't work")
 
         # Search message
-        msg_list = client.list_msgs(channel='test_remote050', start=2, count=5, order_by='-timestamp')
+        msg_list = client.list_msgs(
+            channel='test_remote050', start_id=msg4.uuid, count=5, order_by='-timestamp')
 
         print(msg_list)
 
@@ -147,14 +148,14 @@ class RemoteAdminTests(TestCase):
         # Replay message
         result = client.replay_msg('test_remote050', idref_msg3)
 
-        msg_list = client.list_msgs(channel='test_remote050', start=0, count=5, order_by='-timestamp')
+        msg_list = client.list_msgs(channel='test_remote050', count=5, order_by='-timestamp')
         self.assertEqual(msg_list['total'], 5, 'List channel messages broken')
         self.assertEqual(msg_list['messages'][0]['id'], result.uuid, 'Replay messages broken')
 
         # Push message
         result = client.push_msg(channel='test_remote050', text="Yaaay")
 
-        msg_list = client.list_msgs(channel='test_remote050', start=0, count=5, order_by='-timestamp')
+        msg_list = client.list_msgs(channel='test_remote050', count=5, order_by='-timestamp')
         self.assertEqual(msg_list['total'], 6, 'Push message broken')
         self.assertEqual(msg_list['messages'][0]['id'], result.uuid, 'Push message broken')
 

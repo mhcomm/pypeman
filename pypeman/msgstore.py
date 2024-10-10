@@ -300,7 +300,7 @@ class MemoryMessageStore(MessageStore):
     async def search(self, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None,
                      text=None, rtext=None, start_id=None):
         if start and start_id:
-            raise ValueError("`start` and `start_id` cannot both be set")
+            raise ValueError("`start` and `start_id` can't both be set")
         if order_by.startswith('-'):
             reverse = True
             sort_key = order_by[1:]
@@ -345,7 +345,7 @@ class MemoryMessageStore(MessageStore):
                     start_id_idx = idx + 1
                     break
             else:
-                raise IndexError("Cannot found start_id %r in filtered results", start_id)
+                raise IndexError("Couldn't find start_id %r in filtered results", start_id)
             filtered_iterator = islice(
                 ordered_list,
                 start_id_idx, start_id_idx + count
@@ -584,7 +584,7 @@ class FileMessageStore(MessageStore):
     async def search(self, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None,
                      text=None, rtext=None, start_id=None):
         if start and start_id:
-            raise ValueError("`start` and `start_id` cannot both be set")
+            raise ValueError("`start` and `start_id` can't both be set")
         # TODO better performance for slicing by counting file in dirs ?
         if order_by.startswith('-'):
             reverse = True
@@ -655,7 +655,7 @@ class FileMessageStore(MessageStore):
                                 break
                             position += 1
         if start_id and not start_id_found:
-            raise IndexError("Cannot found start_id %r in filtered results", start_id)
+            raise IndexError("Couldn't find start_id %r in filtered results", start_id)
         return result
 
     async def total(self):

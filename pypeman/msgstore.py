@@ -113,17 +113,18 @@ class MessageStore():
         """
 
     async def search(self, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None,
-                     text=None, rtext=None):
+                     text=None, rtext=None, start_id=None):
         """
         Return a list of message with store specific `id` and processed status.
 
-        :param start: First element.
+        :param start: (DEPRECATED: use start_id instead) First element.
         :param count: Count of elements since first element.
         :param order_by: Message order. Allowed values : ['timestamp', 'status'].
         :param start_dt: (optional) Isoformat start date(time) to filter with
         :param end_dt: (optional) Isoformat end date(time) to filter with
         :param text: (optional) String to search in message content
         :param rtext: (optional) String regex to search in message content
+        :param start_id: (optional): If set, start search from this id (excluded from rslt list)
         :return: A list of dict `{'id':<message_id>, 'state': <message_state>, 'message': <message_object>}`.
         """
 
@@ -297,8 +298,9 @@ class MemoryMessageStore(MessageStore):
         return text in msg.payload
 
     async def search(self, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None,
-                     text=None, rtext=None):
-
+                     text=None, rtext=None, start_id=None):
+        if start and start_id:
+            raise ValueError("`start` and `start_id` can't both be set")
         if order_by.startswith('-'):
             reverse = True
             sort_key = order_by[1:]
@@ -330,8 +332,30 @@ class MemoryMessageStore(MessageStore):
                 if await self.is_regex_in_msg(val["id"], rtext):
                     found_values.append(val)
             values = found_values
-        for value in islice(sorted(values, key=lambda x: x[sort_key], reverse=reverse),
-                            start, start + count):
+
+        ordered_list = sorted(values, key=lambda x: x[sort_key], reverse=reverse)
+        if start:
+            filtered_iterator = islice(
+                ordered_list,
+                start, start + count
+            )
+        elif start_id:
+            for idx, msgdict in enumerate(ordered_list):
+                if msgdict["id"] == start_id:
+                    start_id_idx = idx + 1
+                    break
+            else:
+                raise IndexError("Couldn't find start_id %r in filtered results", start_id)
+            filtered_iterator = islice(
+                ordered_list,
+                start_id_idx, start_id_idx + count
+            )
+        else:
+            filtered_iterator = islice(
+                ordered_list,
+                0, count
+            )
+        for value in filtered_iterator:
             resp = dict(value)
             resp['message'] = Message.from_dict(resp['message'])
             result.append(resp)
@@ -558,7 +582,9 @@ class FileMessageStore(MessageStore):
         return text in msg.payload
 
     async def search(self, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None,
-                     text=None, rtext=None):
+                     text=None, rtext=None, start_id=None):
+        if start and start_id:
+            raise ValueError("`start` and `start_id` can't both be set")
         # TODO better performance for slicing by counting file in dirs ?
         if order_by.startswith('-'):
             reverse = True
@@ -576,6 +602,7 @@ class FileMessageStore(MessageStore):
         result = []
         end = start + count
         position = 0
+        start_id_found = False
         for year in await self.sorted_list_directories(
                 os.path.join(self.base_path), reverse=reverse):
             for month in await self.sorted_list_directories(
@@ -594,6 +621,11 @@ class FileMessageStore(MessageStore):
                             os.listdir(os.path.join(
                                 self.base_path, year, month, day)),
                             reverse=reverse):
+                        if not start_id_found and start_id and msg_id != start_id:
+                            continue
+                        elif not start_id_found and start_id and msg_id == start_id:
+                            start_id_found = True
+                            continue
                         found = self.msg_re.match(msg_id)
                         if found:
                             msg_str_time = found.groupdict()["msg_time"]
@@ -619,7 +651,11 @@ class FileMessageStore(MessageStore):
                                 # TODO: add filter here
                                 # TODO: can we transfoer into a generator?
                                 result.append(await self.get(msg_id))
+                            elif position >= end:
+                                break
                             position += 1
+        if start_id and not start_id_found:
+            raise IndexError("Couldn't find start_id %r in filtered results", start_id)
         return result
 
     async def total(self):

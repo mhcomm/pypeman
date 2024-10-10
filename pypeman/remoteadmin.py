@@ -142,7 +142,7 @@ class RemoteAdminServer():
 
     @method
     async def list_msgs(self, channel, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None,
-                        text=None, rtext=None):
+                        text=None, rtext=None, start_id=None):
         """
         List first `count` messages from message store of specified channel.
 
@@ -152,7 +152,7 @@ class RemoteAdminServer():
 
         messages = await chan.message_store.search(
             start=start, count=count, order_by=order_by, start_dt=start_dt, end_dt=end_dt,
-            text=text, rtext=rtext) or []
+            text=text, rtext=rtext, start_id=start_id) or []
 
         for res in messages:
             timestamp = res['timestamp']
@@ -293,7 +293,7 @@ class RemoteAdminClient():
         return self.send_command('stop_channel', [channel])
 
     def list_msgs(self, channel, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None,
-                  text=None, rtext=None):
+                  text=None, rtext=None, start_id=None):
         """
         List first 10 messages on specified channel from remote instance.
 
@@ -307,7 +307,7 @@ class RemoteAdminClient():
         :params order_by: Message order. only 'timestamp' and '-timestamp' handled for now.
         :returns: list of message with status.
         """
-        list_msg_args = [channel, start, count, order_by, start_dt, end_dt, text, rtext]
+        list_msg_args = [channel, start, count, order_by, start_dt, end_dt, text, rtext, start_id]
         result = self.send_command('list_msgs', list_msg_args)
 
         for m in result['messages']:
@@ -471,6 +471,7 @@ class PypemanShell(cmd.Cmd):
         end_dt = None
         text = None
         rtext = None
+        start_id = None
 
         args_copy = [i for i in args]
         # Parsing of naming args
@@ -488,6 +489,9 @@ class PypemanShell(cmd.Cmd):
                 if arg.startswith("rtext="):
                     rtext = arg.split("=", 1)[1]
                     args.remove(arg)
+                if arg.startswith("start_id="):
+                    start_id = arg.split("=", 1)[1]
+                    args.remove(arg)
 
         # Parsing of common args
         if args:
@@ -498,7 +502,7 @@ class PypemanShell(cmd.Cmd):
             order_by = args[2]
         result = self.client.list_msgs(
             channel, start, end, order_by, start_dt=start_dt, end_dt=end_dt,
-            text=text, rtext=rtext)
+            text=text, rtext=rtext, start_id=start_id)
 
         if not result['total']:
             print('No message yet.')

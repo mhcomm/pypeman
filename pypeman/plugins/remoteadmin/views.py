@@ -87,7 +87,8 @@ async def list_msgs(request, ws=None):
     :params channelname: The channel name.
 
     :queryparams:
-        start (int, default=0): the start indexof msgs to list
+        start (int, default=0): OBSOLETE (use start_id instead) the start indexof msgs to list
+        start_id (str, default=None): the start id from which search starts (start_d excluded from results)
         count (count, default=10): The maximum returned msgs
         order_by (str, default="timestamp"): the message attribute to use for sorting
         start_dt (str): iso datetime string to use for filter messages
@@ -103,15 +104,20 @@ async def list_msgs(request, ws=None):
 
     args = request.rel_url.query
     start = int(args.get("start", 0))
+    start_id = args.get("start_id", None)
     count = int(args.get("count", 10))
     order_by = args.get("order_by", "-timestamp")
     start_dt = args.get("start_dt", None)
     end_dt = args.get("end_dt", None)
     text = args.get("text", None)
     rtext = args.get("rtext", None)
-    messages = await chan.message_store.search(
-        start=start, count=count, order_by=order_by, start_dt=start_dt, end_dt=end_dt,
-        text=text, rtext=rtext) or []
+    try:
+        messages = await chan.message_store.search(
+            start=start, count=count, order_by=order_by, start_dt=start_dt, end_dt=end_dt,
+            text=text, rtext=rtext, start_id=start_id) or []
+    except Exception:
+        logger.exception("Cannot search messages")
+        messages = []
 
     for res in messages:
         res["id"] = res["id"]
@@ -287,6 +293,7 @@ async def backport_old_client(request):
                 "end_dt": params[5],
                 "text": params[6],
                 "rtext": params[7],
+                "start_id": params[8],
             }
             query_params = {k: v for k, v in query_params.items() if v is not None}
             query_url = request.rel_url.with_query(query_params)

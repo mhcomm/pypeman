@@ -965,7 +965,7 @@ class FileWatcherChannel(BaseChannel):
         while not self.is_stopped():
             await self.watch_for_file()
             await self.interruptable_sleeper.sleep(self.interval)
-        logger.warning("Won't watch anymore")
+        logger.info("Stopped watcher %s", self.short_name)
 
     async def watch_for_file(self):
         # self.logger.debug("Will sleep")

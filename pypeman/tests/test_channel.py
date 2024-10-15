@@ -92,7 +92,6 @@ class ChannelsTests(TestCase):
         # Stop all channels
         for chan in channels.all_channels:
             if not chan.is_stopped():
-                print(f"stopping chan {chan.name}")
                 self.loop.run_until_complete(chan.stop())
         self.clean_loop()
         endpoints.reset_pypeman_endpoints()

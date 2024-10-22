@@ -512,6 +512,7 @@ class BaseChannel:
     def to_dict(self):
         return {
             'name': self.name,
+            'short_name': self.short_name,
             'verbose_name': self.verbose_name,
             'status': BaseChannel.status_id_to_str(self.status),
             'has_message_store': not isinstance(self.message_store, msgstore.NullMessageStore),

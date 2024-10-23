@@ -56,13 +56,14 @@ class RemoteAdminBaseMixin:
         n2 = TstNode(name="sub")
         n3 = TstNode(name="sub1")
         n4 = TstNode(name="sub2")
+        n5 = TstNode(name="subsub")
 
         self.chan.add(n)
 
         sub = self.chan.fork(name="subchannel")
         sub2 = sub.fork(name="subchannel2", message_store_factory=store_factory)
         sub.append(n2, n3, n4)
-
+        sub2.append(n5)
 
         for chan in channels.all_channels:
             asyncio.run(chan.start())
@@ -104,7 +105,6 @@ class TestRemoteAdminPlugin(RemoteAdminBaseMixin):
 
         assert resp.status == 200
         json_resp = json.loads(await resp.text())
-        print(json_resp)
         assert len(json_resp) == 2
         assert json_resp[0]["name"] == "test_remote050"
         assert json_resp[0]["short_name"] == "test_remote050"

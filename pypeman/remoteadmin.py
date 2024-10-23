@@ -416,7 +416,7 @@ class PypemanShell(cmd.Cmd):
         result = self.client.channels()
         print("\nChannel list:")
         for idx, channel in enumerate(result):
-            print(f"{idx}) {channel.short_name} ({channel.status})")
+            print(f"{idx}) {channel['short_name']} ({channel['status']})")
 
         print("")
         self.current_channel = None

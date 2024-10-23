@@ -14,7 +14,7 @@ def get_channel(name):
     returns channel by name
     """
     for chan in channels.all_channels:
-        if chan.name == name:
+        if name in (chan.name, chan.short_name):
             return chan
     return None
 

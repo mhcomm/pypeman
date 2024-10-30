@@ -861,3 +861,22 @@ class TestsCsvContrib(TestCase):
         processed_msg = py2csv_node.process(msg)
         self.assertEqual(self.csv_str_data, processed_msg.payload)
         return msg
+
+    def test_emptymeta(self):
+        emptymeta_node = nodes.EmptyMeta()
+        msg = message.Message(payload={}, meta={"titi": "toto"})
+        processed_msg = emptymeta_node.process(msg)
+        self.assertEqual(processed_msg.meta, {})
+        return msg
+
+    def test_usemetafrom(self):
+        ctx_name = "totoctx"
+        msg_stored = message.Message(payload={"bla": "bla"}, meta={"titi": "toto"})
+        msg = message.Message(payload={"gneu": "gneu"}, meta={"null": "null"})
+        msg.add_context(ctx_name, msg_stored)
+
+        metafrom_node = nodes.UseMetaFromCtx(from_context=ctx_name)
+        processed_msg = metafrom_node.process(msg)
+        self.assertEqual(processed_msg.payload, msg.payload)
+        self.assertEqual(processed_msg.meta, msg_stored.meta)
+        return msg

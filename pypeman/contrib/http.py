@@ -186,7 +186,7 @@ class HttpRequest(nodes.BaseNode):
         :param binary: bool, Get response content as bytes
         :param send_as_json: bool, If the method is a PATCH/POST/PUT, send data as json
         :param json: bool, Parse Json response content
-        :param add_meta: bool, If set, add infos in out message's meta (like headers)
+        :param add_meta: bool, If set, add resp infos in out message's meta (like headers)
         # TODO maybe add an auto parser if for example Content-Type header is application/json
     """
 

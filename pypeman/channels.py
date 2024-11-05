@@ -968,9 +968,13 @@ class FileWatcherChannel(BaseChannel):
         logger.info("Stopped watcher %s", self.short_name)
 
     async def watch_for_file(self):
-        # self.logger.debug("Will sleep")
-        # await asyncio.sleep(self.interval, loop=self.loop)
-        # self.logger.debug("sleep done")
+        logger.warning(
+            "FileWatcherChannel.watch_for_file func is deprecated and will "
+            "be removed in future version"
+        )
+        await self.check_and_process_folder()
+
+    async def check_and_process_folder(self):
         try:
             if self.basedir.exists():
                 listfile = self.basedir.iterdir()

@@ -875,7 +875,7 @@ class TestsCsvContrib(TestCase):
         msg = message.Message(payload={"gneu": "gneu"}, meta={"null": "null"})
         msg.add_context(ctx_name, msg_stored)
 
-        metafrom_node = nodes.UseMetaFromCtx(from_context=ctx_name)
+        metafrom_node = nodes.UseMetaFromCtx(context_name=ctx_name)
         processed_msg = metafrom_node.process(msg)
         self.assertEqual(processed_msg.payload, msg.payload)
         self.assertEqual(processed_msg.meta, msg_stored.meta)

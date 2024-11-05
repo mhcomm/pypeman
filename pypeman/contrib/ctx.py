@@ -67,12 +67,12 @@ class UseMetaFromCtx(nodes.BaseNode):
     Replace msg meta by meta from a given context
     """
 
-    def __init__(self, *args, from_context=None, **kwargs):
+    def __init__(self, *args, context_name=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.from_context = from_context
+        self.context_name = context_name
 
     def process(self, msg):
-        msg.meta = msg.ctx[self.from_context]['meta']
+        msg.meta = msg.ctx[self.context_name]['meta']
         return msg
 
 

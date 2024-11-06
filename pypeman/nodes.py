@@ -905,7 +905,8 @@ class MsgFuncNode(BaseNode):
     and modifies it.
 
     The given function can be async or not.
-    The name for the node will automatically be using the function's name.
+    The name for the node will automatically be using the function's name if no
+    explicit value is specified.
 
         def do_something(msg):
             msg.meta ...
@@ -935,7 +936,8 @@ class FuncNode(BaseNode):
     payload and returns a (potentially identical) payload.
 
     The given function can be async or not.
-    The name for the node will automatically be using the function's name.
+    The name for the node will automatically be using the function's name if no
+    explicit value is specified.
 
         def do_something(payload):
             return payload + 1

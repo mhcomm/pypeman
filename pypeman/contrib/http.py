@@ -118,7 +118,6 @@ class HttpChannel(channels.BaseChannel):
         url='/',
         encoding=None,
         add_headers=False,
-        binary_response=False,
         response_content_type=None,
         **kwargs
     ):
@@ -126,11 +125,10 @@ class HttpChannel(channels.BaseChannel):
         self.add_headers = add_headers
         self.method = method
         self.url = url
-        self.encoding = encoding
+        self.encoding = encoding or "utf-8"
         if endpoint is None:
             raise TypeError('Missing "endpoint" argument')
         self.http_endpoint = endpoint
-        self.binary_response = binary_response
         self.response_content_type = response_content_type
 
     async def start(self):
@@ -158,19 +156,17 @@ class HttpChannel(channels.BaseChannel):
         msg = message.Message(content_type='http_request', payload=content, meta=meta)
         try:
             result = await self.handle(msg)
-            if self.binary_response:
-                return web.Response(
-                    body=result.payload,
-                    content_type=getattr(result, "content_type", self.response_content_type),
-                    status=result.meta.get('status', 200)
-                )
+            if isinstance(result.payload, bytes):
+                body_to_send = result.payload
+            elif isinstance(result.payload, str):
+                body_to_send = result.payload.encode(self.encoding)
             else:
-                encoding = self.encoding or 'utf-8'
-                return web.Response(
-                    body=str(result.payload).encode(encoding),
-                    status=result.meta.get('status', 200),
-                    content_type=getattr(result, "content_type", self.response_content_type),
-                )
+                body_to_send = str(result.payload).encode(self.encoding)
+            return web.Response(
+                body=body_to_send,
+                content_type=getattr(result, "content_type", self.response_content_type),
+                status=result.meta.get('status', 200)
+            )
 
         except channels.Dropped:
             return web.Response(body="Dropped".encode('utf-8'), status=200)

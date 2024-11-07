@@ -899,6 +899,69 @@ class YielderNode(BaseNode):
         return generator(msg)
 
 
+class MsgFuncNode(BaseNode):
+    """
+    Make a node from a simple function/coroutine that takes the message
+    and modifies it.
+
+    The given function can be async or not.
+    The name for the node will automatically be using the function's name if no
+    explicit value is specified.
+
+        def do_something(msg):
+            msg.meta ...
+
+        MsgFuncNode(do_something)
+
+    See also `FuncNode` to work purely with the payload.
+    """
+
+    def __init__(self, fn, *, name: str = "", **kwargs):
+        if not name and fn.__name__ != "<lambda>":
+            name = self.__class__.__name__ + "_" + fn.__name__
+        super().__init__(name=name, **kwargs)
+        self.fn = fn
+
+    async def process(self, msg):
+        if asyncio.iscoroutinefunction(self.fn):
+            await self.fn(msg)
+        else:
+            self.fn(msg)
+        return msg
+
+
+class FuncNode(BaseNode):
+    """
+    Make a node from a simple function/coroutine that takes the message's
+    payload and returns a (potentially identical) payload.
+
+    The given function can be async or not.
+    The name for the node will automatically be using the function's name if no
+    explicit value is specified.
+
+        def do_something(payload):
+            return payload + 1
+
+        FuncNode(do_something)
+
+    See also `MsgFuncNode` to get the whole message.
+    """
+
+    def __init__(self, fn, *, name: str = "", **kwargs):
+        if not name and fn.__name__ != "<lambda>":
+            name = self.__class__.__name__ + "_" + fn.__name__
+        super().__init__(name=name, **kwargs)
+        self.fn = fn
+
+    async def process(self, msg):
+        msg.payload = (
+            await self.fn(msg.payload)
+            if asyncio.iscoroutinefunction(self.fn)
+            else self.fn(msg.payload)
+        )
+        return msg
+
+
 def reset_pypeman_nodes():
     """
     clears book keeping of all channels

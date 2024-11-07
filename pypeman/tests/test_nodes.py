@@ -328,6 +328,26 @@ class NodesTests(TestCase):
             self.assertEqual(data[idx], entry.payload)
             idx += 1
 
+    def test_func_nodes(self):
+        """ Whether MsgFuncNode and FuncNode are working """
+        def _last_or_none(lst):
+            return lst[-1] if lst else None
+
+        funcnode = nodes.FuncNode(_last_or_none)
+        self.assertIn('_last_or_none', funcnode.name)
+        msg_in = message.Message(payload=[1, 2, 3])
+        msg_out = self.loop.run_until_complete(funcnode.process(msg_in))
+        self.assertEqual(msg_out.payload, 3)
+
+        async def _meta_prefixme(msg: message.Message):
+            await asyncio.sleep(.01)  # simulate work with a really short sleep
+            msg.payload = msg.meta['prefixme'] + msg.payload
+
+        msgfuncnode = nodes.MsgFuncNode(_meta_prefixme)
+        msg = message.Message(payload="payload", meta={'prefixme': "new "})
+        self.loop.run_until_complete(msgfuncnode.process(msg))
+        self.assertEqual(msg.payload, "new payload")
+
     def test_xml_nodes(self):
         """ if XML nodes are functional """
         try:

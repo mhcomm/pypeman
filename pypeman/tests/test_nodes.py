@@ -339,6 +339,10 @@ class NodesTests(TestCase):
         msg_out = self.loop.run_until_complete(funcnode.process(msg_in))
         self.assertEqual(msg_out.payload, 3)
 
+        # creating an other node with the same function shouldn't crash
+        # with "It exists already"
+        nodes.FuncNode(_last_or_none)
+
         async def _meta_prefixme(msg: message.Message):
             await asyncio.sleep(.01)  # simulate work with a really short sleep
             msg.payload = msg.meta['prefixme'] + msg.payload

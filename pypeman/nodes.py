@@ -919,6 +919,8 @@ class MsgFuncNode(BaseNode):
     def __init__(self, fn, *, name: str = "", **kwargs):
         if not name and fn.__name__ != "<lambda>":
             name = self.__class__.__name__ + "_" + fn.__name__
+            if name in node_by_name:
+                name += str(len(all_nodes))
         super().__init__(name=name, **kwargs)
         self.fn = fn
 
@@ -950,6 +952,8 @@ class FuncNode(BaseNode):
     def __init__(self, fn, *, name: str = "", **kwargs):
         if not name and fn.__name__ != "<lambda>":
             name = self.__class__.__name__ + "_" + fn.__name__
+            if name in node_by_name:
+                name += str(len(all_nodes))
         super().__init__(name=name, **kwargs)
         self.fn = fn
 

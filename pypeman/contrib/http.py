@@ -118,16 +118,18 @@ class HttpChannel(channels.BaseChannel):
         url='/',
         encoding=None,
         add_headers=False,
+        response_content_type=None,
         **kwargs
     ):
         super().__init__(*args, **kwargs)
         self.add_headers = add_headers
         self.method = method
         self.url = url
-        self.encoding = encoding
+        self.encoding = encoding or "utf-8"
         if endpoint is None:
             raise TypeError('Missing "endpoint" argument')
         self.http_endpoint = endpoint
+        self.response_content_type = response_content_type
 
     async def start(self):
         first_start = self._first_start
@@ -154,11 +156,16 @@ class HttpChannel(channels.BaseChannel):
         msg = message.Message(content_type='http_request', payload=content, meta=meta)
         try:
             result = await self.handle(msg)
-            encoding = self.encoding or 'utf-8'
+            if isinstance(result.payload, bytes):
+                body_to_send = result.payload
+            elif isinstance(result.payload, str):
+                body_to_send = result.payload.encode(self.encoding)
+            else:
+                body_to_send = str(result.payload).encode(self.encoding)
             return web.Response(
-                body=str(result.payload).encode(encoding),
-                status=result.meta.get('status', 200),
-                content_type=getattr(result, "content_type", None),
+                body=body_to_send,
+                content_type=getattr(result, "content_type", self.response_content_type),
+                status=result.meta.get('status', 200)
             )
 
         except channels.Dropped:

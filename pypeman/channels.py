@@ -941,7 +941,7 @@ class FileWatcherChannel(BaseChannel):
 
     async def start(self):
         await super().start()
-        asyncio.create_task(self.watch_for_file())
+        asyncio.create_task(self.infinite_watcher())
 
     def file_status(self, filename):
         if filename in self.data:
@@ -961,11 +961,20 @@ class FileWatcherChannel(BaseChannel):
         except Dropped:
             pass
 
+    async def infinite_watcher(self):
+        while not self.is_stopped():
+            await self.watch_for_file()
+            await self.interruptable_sleeper.sleep(self.interval)
+        logger.info("Stopped watcher %s", self.short_name)
+
     async def watch_for_file(self):
-        # self.logger.debug("Will sleep")
-        await self.interruptable_sleeper.sleep(self.interval)
-        # await asyncio.sleep(self.interval, loop=self.loop)
-        # self.logger.debug("sleep done")
+        logger.warning(
+            "FileWatcherChannel.watch_for_file func is deprecated and will "
+            "be removed in future version"
+        )
+        await self.check_and_process_folder()
+
+    async def check_and_process_folder(self):
         try:
             if self.basedir.exists():
                 listfile = self.basedir.iterdir()
@@ -1004,16 +1013,10 @@ class FileWatcherChannel(BaseChannel):
                                 msg.payload = f.read()
                             msg.meta['filename'] = filename
                             msg.meta['filepath'] = str(filepath)
-                            fut = asyncio.create_task(self.handle(msg))
-                            fut.add_done_callback(self._handle_callback)
+                            await self.handle(msg)
 
         except Exception:  # TODO: might explicitely silence some special cases.
             self.logger.exception("filewatcher problem")
-        finally:
-            if self.status not in (BaseChannel.STOPPING, BaseChannel.STOPPED,):
-                asyncio.create_task(self.watch_for_file())
-            else:
-                logger.warning("Won't watch anymore")
 
 
 from pypeman.helpers import lazyload  # noqa: E402

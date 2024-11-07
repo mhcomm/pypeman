@@ -981,6 +981,8 @@ from pypeman.helpers import lazyload  # noqa: E402
 wrap = lazyload.Wrapper(__name__)
 
 wrap.add_lazy('pypeman.contrib.ctx', "CombineCtx", [])
+wrap.add_lazy('pypeman.contrib.ctx', "UseMetaFromCtx", [])
+wrap.add_lazy('pypeman.contrib.ctx', "EmptyMeta", [])
 wrap.add_lazy('pypeman.contrib.xml', "XMLToPython", ["xmltodict"])
 wrap.add_lazy('pypeman.contrib.xml', "PythonToXML", ["xmltodict"])
 wrap.add_lazy('pypeman.contrib.hl7', "HL7ToPython", ["hl7"])

@@ -60,3 +60,27 @@ class CombineCtx(nodes.BaseNode):
         msg.payload = payload
 
         return msg
+
+
+class UseMetaFromCtx(nodes.BaseNode):
+    """
+    Replace msg meta by meta from a given context
+    """
+
+    def __init__(self, *args, context_name=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.context_name = context_name
+
+    def process(self, msg):
+        msg.meta = msg.ctx[self.context_name]['meta']
+        return msg
+
+
+class EmptyMeta(nodes.BaseNode):
+    """
+    Replace msg meta by an empty dict
+    """
+
+    def process(self, msg):
+        msg.meta = {}
+        return msg

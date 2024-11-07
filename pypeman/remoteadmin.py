@@ -56,7 +56,7 @@ class RemoteAdminServer():
         return channel by is name.all_channels
         """
         for chan in channels.all_channels:
-            if chan.name == name:
+            if name in (chan.short_name, chan.name):
                 return chan
         return None
 
@@ -104,10 +104,9 @@ class RemoteAdminServer():
         """
         chans = []
         for chan in channels.all_channels:
-            if not chan.parent:
-                chan_dict = chan.to_dict()
+            chan_dict = chan.to_dict()
+            if chan_dict["has_message_store"]:
                 chan_dict['subchannels'] = chan.subchannels()
-
                 chans.append(chan_dict)
 
         return chans
@@ -417,7 +416,7 @@ class PypemanShell(cmd.Cmd):
         result = self.client.channels()
         print("\nChannel list:")
         for idx, channel in enumerate(result):
-            print("{idx}) {name} ({status})".format(idx=idx, **channel))
+            print(f"{idx}) {channel['short_name']} ({channel['status']})")
 
         print("")
         self.current_channel = None

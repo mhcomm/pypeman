@@ -14,7 +14,7 @@ def get_channel(name):
     returns channel by name
     """
     for chan in channels.all_channels:
-        if chan.name == name:
+        if name in (chan.name, chan.short_name):
             return chan
     return None
 
@@ -26,10 +26,9 @@ async def list_channels(request, ws=None):
 
     chans = []
     for chan in channels.all_channels:
-        if not chan.parent:
-            chan_dict = chan.to_dict()
+        chan_dict = chan.to_dict()
+        if chan_dict["has_message_store"]:
             chan_dict['subchannels'] = chan.subchannels()
-
             chans.append(chan_dict)
 
     if ws is not None:

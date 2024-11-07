@@ -186,12 +186,14 @@ class HttpRequest(nodes.BaseNode):
         :param binary: bool, Get response content as bytes
         :param send_as_json: bool, If the method is a PATCH/POST/PUT, send data as json
         :param json: bool, Parse Json response content
+        :param add_meta: bool, If set, add resp infos in out message's meta (like headers)
         # TODO maybe add an auto parser if for example Content-Type header is application/json
     """
 
     def __init__(self, url, *args, method=None, headers=None, auth=None,
                  verify=True, params=None, client_cert=None, cookies=None,
-                 binary=False, json=False, send_as_json=False, old_url_parsing=True, **kwargs):
+                 binary=False, json=False, send_as_json=False, old_url_parsing=True, add_meta=False,
+                 **kwargs):
         super().__init__(*args, **kwargs)
         self.url = url
         self.method = method
@@ -210,6 +212,7 @@ class HttpRequest(nodes.BaseNode):
         self.json = json
         self.send_as_json = send_as_json
         self.old_url_parsing = old_url_parsing
+        self.add_meta = add_meta
         # TODO: create used payload keys for better perf of generate_request_url()
 
     def generate_request_url(self, msg):
@@ -336,6 +339,8 @@ class HttpRequest(nodes.BaseNode):
         resp = await self.handle_request(msg)
         msg.meta["status_code"] = resp.status
         msg.meta["url"] = str(resp.url)
+        if self.add_meta:
+            msg.meta["headers"] = resp.headers
         resp_content = resp.content
         if self.json:
             try:

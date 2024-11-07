@@ -1,5 +1,22 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
 
+## [0.5.8](https://github.com/mhcomm/pypeman/compare/0.5.8...0.5.9)
+* add init nodes that are called before channel subhandle
+* Add possibility to extend end nodes
+* add possibility to search channels by short_name 
+* Add end node search (in chan.get_node)
+* msgstore: add start_id param instead of start to have optimized filtering
+* msgstore: list channels API now returns only chans with a msgstore
+* HttpRequestNode: new add_meta param to add headers in out msg meta
+* HttpChannel: Add possibility to return other types than string in the response
+* Fix duplicate err logging
+* New nodes:
+* - MsgFuncNode
+* - FuncNode
+* - UseMetaFromCtx
+* - EmptyMeta
+* - Reject
+
 ## [0.5.8](https://github.com/mhcomm/pypeman/compare/0.5.7...0.5.8)
 * Persistence: add search_ids_by_value and get_num_entries functions
 * Http Plugin: list message view default order reversed (-timestamp)

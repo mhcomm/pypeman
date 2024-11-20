@@ -1,6 +1,9 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
+## [0.5.10](https://github.com/mhcomm/pypeman/compare/0.5.9...0.5.10)
+* Fix Filewatcher logging problem
+* PypemanTestCase.get_channel now call channels.get_channel
 
-## [0.5.8](https://github.com/mhcomm/pypeman/compare/0.5.8...0.5.9)
+## [0.5.9](https://github.com/mhcomm/pypeman/compare/0.5.8...0.5.9)
 * add init nodes that are called before channel subhandle
 * Add possibility to extend end nodes
 * add possibility to search channels by short_name 

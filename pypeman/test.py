@@ -96,10 +96,10 @@ class PypeTestCase(TestCase):
         :return: Channel instance corresponding to `name`
             or None if channel not found.
         """
-        for chan in channels.all_channels:
-            if chan.name == name:
-                chan._reset_test()
-                return chan
+        chan = channels.get_channel(name)
+        if chan:
+            chan._reset_test()
+            return chan
         raise NameError("Channel '%s' doesn't exist" % name)
 
     def set_loop_to_debug(self):

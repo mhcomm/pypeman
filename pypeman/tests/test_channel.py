@@ -16,6 +16,7 @@ from pypeman import channels, endpoints
 from pypeman import nodes
 from pypeman import events
 from pypeman import msgstore
+from pypeman import message
 from pypeman.channels import BaseChannel, Dropped, Rejected
 from pypeman.errors import PypemanParamError
 from pypeman.helpers.aio_compat import awaitify
@@ -1379,9 +1380,11 @@ class ChannelsTests(TestCase):
         chan = self._create_complete_chan()
         msg1 = generate_msg(message_content="msg1")
         self.start_channels()
-        for b in chan.fail_nodes:
-            print(b.name)
         msg1_store_id = self.loop.run_until_complete(chan.message_store.store(msg1))
+        self.loop.run_until_complete(chan.message_store.change_message_state(
+            msg1_store_id,
+            message.Message.PENDING,
+        ))
         init_node_1 = chan.get_node("CHAN_TEST_INJECTION_init_1")
         init_node_2 = chan.get_node("CHAN_TEST_INJECTION_init_2")
         handle_node_1 = chan.get_node("CHAN_TEST_INJECTION_handle_1")
@@ -1393,7 +1396,6 @@ class ChannelsTests(TestCase):
         reject_node_1 = chan.get_node("CHAN_TEST_INJECTION_reject_1")
         reject_node_2 = chan.get_node("CHAN_TEST_INJECTION_reject_2")
         fail_node_1 = chan.get_node("CHAN_TEST_INJECTION_fail_1")
-        print(fail_node_1)
         fail_node_2 = chan.get_node("CHAN_TEST_INJECTION_fail_2")
         final_node_1 = chan.get_node("CHAN_TEST_INJECTION_final_1")
         final_node_2 = chan.get_node("CHAN_TEST_INJECTION_final_2")
@@ -1427,9 +1429,16 @@ class ChannelsTests(TestCase):
             processed_nodes=processed_nodes,
             not_processed_nodes=not_processed_nodes
         )
+        msg_state = self.loop.run_until_complete(
+            chan.message_store.get_message_meta_infos(msg1_store_id, "state"))
+        assert msg_state == message.Message.PROCESSED
 
         # Test inject in handle nodes
         print("Test inject in handle node")
+        self.loop.run_until_complete(chan.message_store.change_message_state(
+            msg1_store_id,
+            message.Message.ERROR,
+        ))
         chan._reset_test()
         self.loop.run_until_complete(chan.inject(
             msg=msg1,
@@ -1458,6 +1467,9 @@ class ChannelsTests(TestCase):
             processed_nodes=processed_nodes,
             not_processed_nodes=not_processed_nodes
         )
+        msg_state = self.loop.run_until_complete(
+            chan.message_store.get_message_meta_infos(msg1_store_id, "state"))
+        assert msg_state == message.Message.PROCESSED
 
         # Test inject in join nodes
         print("Test inject in join node")

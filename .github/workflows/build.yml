@@ -6,7 +6,8 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # github python 3.7 don't works on ubuntu 24.04 (set ubuntu-latest when we drop 3.7)
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         python-version: ["3.7", "3.8", "3.9", "3.10"]

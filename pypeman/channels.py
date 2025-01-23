@@ -391,7 +391,7 @@ class BaseChannel:
             if start_nodename:
                 node = self.get_node(start_nodename)
                 if node not in self.init_nodes:
-                    raise ValueError("Node named %s not in init nodes", start_nodename)
+                    raise ValueError(f"Node {start_nodename} not in init nodes")
             else:
                 node = self.init_nodes[0]
             msg = await node.handle(msg.copy())
@@ -402,7 +402,7 @@ class BaseChannel:
             if start_nodename:
                 node = self.get_node(start_nodename)
                 if node not in self.join_nodes:
-                    raise ValueError("Node named %s not in join nodes", start_nodename)
+                    raise ValueError(f"Node {start_nodename} not in join nodes")
             else:
                 node = self.join_nodes[0]
             await node.handle(msg.copy())
@@ -412,7 +412,7 @@ class BaseChannel:
             if start_nodename:
                 node = self.get_node(start_nodename)
                 if node not in self.drop_nodes:
-                    raise ValueError("Node named %s not in drop nodes", start_nodename)
+                    raise ValueError(f"Node {start_nodename} not in drop nodes")
             else:
                 node = self.drop_nodes[0]
             await node.handle(msg.copy())
@@ -422,7 +422,7 @@ class BaseChannel:
             if start_nodename:
                 node = self.get_node(start_nodename)
                 if node not in self.reject_nodes:
-                    raise ValueError("Node named %s not in reject nodes", start_nodename)
+                    raise ValueError(f"Node {start_nodename} not in reject nodes")
             else:
                 node = self.reject_nodes[0]
             await node.handle(msg.copy())
@@ -432,7 +432,7 @@ class BaseChannel:
             if start_nodename:
                 node = self.get_node(start_nodename)
                 if node not in self.fail_nodes:
-                    raise ValueError("Node named %s not in fail nodes", start_nodename)
+                    raise ValueError(f"Node {start_nodename} not in fail nodes")
             else:
                 node = self.fail_nodes[0]
             await node.handle(msg.copy())
@@ -442,7 +442,7 @@ class BaseChannel:
             if start_nodename:
                 node = self.get_node(start_nodename)
                 if node not in self.final_nodes:
-                    raise ValueError("Node named %s not in final nodes", start_nodename)
+                    raise ValueError(f"Node {start_nodename} not in final nodes")
             else:
                 node = self.final_nodes[0]
             await node.handle(msg.copy())
@@ -564,8 +564,7 @@ class BaseChannel:
         call it from child class to add behaviour.
 
         :param msg: To be processed msg.
-        :param start_nodename: the nodename where you want to inject the message, if no nodename
-            is passed, process it from the channel's start (dont work with init nodes)
+
         :return: Processed message
         """
 
@@ -1025,6 +1024,9 @@ class MergeChannel(BaseChannel):
         for channel in self.channels:
             all_channels.remove(channel)
             channel.add = None
+            # Lambda function in the following line permits dropping args and
+            # kwargs as "handle" doesn't support other param than the msg and will be unuseful in
+            # the MergeChannel's use case
             channel.subhandle = lambda msg, *args, **kwargs: self.handle(msg)
 
     async def start(self):

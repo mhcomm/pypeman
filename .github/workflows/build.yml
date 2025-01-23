@@ -6,7 +6,7 @@ on:
 
 jobs:
   build:
-    # github python 3.7 don't works on ubuntu 24.04 (set ubuntu-latest when we drop 3.7)
+    # github python 3.7 doesn't work on ubuntu 24.04 (set ubuntu-latest when we drop 3.7)
     runs-on: ubuntu-22.04
     strategy:
       matrix:

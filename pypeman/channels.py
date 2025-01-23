@@ -518,7 +518,6 @@ class BaseChannel:
 
         Args:
             msg (message.Message): Message to inject
-            msg_store_id (str): Id of the message in the store
             start_nodename (str): Node name where inject the message
         """
         if not start_nodename or start_nodename == "_initial":

@@ -15,6 +15,8 @@ from unittest import mock
 from pypeman import channels, endpoints
 from pypeman import nodes
 from pypeman import events
+from pypeman import msgstore
+from pypeman import message
 from pypeman.channels import BaseChannel, Dropped, Rejected
 from pypeman.errors import PypemanParamError
 from pypeman.helpers.aio_compat import awaitify
@@ -1329,3 +1331,290 @@ class ChannelsTests(TestCase):
                 self.loop.run_until_complete(file_chan2.watch_for_file())
                 self.assertEqual(merge_chan.processed_msgs, 2)
                 self.assertFalse(infpath_chan2.exists())
+
+    def _create_complete_chan(self, chan=None, chan_name="CHAN_TEST_INJECTION"):
+        if not chan:
+            chan = BaseChannel(
+                name=chan_name,
+                message_store_factory=msgstore.MemoryMessageStoreFactory(),
+                loop=self.loop,
+            )
+
+        chan.add_init_nodes(
+            nodes.BaseNode(name=f"{chan_name}_init_1"),
+            nodes.BaseNode(name=f"{chan_name}_init_2"),
+        )
+        chan.add(
+            nodes.BaseNode(name=f"{chan_name}_handle_1"),
+            nodes.BaseNode(name=f"{chan_name}_handle_2"),
+        )
+        chan.add_join_nodes(
+            nodes.BaseNode(name=f"{chan_name}_join_1"),
+            nodes.BaseNode(name=f"{chan_name}_join_2"),
+        )
+        chan.add_drop_nodes(
+            nodes.BaseNode(name=f"{chan_name}_drop_1"),
+            nodes.BaseNode(name=f"{chan_name}_drop_2"),
+        )
+        chan.add_reject_nodes(
+            nodes.BaseNode(name=f"{chan_name}_reject_1"),
+            nodes.BaseNode(name=f"{chan_name}_reject_2"),
+        )
+        chan.add_fail_nodes(
+            nodes.BaseNode(name=f"{chan_name}_fail_1"),
+            nodes.BaseNode(name=f"{chan_name}_fail_2"),
+        )
+        chan.add_final_nodes(
+            nodes.BaseNode(name=f"{chan_name}_final_1"),
+            nodes.BaseNode(name=f"{chan_name}_final_2"),
+        )
+        return chan
+
+    def _assert_injection(self, processed_nodes, not_processed_nodes):
+        for node in processed_nodes:
+            assert node.processed == 1
+        for node in not_processed_nodes:
+            assert node.processed == 0
+
+    def test_chan_inject(self):
+        chan = self._create_complete_chan()
+        msg1 = generate_msg(message_content="msg1")
+        self.start_channels()
+        msg1.store_id = self.loop.run_until_complete(chan.message_store.store(msg1))
+        self.loop.run_until_complete(chan.message_store.change_message_state(
+            msg1.store_id,
+            message.Message.PENDING,
+        ))
+        init_node_1 = chan.get_node("CHAN_TEST_INJECTION_init_1")
+        init_node_2 = chan.get_node("CHAN_TEST_INJECTION_init_2")
+        handle_node_1 = chan.get_node("CHAN_TEST_INJECTION_handle_1")
+        handle_node_2 = chan.get_node("CHAN_TEST_INJECTION_handle_2")
+        join_node_1 = chan.get_node("CHAN_TEST_INJECTION_join_1")
+        join_node_2 = chan.get_node("CHAN_TEST_INJECTION_join_2")
+        drop_node_1 = chan.get_node("CHAN_TEST_INJECTION_drop_1")
+        drop_node_2 = chan.get_node("CHAN_TEST_INJECTION_drop_2")
+        reject_node_1 = chan.get_node("CHAN_TEST_INJECTION_reject_1")
+        reject_node_2 = chan.get_node("CHAN_TEST_INJECTION_reject_2")
+        fail_node_1 = chan.get_node("CHAN_TEST_INJECTION_fail_1")
+        fail_node_2 = chan.get_node("CHAN_TEST_INJECTION_fail_2")
+        final_node_1 = chan.get_node("CHAN_TEST_INJECTION_final_1")
+        final_node_2 = chan.get_node("CHAN_TEST_INJECTION_final_2")
+        # Test inject in init nodes
+        print("Test inject in init node")
+        chan._reset_test()
+        self.loop.run_until_complete(chan.inject(
+            msg=msg1,
+            start_nodename="CHAN_TEST_INJECTION_init_2"
+        ))
+        processed_nodes = [
+            init_node_2,
+            handle_node_1,
+            handle_node_2,
+            join_node_1,
+            join_node_2,
+            final_node_1,
+            final_node_2,
+        ]
+        not_processed_nodes = [
+            init_node_1,
+            drop_node_1,
+            drop_node_2,
+            reject_node_1,
+            reject_node_2,
+            fail_node_1,
+            fail_node_2,
+        ]
+        self._assert_injection(
+            processed_nodes=processed_nodes,
+            not_processed_nodes=not_processed_nodes
+        )
+        msg_state = self.loop.run_until_complete(
+            chan.message_store.get_message_meta_infos(msg1.store_id, "state"))
+        assert msg_state == message.Message.PROCESSED
+
+        # Test inject in handle nodes
+        print("Test inject in handle node")
+        self.loop.run_until_complete(chan.message_store.change_message_state(
+            msg1.store_id,
+            message.Message.ERROR,
+        ))
+        chan._reset_test()
+        self.loop.run_until_complete(chan.inject(
+            msg=msg1,
+            start_nodename="CHAN_TEST_INJECTION_handle_2"
+        ))
+        processed_nodes = [
+            handle_node_2,
+            join_node_1,
+            join_node_2,
+            final_node_1,
+            final_node_2,
+        ]
+        not_processed_nodes = [
+            init_node_1,
+            init_node_2,
+            handle_node_1,
+            drop_node_1,
+            drop_node_2,
+            reject_node_1,
+            reject_node_2,
+            fail_node_1,
+            fail_node_2,
+        ]
+        self._assert_injection(
+            processed_nodes=processed_nodes,
+            not_processed_nodes=not_processed_nodes
+        )
+        msg_state = self.loop.run_until_complete(
+            chan.message_store.get_message_meta_infos(msg1.store_id, "state"))
+        assert msg_state == message.Message.PROCESSED
+
+        # Test inject in join nodes
+        print("Test inject in join node")
+        chan._reset_test()
+        self.loop.run_until_complete(chan.inject(
+            msg=msg1,
+            start_nodename="CHAN_TEST_INJECTION_join_2"
+        ))
+        processed_nodes = [
+            join_node_2,
+            final_node_1,
+            final_node_2,
+        ]
+        not_processed_nodes = [
+            init_node_1,
+            init_node_2,
+            handle_node_1,
+            handle_node_2,
+            join_node_1,
+            drop_node_1,
+            drop_node_2,
+            reject_node_1,
+            reject_node_2,
+            fail_node_1,
+            fail_node_2,
+        ]
+        self._assert_injection(
+            processed_nodes=processed_nodes,
+            not_processed_nodes=not_processed_nodes
+        )
+
+        # Test inject in drop nodes
+        print("Test inject in drop node")
+        chan._reset_test()
+        self.loop.run_until_complete(chan.inject(
+            msg=msg1,
+            start_nodename="CHAN_TEST_INJECTION_drop_2"
+        ))
+        processed_nodes = [
+            drop_node_2,
+            final_node_1,
+            final_node_2,
+        ]
+        not_processed_nodes = [
+            init_node_1,
+            init_node_2,
+            handle_node_1,
+            handle_node_2,
+            join_node_1,
+            join_node_2,
+            drop_node_1,
+            reject_node_1,
+            reject_node_2,
+            fail_node_1,
+            fail_node_2,
+        ]
+        self._assert_injection(
+            processed_nodes=processed_nodes,
+            not_processed_nodes=not_processed_nodes
+        )
+
+        # Test inject in reject nodes
+        print("Test inject in reject node")
+        chan._reset_test()
+        self.loop.run_until_complete(chan.inject(
+            msg=msg1,
+            start_nodename="CHAN_TEST_INJECTION_reject_2"
+        ))
+        processed_nodes = [
+            reject_node_2,
+            final_node_1,
+            final_node_2,
+        ]
+        not_processed_nodes = [
+            init_node_1,
+            init_node_2,
+            handle_node_1,
+            handle_node_2,
+            join_node_1,
+            join_node_2,
+            drop_node_1,
+            drop_node_2,
+            reject_node_1,
+            fail_node_1,
+            fail_node_2,
+        ]
+        self._assert_injection(
+            processed_nodes=processed_nodes,
+            not_processed_nodes=not_processed_nodes
+        )
+
+        # Test inject in fail nodes
+        print("Test inject in fail node")
+        chan._reset_test()
+        self.loop.run_until_complete(chan.inject(
+            msg=msg1,
+            start_nodename="CHAN_TEST_INJECTION_fail_2"
+        ))
+        processed_nodes = [
+            fail_node_2,
+            final_node_1,
+            final_node_2,
+        ]
+        not_processed_nodes = [
+            init_node_1,
+            init_node_2,
+            handle_node_1,
+            handle_node_2,
+            join_node_1,
+            join_node_2,
+            drop_node_1,
+            drop_node_2,
+            reject_node_1,
+            reject_node_2,
+            fail_node_1,
+        ]
+        self._assert_injection(
+            processed_nodes=processed_nodes,
+            not_processed_nodes=not_processed_nodes
+        )
+
+        # Test inject in final nodes
+        print("Test inject in final node")
+        chan._reset_test()
+        self.loop.run_until_complete(chan.inject(
+            msg=msg1,
+            start_nodename="CHAN_TEST_INJECTION_final_2"
+        ))
+        processed_nodes = [
+            final_node_2,
+        ]
+        not_processed_nodes = [
+            init_node_1,
+            init_node_2,
+            handle_node_1,
+            handle_node_2,
+            join_node_1,
+            join_node_2,
+            drop_node_1,
+            drop_node_2,
+            reject_node_1,
+            reject_node_2,
+            fail_node_1,
+            fail_node_2,
+            final_node_1,
+        ]
+        self._assert_injection(
+            processed_nodes=processed_nodes,
+            not_processed_nodes=not_processed_nodes
+        )

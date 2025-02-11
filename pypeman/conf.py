@@ -19,6 +19,9 @@ import logging
 import logging.config
 
 NOT_FOUND = object()  # sentinel object
+SETTINGS_IMPORTED = False
+
+logger = logging.getLogger(__name__)
 
 
 class ConfigError(ImportError):
@@ -34,8 +37,10 @@ class Settings():
             self.__dict__['SETTINGS_MODULE'] = module_name
         else:
             self.__dict__['SETTINGS_MODULE'] = os.environ.get('PYPEMAN_SETTINGS_MODULE', 'settings')
+        self.__dict__["RETRY_STORE_PATH"] = None
 
     def init_settings(self):
+        global SETTINGS_IMPORTED
         try:
             settings_module = self.__dict__['SETTINGS_MODULE']
             settings_mod = self.__dict__['_settings_mod'] = importlib.import_module(settings_module)
@@ -53,8 +58,11 @@ class Settings():
         mod_vals = [(key, val) for (key, val) in settings_mod.__dict__.items()
                     if 'A' <= key[0] <= 'Z']
         self.__dict__.update(mod_vals)
+        if not self.__dict__["RETRY_STORE_PATH"]:
+            logger.warning("RETRY_STORE_PATH setting not set, will disable Retry msgstore ... Change this")
 
         logging.config.dictConfig(self.__dict__['LOGGING'])
+        SETTINGS_IMPORTED = True
 
     def __getattr__(self, name):
         """ lazy getattr. first access imports and populates settings """

@@ -20,6 +20,8 @@ from urllib import parse
 
 from concurrent.futures import ThreadPoolExecutor
 
+from pypeman import exceptions
+
 from pypeman.message import Message
 from pypeman.exceptions import Dropped
 from pypeman.exceptions import Rejected
@@ -116,7 +118,8 @@ class BaseNode:
 
     _used_names = set()  # already used node names to ensure uniqueness
 
-    def __init__(self, *args, name=None, log_output=False, **kwargs):
+    def __init__(self, *args, name=None, log_output=False, auto_retry_exceptions=[],
+                 **kwargs):
         cls = self.__class__
         self.channel = None
 
@@ -137,6 +140,8 @@ class BaseNode:
 
         self.processed = 0
 
+        self.auto_retry_exceptions = tuple(auto_retry_exceptions)
+
         if log_output:
             # Enable logging
             self._handle_without_log = self.handle
@@ -148,6 +153,13 @@ class BaseNode:
         """
         return "%s.%s" % (self.channel.name, self.name)
 
+    async def _call_run(self, msg):
+        if asyncio.iscoroutinefunction(self.process):
+            result = await self.async_run(msg)
+        else:
+            result = self.run(msg)
+        return result
+
     async def handle(self, msg):
         """ Handle message is called by channel to launch process method on it.
         Some other structural processing take place here.
@@ -156,17 +168,25 @@ class BaseNode:
         :param msg: incoming message
         :return: modified message after a process call and some treatment
         """
-
+        logger.debug(f"Node {self.name} handle msg {msg}")
         # TODO : Make sure exceptions are well raised (does not happen if i.e 1/0 here atm)
         if self.store_input_as:
             msg.add_context(self.store_input_as, msg)
-        if self.passthrough:
-            old_msg = msg.copy()
+        old_msg = msg.copy()
         # Allow process as coroutine function
-        if asyncio.iscoroutinefunction(self.process):
-            result = await self.async_run(msg)
+        if self.auto_retry_exceptions:
+            try:
+                result = await self._call_run(msg)
+            except self.auto_retry_exceptions as exc:
+                logger.warning("node %s catch retry Exception %r", self.name, exc)
+                if self.channel.retry_store:
+                    await self.channel.retry_store.store_until_retry(msg=old_msg, nodename=self.name)
+                    raise exceptions.RetryException(exc)
+                else:
+                    logger.error("Retry Store not configured, no retry will be done")
+                    raise exc
         else:
-            result = self.run(msg)
+            result = await self._call_run(msg)
         self.processed += 1
 
         if isinstance(result, asyncio.Future):
@@ -878,10 +898,12 @@ class YielderNode(BaseNode):
             payload = msg.payload
             ctx = msg.ctx
             meta = msg.meta
+            timestamp = msg.timestamp
             store_id = msg.store_id
             store_chan_name = msg.store_chan_name
             for entry in payload:
                 newmsg = Message(meta=meta, payload=entry)
+                newmsg.timestamp = timestamp
                 newmsg.ctx = ctx
                 newmsg.store_id = store_id
                 newmsg.store_chan_name = store_chan_name

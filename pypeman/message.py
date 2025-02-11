@@ -38,8 +38,9 @@ class Message():
     ERROR = "error"
     REJECTED = "rejected"
     PROCESSED = "processed"
-    store_id = None
-    store_chan_name = None
+    WAIT_RETRY = "wait_retry"
+    # Status priority: less important first
+    STATES_PRIORITY = [WAIT_RETRY, PENDING, PROCESSING, PROCESSED, REJECTED, ERROR]
 
     def __init__(self, content_type='application/text', payload=None, meta=None):
         self.content_type = content_type
@@ -51,6 +52,8 @@ class Message():
         if meta is None:
             meta = {}
         self.meta = meta
+        self.store_id = None
+        self.store_chan_name = None
 
         self.ctx = {}
 
@@ -100,6 +103,8 @@ class Message():
         result = {}
         result['timestamp'] = self.timestamp.strftime(DATE_FORMAT)
         result['uuid'] = self.uuid
+        result['store_id'] = self.store_id
+        result['store_chan_name'] = self.store_chan_name
         if encode_payload:
             result['payload'] = base64.b64encode(pickle.dumps(self.payload)).decode('ascii')
         else:
@@ -139,6 +144,8 @@ class Message():
         result.uuid = UUID(data['uuid']).hex
         result.payload = pickle.loads(base64.b64decode(data['payload'].encode('ascii')))
         result.meta = data['meta']
+        result.store_id = data.get('store_id')
+        result.store_chan_name = data.get('store_chan_name')
 
         for k, ctx_msg in data['ctx'].items():
             result.ctx[k] = {}

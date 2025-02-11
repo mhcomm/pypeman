@@ -62,8 +62,6 @@ def generate_msg(timestamp=None, message_content=default_message_content,
             m.timestamp = datetime.datetime(*timestamp)
         else:  # assume it's a datetime object
             m.timestamp = timestamp
-    else:  # just use current time
-        m.timestamp = datetime.datetime.utcnow()
 
     m.payload = message_content
 

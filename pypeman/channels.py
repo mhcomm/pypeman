@@ -572,7 +572,9 @@ class BaseChannel:
         # TODO If store fails, do we stop processing ?
         # TODO Do we store message even if channel is stopped ?
         msg_store_id = await self.message_store.store(msg)
-        msg.store_id = msg_store_id
+        if msg_store_id is not None:
+            msg.store_id = msg_store_id
+            msg.store_chan_name = self.short_name
 
         if self.status in [BaseChannel.STOPPED, BaseChannel.STOPPING]:
             raise ChannelStopped("Channel is stopped so you can't send message.")

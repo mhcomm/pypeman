@@ -8,6 +8,7 @@ import tempfile
 from pathlib import Path
 
 from pypeman import channels
+from pypeman import message
 from pypeman import msgstore
 from pypeman import nodes
 from pypeman.channels import BaseChannel
@@ -168,6 +169,49 @@ class MsgstoreTests(TestCase):
         # Test preview message
         msg_content = self.loop.run_until_complete(chan.message_store.get_preview_str('%s' % msg5.uuid))
         self.assertEqual(msg_content.payload, msg5.payload[:1000], "Failure of message %s preview!" % msg5)
+
+    def test_memory_message_store_store_id(self):
+        """
+            Test that store_id is correctly added to message's attrs and is correctly added to
+            yielded sub-messages
+        """
+        store_factory = msgstore.MemoryMessageStoreFactory()
+
+        # Basic chan
+        chan_name = "test_channel_mem_store_id"
+        chan = BaseChannel(
+            name=chan_name,
+            loop=self.loop,
+            message_store_factory=store_factory
+        )
+        yieldernode = nodes.YielderNode()
+        chan.add(yieldernode)
+
+        # Second chan with no msgstore configured
+        chan_name2 = "test_channel_wo_store"
+        chan2_wo_msgstore = BaseChannel(
+            name=chan_name2,
+            loop=self.loop
+        )
+        chan2_wo_msgstore.add(nodes.BaseNode())
+
+        data = [1, 2, 3]
+        msg = message.Message(payload=data)
+        assert msg.store_id is None
+        assert msg.store_chan_name is None
+
+        # Launch channel processing
+        self.start_channels()
+        result_generator_msg = self.loop.run_until_complete(chan.handle(msg))
+        assert msg.store_id is not None
+        assert msg.store_chan_name == chan_name
+        msg_store_id = msg.store_id
+        for entry in result_generator_msg:
+            # Pass the entry in the second chan wo msgstore to verify that the msg attrs
+            # are not modified by the second chan
+            rslt_msg = self.loop.run_until_complete(chan2_wo_msgstore.handle(entry))
+            assert rslt_msg.store_id == msg_store_id
+            assert rslt_msg.store_chan_name == chan_name
 
     def test_memory_message_store_in_fork(self):
         """ We can store a message in FileMessageStore """

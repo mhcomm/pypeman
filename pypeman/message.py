@@ -39,6 +39,7 @@ class Message():
     REJECTED = "rejected"
     PROCESSED = "processed"
     store_id = None
+    store_chan_name = None
 
     def __init__(self, content_type='application/text', payload=None, meta=None):
         self.content_type = content_type

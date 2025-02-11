@@ -892,9 +892,13 @@ class YielderNode(BaseNode):
             payload = msg.payload
             ctx = msg.ctx
             meta = msg.meta
+            store_id = msg.store_id
+            store_chan_name = msg.store_chan_name
             for entry in payload:
                 newmsg = Message(meta=meta, payload=entry)
                 newmsg.ctx = ctx
+                newmsg.store_id = store_id
+                newmsg.store_chan_name = store_chan_name
                 yield newmsg
         return generator(msg)
 

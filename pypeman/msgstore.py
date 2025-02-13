@@ -172,7 +172,7 @@ class MessageStore():
         """
 
     async def search(self, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None,
-                     text=None, rtext=None, start_id=None):
+                     text=None, rtext=None, start_id=None, meta=None):
         """
         Return a list of message with store specific `id` and processed status.
 
@@ -184,8 +184,105 @@ class MessageStore():
         :param text: (optional) String to search in message content
         :param rtext: (optional) String regex to search in message content
         :param start_id: (optional): If set, start search from this id (excluded from rslt list)
+        :param meta: (optional): Search filters applied to message metadata
+
+            Message metadata are always stored as a list of strings when
+            going through `BaseNode.store_meta`. (If an in-store entry is not
+            a list, it will be handled as if a list of a single item.) If any
+            value from the inspected list of meta correspond to the query,
+            the message is selected.
+
+            In the key/value pairs of the `meta` argument to `search`,
+            keys are processed as follow:
+
+            * `text_<name>`: string to search in meta value.
+            * `rtext_<name>`: string regex to search in meta value.
+
+            * `start_<name>` / `end_<name>`: filter a range; values are
+                interpreted and compared as numbers when possible.
+
+            * `<name>`: only match with exact value.
+
+            * `order_by`: sort result by the meta indicated by value.
+
+            Reminder: when called through web API, ie from `list_msgs` in pypeman/plugins/remoteadmin/views.py
+            these keys are prefixed with "meta_", eg "meta_status" "meta_rtext_url".
+
         :return: A list of dict `{'id':<message_id>, 'state': <message_state>, 'message': <message_object>}`.
         """
+
+    @staticmethod
+    def _search_meta_filter_sort(meta: dict, result: list):
+        def isfloat(s: str):
+            """used with start_/end_"""
+            try:
+                float(s)
+                return True
+            except ValueError:
+                return False
+
+        class _FILTERS:
+            @staticmethod
+            def exact(value: str):
+                return lambda info: info == value
+
+            @staticmethod
+            def text(text: str):
+                return lambda info: text in info
+
+            @staticmethod
+            def rtext(rtext: str):
+                regex = re.compile(rtext)
+                return lambda info: regex.match(info)
+
+            @staticmethod
+            def start(start: str):
+                fstart = float(start)
+                return lambda info: isfloat(info) and float(info) < fstart
+
+            @staticmethod
+            def end(end: str):
+                fend = float(end)
+                return lambda info: isfloat(info) and float(info) > fend
+
+        # list of tuples (meta_info_name, filter_function)
+        filters: "list[tuple[str, type[bool]]]" = []
+        ordering = None
+        for key, value in meta.items():
+            if key.startswith('order_by'):
+                ordering = value
+            else:
+                filt_name, _, meta_name = key.partition('_')
+                filt = getattr(_FILTERS, filt_name, _FILTERS.exact)
+                filters.append((meta_name, filt(value)))
+
+        filtered = (
+            # For an item to be kept, ..
+            item for item in result
+            # .. it must pass all filters.
+            if all(
+                # The meta must exists, else message is filtered out.
+                meta_name in item['message'].meta
+                and (
+                    # Any info in the list may pass, one is enough.
+                    any(filt(info) for info in item['message'].meta.get[meta_name])
+                    # Info stored through `BaseNode.store_meta` are list[str] ..
+                    if isinstance(item['message'].meta.get[meta_name], list)
+                    # .. but they might not be if added through an other mean.
+                    else filt(str(item['message'].meta.get[meta_name]))
+                )
+                for meta_name, filt in filters
+            )
+        )
+
+        if ordering is None:
+            return list(filtered)
+
+        # if starting with a '-', reverse ordering
+        meta_name = ordering[ordering[0] == '-':]
+        return sorted(filtered,
+                      key=lambda item: item['message'].meta.get(meta_name),
+                      reverse=ordering[0] == '-')
 
     async def total(self):
         """
@@ -223,7 +320,7 @@ class NullMessageStore(MessageStore):
         return None
 
     async def get_message_meta_infos(self, id, meta_info_name=None):
-        return None
+        return None if meta_info_name else {}
 
     async def add_sub_message_state(self, id, sub_id, state):
         return None
@@ -270,7 +367,7 @@ class FakeMessageStore(MessageStore):
         return None
 
     async def get_message_meta_infos(self, id, meta_info_name=None):
-        return "processed"
+        return "processed" if meta_info_name else {}
 
     async def get(self, id):
         return {'id': id, 'state': 'processed', 'message': None}
@@ -340,7 +437,7 @@ class MemoryMessageStore(MessageStore):
         self.messages[id][meta_info_name] = info
 
     async def get_message_meta_infos(self, id, meta_info_name=None):
-        return self.messages[id][meta_info_name]
+        return self.messages[id][meta_info_name] if meta_info_name else self.messages[id]
 
     async def get(self, id):
         resp = dict(self.messages[id])
@@ -378,7 +475,7 @@ class MemoryMessageStore(MessageStore):
         return text in msg.payload
 
     async def search(self, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None,
-                     text=None, rtext=None, start_id=None):
+                     text=None, rtext=None, start_id=None, meta=None):
         if start and start_id:
             raise ValueError("`start` and `start_id` can't both be set")
         if order_by.startswith('-'):
@@ -439,7 +536,7 @@ class MemoryMessageStore(MessageStore):
             resp = dict(value)
             resp['message'] = Message.from_dict(resp['message'])
             result.append(resp)
-        return result
+        return result if meta is None else MessageStore._search_meta_filter_sort(meta, result)
 
     async def total(self):
         return len(self.messages)
@@ -669,7 +766,7 @@ class FileMessageStore(MessageStore):
         return text in msg.payload
 
     async def search(self, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None,
-                     text=None, rtext=None, start_id=None):
+                     text=None, rtext=None, start_id=None, meta=None):
         if start and start_id:
             raise ValueError("`start` and `start_id` can't both be set")
         # TODO better performance for slicing by counting file in dirs ?
@@ -758,7 +855,7 @@ class FileMessageStore(MessageStore):
                             position += 1
         if start_id and not start_id_found:
             raise IndexError("Couldn't find start_id %r in filtered results", start_id)
-        return result
+        return result if meta is None else MessageStore._search_meta_filter_sort(meta, result)
 
     async def total(self):
         return self._total

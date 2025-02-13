@@ -5,18 +5,9 @@ from aiohttp import web
 from jsonrpcserver.response import SuccessResponse
 
 from pypeman import channels
+from pypeman.channels import get_channel
 
 logger = logging.getLogger(__name__)
-
-
-def get_channel(name):
-    """
-    returns channel by name
-    """
-    for chan in channels.all_channels:
-        if name in (chan.name, chan.short_name):
-            return chan
-    return None
 
 
 async def list_channels(request, ws=None):
@@ -30,6 +21,9 @@ async def list_channels(request, ws=None):
         if chan_dict["has_message_store"]:
             chan_dict['subchannels'] = chan.subchannels()
             chans.append(chan_dict)
+        # TODO: wip
+        #if ['has_metababa']:
+        #    -NotImplemented
 
     if ws is not None:
         await ws.send_jsonrpcresp(chans)
@@ -110,10 +104,16 @@ async def list_msgs(request, ws=None):
     end_dt = args.get("end_dt", None)
     text = args.get("text", None)
     rtext = args.get("rtext", None)
+    meta = {
+        key[len('meta_'):]: value
+        for key, value in args.items()
+        if key.startswith('meta_')
+    }
+
     try:
         messages = await chan.message_store.search(
             start=start, count=count, order_by=order_by, start_dt=start_dt, end_dt=end_dt,
-            text=text, rtext=rtext, start_id=start_id) or []
+            text=text, rtext=rtext, start_id=start_id, meta=meta) or []
     except Exception:
         logger.exception("Cannot search messages")
         messages = []

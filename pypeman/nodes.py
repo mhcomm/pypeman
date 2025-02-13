@@ -110,16 +110,27 @@ class BaseNode:
 
     :param name: Name of node. Used in log or test.
     :param log_output: To enable output logging for this node.
-    :store_output_as: Store output message in msg.ctx as specified key
-    :store_input_as: Store input message in msg.ctx as specified key
-    :passthrough: If True, node is executed but output message is same as input
-
+    :param store_output_as: Store output message in msg.ctx as specified key
+    :param store_input_as: Store input message in msg.ctx as specified key
+    :param passthrough: If True, node is executed but output message is same as input
+    :param store_meta: A set of names of entries in `msg.meta` that should be
+                       added in the message store after processing.
     """
 
     _used_names = set()  # already used node names to ensure uniqueness
 
-    def __init__(self, *args, name=None, log_output=False, auto_retry_exceptions=(),
-                 **kwargs):
+    def __init__(
+        self,
+        *args,
+        name: "str | None" = None,
+        log_output: bool = False,
+        store_output_as: "str | None" = None,
+        store_input_as: "str | None" = None,
+        auto_retry_exceptions: tuple = (),
+        passthrough: bool = False,
+        store_meta: "set[str] | None" = None,
+        **kwargs,
+    ):
         cls = self.__class__
         self.channel = None
 
@@ -133,9 +144,9 @@ class BaseNode:
         node_by_name[name] = self
         self.name = name
 
-        self.store_output_as = kwargs.pop('store_output_as', None)
-        self.store_input_as = kwargs.pop('store_input_as', None)
-        self.passthrough = kwargs.pop('passthrough', None)
+        self.store_output_as = store_output_as
+        self.store_input_as = store_input_as
+        self.passthrough = passthrough
         self.next_node = None
 
         self.processed = 0
@@ -146,6 +157,8 @@ class BaseNode:
             # Enable logging
             self._handle_without_log = self.handle
             setattr(self, 'handle', self._log_handle)
+
+        self.store_meta = set(store_meta or ())
 
     def fullpath(self):
         """
@@ -199,6 +212,11 @@ class BaseNode:
 
         if self.store_output_as:
             result.add_context(self.store_output_as, result)
+
+        for name in self.store_meta:
+            info = result.meta.get(name)
+            if info is not None:
+                self._store_meta(name, info)
 
         if self.passthrough:
             result.payload = old_msg.payload
@@ -314,6 +332,27 @@ class BaseNode:
 
         self._mock_input = None
         self._last_input = None
+
+    def _store_meta(self, meta_info_name: str, info: object):
+        """
+        Associate the given info to the message, in the message store.
+
+        This is used after a message was processed.
+        See the constructor parameter `store_meta`.
+
+        :param meta_info_name: The name of the meta info to create/update
+        :param info: The info value
+
+        This differ from directly accessing the message store in two ways:
+        * `info` can be any object, it is stringified,
+            it might have a custom `__str__`;
+        * it is stored as a list: multiple calls to `store_meta` append to this list,
+            this is to accomodate for things like `YielderNode`
+        """
+        store = self.channel.message_store
+        info_list = store.get_message_meta_infos(self.store_id, meta_info_name) or []
+        info_list.append(str(info))
+        store.add_message_meta_infos(self.store_id, meta_info_name, info_list)
 
     def last_input(self):
         return self._last_input

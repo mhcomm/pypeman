@@ -12,6 +12,7 @@ from pypeman import message
 from pypeman import msgstore
 from pypeman import nodes
 from pypeman.channels import BaseChannel
+from pypeman.message import Message
 from pypeman.test import TearDownProjectTestCase as TestCase
 from pypeman.tests.common import generate_msg
 from pypeman.tests.common import TstException
@@ -404,3 +405,68 @@ class MsgstoreTests(TestCase):
             with meta_dst_path.open("r") as fin:
                 meta_data = json.load(fin)
             self.assertDictEqual(new_meta_data, meta_data)
+
+    def test_search_meta_filter_sort(self):
+        """Retrieve, filter and sort messages based on meta info"""
+
+        results = [
+            {'id': str(k), 'message': Message(meta=meta)}  # trimmed version with only what we need
+            for k, meta in enumerate((
+                {
+                    'one': 'one',
+                    'two': ['uouii', 'ononn'],
+                    'num': ['42'],
+                },
+                {
+                    'one': ['not', 'today', '!'],
+                    'two': ['-', 'okiuki', '-'],
+                    'num': ['15'],
+                },
+                {
+                    'one': ['yesterday', '?'],
+                    'num': ['12', '72'],
+                },
+                {
+                    'one': [],
+                    'num': ['notnum.. sad'],
+                },
+                {
+                    'one': [],
+                    'num': 37,
+                },
+            ))
+        ]
+
+        # filt/ord by .. should yield .. (indices in list)
+        cases = [
+            ({'exact_one': 'one'}, [0]),
+            ({'text_one': 'day'}, [1, 2]),
+            ({'exact_two': 'okiuki'}, [1]),
+            ({'rtext_two': '(.).{2}\\1'}, [0, 1]),
+            ({'start_num': '17'}, [0, 2, 4]),
+            ({'end_num': '17'}, [1, 2]),
+            ({'text_one': 'day', 'start_num': '22'}, [2]),
+
+            # specifying a range via start+end, with the message having ['12', '72']:
+            # * what you might be expecting:
+            #     12  [40   60]  72   -> not in
+            # * what it's actually doing:
+            #     12  [40   60   72   -> yes above
+            #     12   40   60]  72   -> yes below
+            #                           `> yes in
+            ({'start_num': '40', 'end_num': '60'}, [0, 2]),
+
+            ({'order_by': 'num'}, [2, 1, 4, 0, 3]),
+            ({'order_by': '-num'}, [3, 0, 4, 1, 2]),
+
+            # no search param should forward all the results
+            ({}, list(range(len(results)))),
+        ]
+
+        for search, expect in cases:
+            actual = [
+                int(item['id'])
+                for item in
+                msgstore.MessageStore._search_meta_filter_sort(search, results)
+            ]
+            self.assertListEqual(expect, actual)

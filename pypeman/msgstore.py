@@ -212,7 +212,7 @@ class MessageStore():
         """
 
     @staticmethod
-    def _search_meta_filter_sort(meta: dict, result: list):
+    def _search_meta_filter_sort(meta_search: dict, results: list):
         def isfloat(s: str):
             """used with start_/end_"""
             try:
@@ -233,22 +233,22 @@ class MessageStore():
             @staticmethod
             def rtext(rtext: str):
                 regex = re.compile(rtext)
-                return lambda info: regex.match(info)
+                return lambda info: bool(regex.search(info))
 
             @staticmethod
             def start(start: str):
                 fstart = float(start)
-                return lambda info: isfloat(info) and float(info) < fstart
+                return lambda info: isfloat(info) and float(info) >= fstart
 
             @staticmethod
             def end(end: str):
                 fend = float(end)
-                return lambda info: isfloat(info) and float(info) > fend
+                return lambda info: isfloat(info) and float(info) <= fend
 
         # list of tuples (meta_info_name, filter_function)
         filters: "list[tuple[str, type[bool]]]" = []
         ordering = None
-        for key, value in meta.items():
+        for key, value in meta_search.items():
             if key.startswith('order_by'):
                 ordering = value
             else:
@@ -258,18 +258,18 @@ class MessageStore():
 
         filtered = (
             # For an item to be kept, ..
-            item for item in result
+            item for item in results
             # .. it must pass all filters.
             if all(
                 # The meta must exists, else message is filtered out.
                 meta_name in item['message'].meta
                 and (
                     # Any info in the list may pass, one is enough.
-                    any(filt(info) for info in item['message'].meta.get[meta_name])
+                    any(filt(info) for info in item['message'].meta[meta_name])
                     # Info stored through `BaseNode.store_meta` are list[str] ..
-                    if isinstance(item['message'].meta.get[meta_name], list)
+                    if isinstance(item['message'].meta[meta_name], list)
                     # .. but they might not be if added through an other mean.
-                    else filt(str(item['message'].meta.get[meta_name]))
+                    else filt(str(item['message'].meta[meta_name]))
                 )
                 for meta_name, filt in filters
             )
@@ -278,11 +278,15 @@ class MessageStore():
         if ordering is None:
             return list(filtered)
 
-        # if starting with a '-', reverse ordering
+        def key(item):
+            info = item['message'].meta.get(meta_name)
+            if not info:  # None, empty list, missing, ..
+                return ""
+            return str(info[0] if isinstance(info, list) else info)
+
+        # if starting with a '-', reverse ordering, the meta_name is the rest
         meta_name = ordering[ordering[0] == '-':]
-        return sorted(filtered,
-                      key=lambda item: item['message'].meta.get(meta_name),
-                      reverse=ordering[0] == '-')
+        return sorted(filtered, key=key, reverse=ordering[0] == '-')
 
     async def total(self):
         """

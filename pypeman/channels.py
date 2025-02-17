@@ -376,6 +376,14 @@ class BaseChannel:
         return hasattr(self, "_callback")
 
     async def _call_init_nodes(self, msg, start_nodename=None):
+        """
+        Call init nodes (init nodes are nodes that are launched before
+        the subhandle call and 'classic' nodes)
+
+        Args:
+            msg (message.Message): The message to pass to init nodes
+            start_nodename (str, optional): The node name where to inject. Defaults to None.
+        """
         if self.init_nodes:
             if start_nodename:
                 start_node = self.get_node(start_nodename)
@@ -614,16 +622,16 @@ class BaseChannel:
             msg (message.Message): Message to process
         """
         cur_res = msg
-        for idx_cur_node, node in enumerate(nodes):
+        for cur_node_idx, node in enumerate(nodes):
             if isinstance(cur_res, types.GeneratorType):
-                # TODO: i'm not proud of how generator messages are processed
-                # But i don't have another idea at moment
+                # If the message is a generator, recursively call _process_nodes with yielded
+                # sub messages
                 gene = cur_res
                 raised_drop = None
                 raised_exc = None
                 for gen_msg in gene:
                     try:
-                        result = await self._process_nodes(nodes=nodes[idx_cur_node:], msg=gen_msg)
+                        result = await self._process_nodes(nodes=nodes[cur_node_idx:], msg=gen_msg)
                     except Dropped as exc:
                         raised_drop = exc
                     except Exception as exc:
@@ -634,7 +642,7 @@ class BaseChannel:
                     raise raised_drop
                 else:
                     # TODO: at moment the last message of the generator is returned,
-                    # I do this to don't break old behaviours, but I don't think it's a good
+                    # I do this to not break old behaviour, but I don't think it's a good
                     # approach
                     return result
             else:

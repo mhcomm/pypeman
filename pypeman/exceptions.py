@@ -1,8 +1,8 @@
 class EndChanProcess(StopAsyncIteration):
     """
-    A custom excption to tell that the channel reach the end
-    At moment, only used by conditional sub channel to avoid
-    calling nodes after him
+    A custom excption to tell that the channel reached the end
+    Currently, only used by conditional sub channel to avoid
+    calling nodes after it
     """
 
 
@@ -12,7 +12,7 @@ class Dropped(Exception):
 
 
 class Rejected(Exception):
-    """ Used to tell caller the message is invalid with a error return.
+    """ Used to tell caller the message is invalid with an error return.
     """
 
 

@@ -6,7 +6,6 @@ import logging
 import os
 import shutil
 import smtplib
-import types
 import warnings
 
 from datetime import datetime
@@ -22,8 +21,8 @@ from urllib import parse
 from concurrent.futures import ThreadPoolExecutor
 
 from pypeman.message import Message
-from pypeman.channels import Dropped
-from pypeman.channels import Rejected
+from pypeman.exceptions import Dropped
+from pypeman.exceptions import Rejected
 from pypeman.persistence import get_backend
 
 logger = logging.getLogger(__name__)
@@ -177,25 +176,12 @@ class BaseNode:
             '%s node end handle msg %s, result is msg %s',
             str(self), str(msg), str(result))
 
-        if self.next_node:
-            if isinstance(result, types.GeneratorType):
-                gene = result
-                result = msg  # Necessary if all nodes result are dropped
-                for res in gene:
-                    try:
-                        result = await self.next_node.handle(res)
-                    except Dropped:
-                        pass
-                    # TODO Here result is last value returned. Is it a good idea ?
-            else:
-                if self.store_output_as:
-                    result.add_context(self.store_output_as, result)
+        if self.store_output_as:
+            result.add_context(self.store_output_as, result)
 
-                if self.passthrough:
-                    result.payload = old_msg.payload
-                    result.meta = old_msg.meta
-
-                result = await self.next_node.handle(result)
+        if self.passthrough:
+            result.payload = old_msg.payload
+            result.meta = old_msg.meta
 
         return result
 

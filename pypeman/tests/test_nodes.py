@@ -13,6 +13,8 @@ import pytest
 
 from pypeman import nodes, message, conf, persistence
 
+from pypeman.exceptions import Dropped
+
 from pypeman.test import TearDownProjectTestCase as TestCase
 from pypeman.tests.common import generate_msg
 from pypeman.tests.common import LongNode
@@ -209,7 +211,7 @@ class NodesTests(TestCase):
 
         m = generate_msg(message_content='test')
 
-        with self.assertRaises(nodes.Dropped) as cm:
+        with self.assertRaises(Dropped) as cm:
             self.loop.run_until_complete(n.handle(m))
 
         self.assertEqual(str(cm.exception), msg_to_show, "Drop node message not working !")

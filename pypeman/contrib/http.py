@@ -8,6 +8,7 @@ import aiohttp
 from aiohttp import web
 
 from pypeman import endpoints, channels, nodes, message
+from pypeman.exceptions import Dropped
 from pypeman.errors import PypemanParamError
 
 
@@ -168,7 +169,7 @@ class HttpChannel(channels.BaseChannel):
                 status=result.meta.get('status', 200)
             )
 
-        except channels.Dropped:
+        except Dropped:
             return web.Response(body="Dropped".encode('utf-8'), status=200)
         except Exception as exc:
             logger.exception(

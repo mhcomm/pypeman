@@ -17,7 +17,8 @@ from pypeman import nodes
 from pypeman import events
 from pypeman import msgstore
 from pypeman import message
-from pypeman.channels import BaseChannel, Dropped, Rejected
+from pypeman.channels import BaseChannel
+from pypeman.exceptions import Dropped, Rejected
 from pypeman.errors import PypemanParamError
 from pypeman.helpers.aio_compat import awaitify
 from pypeman.test import TearDownProjectTestCase as TestCase

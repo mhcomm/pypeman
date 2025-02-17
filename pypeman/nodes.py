@@ -21,8 +21,8 @@ from urllib import parse
 from concurrent.futures import ThreadPoolExecutor
 
 from pypeman.message import Message
-from pypeman.channels import Dropped
-from pypeman.channels import Rejected
+from pypeman.exceptions import Dropped
+from pypeman.exceptions import Rejected
 from pypeman.persistence import get_backend
 
 logger = logging.getLogger(__name__)

@@ -10,6 +10,10 @@ import warnings
 from pathlib import Path
 
 from pypeman import message, msgstore, events
+from pypeman.exceptions import EndChanProcess
+from pypeman.exceptions import Dropped
+from pypeman.exceptions import Rejected
+from pypeman.exceptions import ChannelStopped
 from pypeman.helpers.itertools import flatten
 from pypeman.helpers.sleeper import Sleeper
 
@@ -33,21 +37,6 @@ def get_channel(name):
     for chan in all_channels:
         if chan.name == name or chan.short_name == name:
             return chan
-
-
-class Dropped(Exception):
-    """ Used to stop process as message is processed. Default success should be returned.
-    """
-
-
-class Rejected(Exception):
-    """ Used to tell caller the message is invalid with a error return.
-    """
-
-
-class ChannelStopped(Exception):
-    """ The channel is stopped and can't process message.
-    """
 
 
 class BaseChannel:
@@ -625,14 +614,13 @@ class BaseChannel:
             msg (message.Message): Message to process
         """
         cur_res = msg
-        for node in nodes:
+        for idx_cur_node, node in enumerate(nodes):
             if isinstance(cur_res, types.GeneratorType):
                 # TODO: i'm not proud of how generator messages are processed
                 # But i don't have another idea at moment
                 gene = cur_res
                 raised_drop = None
                 raised_exc = None
-                idx_cur_node = nodes.index(node)
                 for gen_msg in gene:
                     try:
                         result = await self._process_nodes(nodes=nodes[idx_cur_node:], msg=gen_msg)
@@ -650,9 +638,10 @@ class BaseChannel:
                     # approach
                     return result
             else:
-                res = await node.handle(cur_res.copy())
-                if res is None:
-                    logger.debug("Node Result is None, ending channel process..")
+                try:
+                    res = await node.handle(cur_res.copy())
+                except EndChanProcess:
+                    logger.debug("EndChanProcess raised, ending channel process..")
                     return cur_res
                 cur_res = res
         return cur_res
@@ -977,7 +966,7 @@ class ConditionSubChannel(BaseChannel):
     async def handle(self, msg):
         if self.test_condition(msg):
             await super().handle(msg)
-            return None
+            raise EndChanProcess(f"cond subchan {self.short_name} ask to end parent")
         else:
             return msg
 

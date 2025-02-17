@@ -7,6 +7,8 @@ import warnings
 import hl7
 
 from pypeman import endpoints, channels, nodes, message
+from pypeman.exceptions import Dropped
+from pypeman.exceptions import Rejected
 from pypeman.errors import PypemanParamError
 
 
@@ -154,10 +156,10 @@ class MLLPChannel(channels.BaseChannel):
             await self.handle(msg)
             ack = hl7.parse(content, encoding=self.encoding)
             return str(ack.create_ack('AA')).encode(self.encoding)
-        except channels.Dropped:
+        except Dropped:
             ack = hl7.parse(content, encoding=self.encoding)
             return str(ack.create_ack('AA')).encode(self.encoding)
-        except channels.Rejected:
+        except Rejected:
             ack = hl7.parse(content, encoding=self.encoding)
             return str(ack.create_ack('AR')).encode(self.encoding)
         except Exception:

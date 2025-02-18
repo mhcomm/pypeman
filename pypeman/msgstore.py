@@ -154,6 +154,7 @@ class MessageStore():
 
     @staticmethod
     def _search_meta_filter_sort(meta_search: dict, results: list):
+        """for `meta_search`, see `meta` in the class' `search`"""
         def isfloat(s: str):
             """used with start_/end_"""
             try:

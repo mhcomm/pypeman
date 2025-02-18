@@ -141,6 +141,12 @@ class BaseChannel:
         self.sub_chan_tasks = []
         self.sub_chan_endnodes = []
 
+        # this is a dictionary that can be set/extended outside the class
+        # to influence the `to_dict` method; it is mainly relevant in extending
+        # the serialization of custom channels which are not necessarily child
+        # classes, for example with remoteadmin's `list_channels`
+        self.extra_dict = {}
+
     def _reset_sub_chan_endnodes(self, fut):
         """
         Remove all subchan callbacks from the list
@@ -698,6 +704,7 @@ class BaseChannel:
             'status': BaseChannel.status_id_to_str(self.status),
             'has_message_store': not isinstance(self.message_store, msgstore.NullMessageStore),
             'processed': self.processed_msgs,
+            **self.extra_dict,
         }
 
     def subchannels(self):

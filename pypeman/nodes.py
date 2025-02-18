@@ -213,7 +213,7 @@ class BaseNode:
             '%s node end handle msg %s, result is msg %s',
             str(self), str(msg), str(result))
 
-        if not isinstance(result, types.GeneratorType) and result.store_id is not None:
+        if not isinstance(result, types.GeneratorType) and getattr(result, 'store_id', None) is not None:
             store = self.channel.message_store
             for name in self.store_meta:
                 if name in result.meta:

@@ -6,6 +6,7 @@ import logging
 import os
 import shutil
 import smtplib
+import types
 import warnings
 
 from datetime import datetime
@@ -212,16 +213,16 @@ class BaseNode:
             '%s node end handle msg %s, result is msg %s',
             str(self), str(msg), str(result))
 
-        if self.store_output_as:
-            result.add_context(self.store_output_as, result)
-
-        if result.store_id:
+        if not isinstance(result, types.GeneratorType) and result.store_id is not None:
             store = self.channel.message_store
             for name in self.store_meta:
                 if name in result.meta:
                     info_list = store.get_message_meta_infos(result.store_id, name) or []
                     info_list.append(str(result.meta[name]))
                     store.add_message_meta_infos(result.store_id, name, info_list)
+
+        if self.store_output_as:
+            result.add_context(self.store_output_as, result)
 
         if self.passthrough:
             result.payload = old_msg.payload

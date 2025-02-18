@@ -114,7 +114,9 @@ class BaseNode:
     :param store_input_as: Store input message in msg.ctx as specified key
     :param passthrough: If True, node is executed but output message is same as input
     :param store_meta: A set of names of entries in `msg.meta` that should be
-                       added in the message store after processing.
+                       added in the message store after a message is processed.
+                       str(msg.meta[name]) is saved in the store meta; it is always stored
+                       as a list to accomodate for YielderNode.
     """
 
     _used_names = set()  # already used node names to ensure uniqueness
@@ -213,10 +215,13 @@ class BaseNode:
         if self.store_output_as:
             result.add_context(self.store_output_as, result)
 
-        for name in self.store_meta:
-            info = result.meta.get(name)
-            if info is not None:
-                self._store_meta(name, info)
+        if result.store_id:
+            store = self.channel.message_store
+            for name in self.store_meta:
+                if name in result.meta:
+                    info_list = store.get_message_meta_infos(result.store_id, name) or []
+                    info_list.append(str(result.meta[name]))
+                    store.add_message_meta_infos(result.store_id, name, info_list)
 
         if self.passthrough:
             result.payload = old_msg.payload
@@ -332,27 +337,6 @@ class BaseNode:
 
         self._mock_input = None
         self._last_input = None
-
-    def _store_meta(self, meta_info_name: str, info: object):
-        """
-        Associate the given info to the message, in the message store.
-
-        This is used after a message was processed.
-        See the constructor parameter `store_meta`.
-
-        :param meta_info_name: The name of the meta info to create/update
-        :param info: The info value
-
-        This differ from directly accessing the message store in two ways:
-        * `info` can be any object, it is stringified,
-            it might have a custom `__str__`;
-        * it is stored as a list: multiple calls to `store_meta` append to this list,
-            this is to accomodate for things like `YielderNode`
-        """
-        store = self.channel.message_store
-        info_list = store.get_message_meta_infos(self.store_id, meta_info_name) or []
-        info_list.append(str(info))
-        store.add_message_meta_infos(self.store_id, meta_info_name, info_list)
 
     def last_input(self):
         return self._last_input

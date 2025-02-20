@@ -43,6 +43,7 @@ class RetryStoreTests(TestCase):
             self.loop.run_until_complete(asyncio.gather(*pending))
         self.loop.stop()
         self.loop.close()
+        asyncio.set_event_loop(None)
 
     def start_channels(self):
         # Start channels
@@ -56,7 +57,7 @@ class RetryStoreTests(TestCase):
         self.loop.set_debug(True)
         # Remove thread event loop to be sure we are not using
         # another event loop somewhere
-        asyncio.set_event_loop(None)
+        asyncio.set_event_loop(self.loop)
 
         # Avoid calling already tested channels
         channels.all_channels.clear()
@@ -523,9 +524,7 @@ class RetryStoreTests(TestCase):
         join_node.raise_exc = False
         self.loop.run_until_complete(retry_store.retry())
         cnt_msgs_retrystore = self.loop.run_until_complete(retry_store.count_msgs())
-        print(f"{cnt_msgs_retrystore=}")
         msgs_retry_store = self.loop.run_until_complete(retry_store.search(order_by="timestamp"))
-        print(f"{msgs_retry_store=}")
         assert cnt_msgs_retrystore == 1
         assert msgs_retry_store[0]["message"].payload == msg_payload
         assert msgs_retry_store[0]["message"].meta == stored_msg2["message"].meta
@@ -539,7 +538,6 @@ class RetryStoreTests(TestCase):
         assert conditional_chan.status == BaseChannel.WAITING
         stored_msg1 = self.loop.run_until_complete(msgstore.get(id=msg1.uuid))
         stored_msg2 = self.loop.run_until_complete(msgstore.get(id=msg2.uuid))
-        print(f"{stored_msg1=}")
         assert stored_msg1["state"] == message.Message.PROCESSED
         assert stored_msg2["state"] == message.Message.PROCESSED
 
@@ -554,9 +552,7 @@ class RetryStoreTests(TestCase):
         final_node.raise_exc = False
         self.loop.run_until_complete(retry_store.retry())
         cnt_msgs_retrystore = self.loop.run_until_complete(retry_store.count_msgs())
-        print(f"{cnt_msgs_retrystore=}")
         msgs_retry_store = self.loop.run_until_complete(retry_store.search(order_by="timestamp"))
-        print(f"{msgs_retry_store=}")
         assert cnt_msgs_retrystore == 0
         assert chan.status == BaseChannel.WAITING
         assert retry_store.state == RetryFileMsgStore.STOPPED
@@ -610,7 +606,6 @@ class RetryStoreTests(TestCase):
         msg_payload = ["msg1", True, "msg3"]
         msg_meta = {"titi": "toto"}
         msg = generate_msg(message_content=msg_payload, message_meta=msg_meta)
-        print(msg.timestamp)
         chan._reset_test()
         self.start_channels()
 

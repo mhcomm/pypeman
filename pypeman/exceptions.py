@@ -32,5 +32,4 @@ class PausedChanException(Exception):
     """
         Custom Exception that is raise when a pypeman channel that have a messages
         store catch a retry exception.
-        Considered as a message error
     """

@@ -11,6 +11,16 @@ logger = logging.getLogger(__name__)
 
 
 class RetryFileMsgStore(FileMessageStore):
+    """
+    A class that is attached to a channel and permits auto replaying message that
+    is stored in it after a given time.
+    Nodes that catch specific exceptions add the message in this filestore, the
+    retryfilestore will pause the attached channel if it's not the case and will retry
+    to inject the message after a given time. If the message continue to fail, it will
+    re-wait and re-try.
+    If the message is successfully injected, it will be remove from the message store.
+    When the RetryFileMsgStore is empty, it will un-pause the channel and stop himself
+    """
     STOPPED = "STOPPED"
     RETRY_MODE = "RETRY_MODE"
     state = None
@@ -46,6 +56,14 @@ class RetryFileMsgStore(FileMessageStore):
                 await asyncio.gather(self.retry_task)
 
     async def store_until_retry(self, msg, nodename):
+        """
+        Store a message, and start the retryStore if it's not already started
+        The message will be inject in the "nodename" node
+
+        Args:
+            msg (message.Message): Message to Retry later
+            nodename (str|None): The nodename where to inject
+        """
         logger.debug(f"Retrystore of {self.channel.short_name} Store msg {msg}")
         store_id = msg.store_id
         store_chan_name = msg.store_chan_name
@@ -86,6 +104,14 @@ class RetryFileMsgStore(FileMessageStore):
         return msg_ids_to_return
 
     async def retry_one_store_id(self, msg_store_id):
+        """
+        Launch retry of 1 Base message (as a base message could have be
+        yielded into multiple sub messages, this function could run the retry of
+        multiples sub-messages)
+
+        Args:
+            msg_store_id (str): The base message id to search in meta.store_id
+        """
         if msg_store_id is not None:
             msg_ids = await self.search_by_store_id(store_id=msg_store_id)
         else:
@@ -128,6 +154,12 @@ class RetryFileMsgStore(FileMessageStore):
             raise catched_exc
 
     async def _set_base_msg_state(self, msg_data):
+        """
+        Change the state of the base message of a sub message dict
+
+        Args:
+            msg_data (dict): _description_
+        """
         from pypeman.channels import get_channel
         msg_store_chan_name = msg_data["meta"]["store_chan_name"]
         msg_store_id = msg_data["meta"]["store_id"]
@@ -186,6 +218,9 @@ class RetryFileMsgStore(FileMessageStore):
                     await self._set_base_msg_state(msg_data)
 
     async def start_retry_mode(self):
+        """
+        Start the Retr loop and Pause the channel
+        """
         from pypeman.channels import BaseChannel
         logger.debug(f"Retrystore of {self.channel.short_name} start retry mode")
         self.state = self.RETRY_MODE
@@ -195,6 +230,8 @@ class RetryFileMsgStore(FileMessageStore):
             self.retry_task = asyncio.create_task(self.wait_retries())
 
     async def wait_retries(self):
+        """The infinite retry loop
+        """
         while self.state == self.RETRY_MODE and not self.exit_event.is_set():
             await self.retry()
             try:

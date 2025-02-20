@@ -136,8 +136,6 @@ class BaseChannel:
             msgstore.NullMessageStoreFactory,
         )
         self.message_store = self.message_store_factory.get_store(self.name)
-        logger.critical(conf.SETTINGS_IMPORTED)
-        logger.critical(conf.settings.RETRY_STORE_PATH)
         if conf.SETTINGS_IMPORTED:
             retry_store_path = conf.settings.RETRY_STORE_PATH
         else:
@@ -496,6 +494,9 @@ class BaseChannel:
                 the channel's start. You could set it to "_initial", the message will be processed
                 from the start but will bypass init_nodes
                 Defaults to None.
+            call_endnodes (bool, default=True): Flag to indicate if endnodes have to be called
+                or not
+            set_state (bool, default=True): Flag to indicate if the final message state have to be set or not
         """
         retry_exc_catched = None
         try:
@@ -572,6 +573,15 @@ class BaseChannel:
                 raise retry_exc_catched
 
     async def _get_base_msg_from_child(self, msg):
+        """
+        Get a message in the message store from one of its child
+
+        Args:
+            msg (message.Message): The child message
+
+        Returns:
+            message.Message: The base/parent message
+        """
         base_msg_data = await self.message_store.get(msg.store_id)
         base_msg = base_msg_data["message"]
         base_msg.store_id = msg.store_id
@@ -585,6 +595,9 @@ class BaseChannel:
         Args:
             msg (message.Message): Message to inject
             start_nodename (str): Node name where inject the message
+            call_endnodes (bool, default=True): Flag to indicate if endnodes have to be called
+                or not
+            set_state (bool, default=True): Flag to indicate if the final message state have to be set or not
         """
         logger.debug(f"{self.short_name} Inject {msg} in {start_nodename}")
 

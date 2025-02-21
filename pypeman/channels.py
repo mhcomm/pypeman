@@ -375,86 +375,36 @@ class BaseChannel:
     def _has_callback(self):
         return hasattr(self, "_callback")
 
-    async def _call_init_nodes(self, msg, start_nodename=None):
+    async def _call_special_nodes(self, msg, nodes_type, start_nodename=None):
         """
-        Call init nodes (init nodes are nodes that are launched before
-        the subhandle call and 'classic' nodes)
+            Permits calling init/join/drop/reject/fail/final nodes
 
-        Args:
-            msg (message.Message): The message to pass to init nodes
-            start_nodename (str, optional): The node name where to inject. Defaults to None.
+            Args:
+                msg (message.Message): The message to pass to nodes
+                start_nodename (str, optional): The node name where to inject. Defaults to None.
         """
-        if self.init_nodes:
+        nodes_type_to_nodelist = {
+            "init": self.init_nodes,
+            "join": self.join_nodes,
+            "drop": self.drop_nodes,
+            "reject": self.reject_nodes,
+            "fail": self.fail_nodes,
+            "final": self.final_nodes,
+        }
+        nodelist = nodes_type_to_nodelist[nodes_type]
+        if nodelist:
             if start_nodename:
                 start_node = self.get_node(start_nodename)
-                if start_node not in self.init_nodes:
-                    raise ValueError(f"Node {start_nodename} not in init nodes")
+                if start_node not in nodelist:
+                    raise ValueError(f"Node {start_nodename} not in {nodes_type} nodes")
             else:
-                start_node = self.init_nodes[0]
-            idx_start_node = self.init_nodes.index(start_node)
-            nodes = self.init_nodes[idx_start_node:]
+                start_node = nodelist[0]
+            idx_start_node = nodelist.index(start_node)
+            nodes = nodelist[idx_start_node:]
             msg = await self._process_nodes(nodes=nodes, msg=msg.copy())
+        else:
+            logger.info("No %s nodes to call", nodes_type)
         return msg
-
-    async def _call_join_nodes(self, msg, start_nodename=None):
-        if self.join_nodes:
-            if start_nodename:
-                start_node = self.get_node(start_nodename)
-                if start_node not in self.join_nodes:
-                    raise ValueError(f"Node {start_nodename} not in join nodes")
-            else:
-                start_node = self.join_nodes[0]
-            idx_start_node = self.join_nodes.index(start_node)
-            nodes = self.join_nodes[idx_start_node:]
-            msg = await self._process_nodes(nodes=nodes, msg=msg.copy())
-
-    async def _call_drop_nodes(self, msg, start_nodename=None):
-        if self.drop_nodes:
-            if start_nodename:
-                start_node = self.get_node(start_nodename)
-                if start_node not in self.drop_nodes:
-                    raise ValueError(f"Node {start_nodename} not in drop nodes")
-            else:
-                start_node = self.drop_nodes[0]
-            idx_start_node = self.drop_nodes.index(start_node)
-            nodes = self.drop_nodes[idx_start_node:]
-            msg = await self._process_nodes(nodes=nodes, msg=msg.copy())
-
-    async def _call_reject_nodes(self, msg, start_nodename=None):
-        if self.reject_nodes:
-            if start_nodename:
-                start_node = self.get_node(start_nodename)
-                if start_node not in self.reject_nodes:
-                    raise ValueError(f"Node {start_nodename} not in reject nodes")
-            else:
-                start_node = self.reject_nodes[0]
-            idx_start_node = self.reject_nodes.index(start_node)
-            nodes = self.reject_nodes[idx_start_node:]
-            msg = await self._process_nodes(nodes=nodes, msg=msg.copy())
-
-    async def _call_fail_nodes(self, msg, start_nodename=None):
-        if self.fail_nodes:
-            if start_nodename:
-                start_node = self.get_node(start_nodename)
-                if start_node not in self.fail_nodes:
-                    raise ValueError(f"Node {start_nodename} not in fail nodes")
-            else:
-                start_node = self.fail_nodes[0]
-            idx_start_node = self.fail_nodes.index(start_node)
-            nodes = self.fail_nodes[idx_start_node:]
-            msg = await self._process_nodes(nodes=nodes, msg=msg.copy())
-
-    async def _call_final_nodes(self, msg, start_nodename=None):
-        if self.final_nodes:
-            if start_nodename:
-                start_node = self.get_node(start_nodename)
-                if start_node not in self.final_nodes:
-                    raise ValueError(f"Node {start_nodename} not in final nodes")
-            else:
-                start_node = self.final_nodes[0]
-            idx_start_node = self.final_nodes.index(start_node)
-            nodes = self.final_nodes[idx_start_node:]
-            msg = await self._process_nodes(nodes=nodes, msg=msg.copy())
 
     async def _call_base_handling(self, msg, start_nodename=None):
         """
@@ -471,12 +421,12 @@ class BaseChannel:
         """
         try:
             if not start_nodename:
-                msg = await self._call_init_nodes(msg=msg)
+                msg = await self._call_special_nodes(msg=msg, nodes_type="init")
             result = await self.subhandle(msg.copy(), start_nodename=start_nodename)
             await self.message_store.change_message_state(msg.store_id, message.Message.PROCESSED)
             msg.chan_rslt = result
             if not self._has_callback():
-                await self._call_join_nodes(msg=result)
+                await self._call_special_nodes(msg=result, nodes_type="join")
             return result
         except Dropped as exc:
             self.logger.info("%s DROP msg %s", str(self), str(msg))
@@ -484,7 +434,7 @@ class BaseChannel:
             msg.chan_exc_traceback = traceback.format_exc()
             await self.message_store.change_message_state(msg.store_id, message.Message.PROCESSED)
             if not self._has_callback():
-                await self._call_drop_nodes(msg=msg)
+                await self._call_special_nodes(msg=msg, nodes_type="drop")
             if self.raise_dropped:
                 raise
             return msg
@@ -495,7 +445,7 @@ class BaseChannel:
             await self.message_store.change_message_state(msg.store_id, message.Message.REJECTED)
             await self.message_store.add_message_meta_infos(msg.store_id, "err_msg", str(exc))
             if not self._has_callback():
-                await self._call_reject_nodes(msg=msg)
+                await self._call_special_nodes(msg=msg, nodes_type="reject")
             raise
         except Exception as exc:
             msg.chan_exc = exc
@@ -504,13 +454,13 @@ class BaseChannel:
             await self.message_store.change_message_state(msg.store_id, message.Message.ERROR)
             await self.message_store.add_message_meta_infos(msg.store_id, "err_msg", str(exc))
             if not self._has_callback():
-                await self._call_fail_nodes(msg=msg)
+                await self._call_special_nodes(msg=msg, nodes_type="fail")
             raise
         finally:
             self.status = BaseChannel.WAITING
             self.processed_msgs += 1
             if not self._has_callback():
-                await self._call_final_nodes(msg=msg)
+                await self._call_special_nodes(msg=msg, nodes_type="final")
             try:
                 if self.sub_chan_tasks:
                     # Launch sub chans handle()
@@ -544,32 +494,38 @@ class BaseChannel:
             raise ValueError("Node %s not found", start_nodename)
         logger.debug("Will inject msg %r in node %r", msg, start_node)
         if start_node in self.init_nodes:
-            msg = await self._call_init_nodes(msg=msg, start_nodename=start_nodename)
+            msg = await self._call_special_nodes(
+                msg=msg, nodes_type="init", start_nodename=start_nodename)
             await self._call_base_handling(msg=msg, start_nodename="_initial")
         elif start_node in self._nodes:
             await self._call_base_handling(msg=msg, start_nodename=start_nodename)
         elif start_node in self.join_nodes:
-            await self._call_join_nodes(msg=msg, start_nodename=start_nodename)
+            await self._call_special_nodes(
+                msg=msg, nodes_type="join", start_nodename=start_nodename)
             base_msg_data = await self.message_store.get(msg.store_id)
             base_msg = base_msg_data["message"]
-            await self._call_final_nodes(msg=base_msg)
+            await self._call_special_nodes(msg=base_msg, nodes_type="final")
         elif start_node in self.drop_nodes:
-            await self._call_drop_nodes(msg=msg, start_nodename=start_nodename)
+            await self._call_special_nodes(
+                msg=msg, nodes_type="drop", start_nodename=start_nodename)
             base_msg_data = await self.message_store.get(msg.store_id)
             base_msg = base_msg_data["message"]
-            await self._call_final_nodes(msg=base_msg)
+            await self._call_special_nodes(msg=base_msg, nodes_type="final")
         elif start_node in self.reject_nodes:
-            await self._call_reject_nodes(msg=msg, start_nodename=start_nodename)
+            await self._call_special_nodes(
+                msg=msg, nodes_type="reject", start_nodename=start_nodename)
             base_msg_data = await self.message_store.get(msg.store_id)
             base_msg = base_msg_data["message"]
-            await self._call_final_nodes(msg=base_msg)
+            await self._call_special_nodes(msg=base_msg, nodes_type="final")
         elif start_node in self.fail_nodes:
-            await self._call_fail_nodes(msg=msg, start_nodename=start_nodename)
+            await self._call_special_nodes(
+                msg=msg, nodes_type="fail", start_nodename=start_nodename)
             base_msg_data = await self.message_store.get(msg.store_id)
             base_msg = base_msg_data["message"]
-            await self._call_final_nodes(msg=base_msg)
+            await self._call_special_nodes(msg=base_msg, nodes_type="final")
         elif start_node in self.final_nodes:
-            await self._call_final_nodes(msg=msg, start_nodename=start_nodename)
+            await self._call_special_nodes(
+                msg=msg, nodes_type="final", start_nodename=start_nodename)
         else:
             raise Exception("Node %r found but not in init/handle/end nodes, weird..", start_node)
 
@@ -907,7 +863,7 @@ class SubChannel(BaseChannel):
             result = fut.result()
             entrymsg.chan_rslt = result
             if self.join_nodes:
-                endnode_task = asyncio.create_task(self._call_join_nodes(result.copy()))
+                endnode_task = asyncio.create_task(self._call_special_nodes(result.copy(), nodes_type="join"))
                 endnodes_tasks.append(endnode_task)
             logger.info(
                 "Subchannel %s end process message %s, rslt is msg %s",
@@ -916,14 +872,16 @@ class SubChannel(BaseChannel):
             entrymsg.chan_exc = exc
             entrymsg.chan_exc_traceback = traceback.format_exc()
             if self.drop_nodes:
-                endnode_task = asyncio.create_task(self._call_drop_nodes(entrymsg.copy()))
+                endnode_task = asyncio.create_task(
+                    self._call_special_nodes(entrymsg.copy(), nodes_type="drop"))
                 endnodes_tasks.append(endnode_task)
             self.logger.info("Subchannel %s. Msg %s was dropped", str(self), str(entrymsg))
         except Rejected as exc:
             entrymsg.chan_exc = exc
             entrymsg.chan_exc_traceback = traceback.format_exc()
             if self.reject_nodes:
-                endnode_task = asyncio.create_task(self._call_reject_nodes(entrymsg.copy()))
+                endnode_task = asyncio.create_task(
+                    self._call_special_nodes(entrymsg.copy(), nodes_type="reject"))
                 endnodes_tasks.append(endnode_task)
             self.logger.info("Subchannel %s. Msg %s was Rejected", str(self), str(entrymsg))
             raise
@@ -931,14 +889,16 @@ class SubChannel(BaseChannel):
             entrymsg.chan_exc = exc
             entrymsg.chan_exc_traceback = traceback.format_exc()
             if self.fail_nodes:
-                endnode_task = asyncio.create_task(self._call_fail_nodes(entrymsg.copy()))
+                endnode_task = asyncio.create_task(
+                    self._call_special_nodes(entrymsg.copy(), nodes_type="fail"))
                 endnodes_tasks.append(endnode_task)
             self.logger.exception(
                 "Error while processing msg %s in subchannel %s", str(entrymsg), str(self))
             raise
         finally:
             if self.final_nodes:
-                endnode_task = asyncio.create_task(self._call_final_nodes(entrymsg.copy()))
+                endnode_task = asyncio.create_task(
+                    self._call_special_nodes(entrymsg.copy(), nodes_type="final"))
                 endnodes_tasks.append(endnode_task)
             self.parent.sub_chan_endnodes.extend(endnodes_tasks)
             self.parent.sub_chan_tasks.remove(fut)

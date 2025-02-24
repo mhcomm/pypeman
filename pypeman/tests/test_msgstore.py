@@ -330,15 +330,15 @@ class MsgstoreTests(TestCase):
 
         # Test processed message
         dict_msg = self.loop.run_until_complete(
-            chan.message_store.get('19821128_1235_%s' % msg3.uuid))
+            chan.message_store.get('19821128_123500000000_%s' % msg3.uuid))
         self.assertEqual(dict_msg['state'], 'processed', "Message %s should be in processed state!" % msg3)
 
         # Test failed message
         dict_msg = self.loop.run_until_complete(
-            chan.message_store.get('19821112_1435_%s' % msg5.uuid))
+            chan.message_store.get('19821112_143500000000_%s' % msg5.uuid))
         self.assertEqual(dict_msg['state'], 'error', "Message %s should be in error state!" % msg5)
 
-        self.assertTrue(os.path.exists("%s/%s/1982/11/28/19821128_1235_%s"
+        self.assertTrue(os.path.exists("%s/%s/1982/11/28/19821128_123500000000_%s"
                         % (tempdir, chan.name, msg3.uuid)))
 
         # Test list messages
@@ -362,12 +362,12 @@ class MsgstoreTests(TestCase):
 
         # Test view message
         msg_content = self.loop.run_until_complete(chan.message_store.get_msg_content(
-            '19821112_1435_%s' % msg5.uuid))
+            '19821112_143500000000_%s' % msg5.uuid))
         self.assertEqual(msg_content.payload, msg5.payload, "Failure of message %s view!" % msg5)
 
         # Test preview message
         msg_content = self.loop.run_until_complete(chan.message_store.get_preview_str(
-            '19821112_1435_%s' % msg5.uuid))
+            '19821112_143500000000_%s' % msg5.uuid))
         self.assertEqual(msg_content.payload, msg5.payload[:1000], "Failure of message %s preview!" % msg5)
 
         self.clean_loop()

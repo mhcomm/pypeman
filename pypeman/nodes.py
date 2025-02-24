@@ -118,7 +118,7 @@ class BaseNode:
 
     _used_names = set()  # already used node names to ensure uniqueness
 
-    def __init__(self, *args, name=None, log_output=False, auto_retry_exceptions=[],
+    def __init__(self, *args, name=None, log_output=False, auto_retry_exceptions=(),
                  **kwargs):
         cls = self.__class__
         self.channel = None
@@ -172,7 +172,8 @@ class BaseNode:
         # TODO : Make sure exceptions are well raised (does not happen if i.e 1/0 here atm)
         if self.store_input_as:
             msg.add_context(self.store_input_as, msg)
-        old_msg = msg.copy()
+        if self.passthrough or self.auto_retry_exceptions:
+            old_msg = msg.copy()
         # Allow process as coroutine function
         if self.auto_retry_exceptions:
             try:

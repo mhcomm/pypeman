@@ -719,9 +719,6 @@ class ChannelsTests(TestCase):
         self.assertTrue(
             sub2_endok1.processed,
             "subchan2 ok_endnodes1 not called")
-        print("mimimimimi")
-        print(vars(self.clean_msg(startmsg)))
-        print(vars(self.clean_msg(sub2_endok1.last_input())))
         self.assertDictEqual(
             vars(self.clean_msg(startmsg)), vars(self.clean_msg(sub2_endok1.last_input())),
             "subchan2 ok_endnodes don't takes event msg in input")

@@ -12,10 +12,10 @@ logger = logging.getLogger(__name__)
 
 class RetryFileMsgStore(FileMessageStore):
     """
-    A class that is attached to a channel and permits auto replaying message that
-    is stored in it after a given time.
+    A class that is attached to a channel and automatically replays messages that
+    are stored in it after a given time.
     Nodes that catch specific exceptions add the message in this filestore, the
-    retryfilestore will pause the attached channel if it's not the case and will retry
+    retryfilestore will pause the attached channel and will retry
     to inject the message after a given time. If the message continue to fail, it will
     re-wait and re-try.
     If the message is successfully injected, it will be remove from the message store.

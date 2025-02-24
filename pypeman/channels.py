@@ -603,6 +603,9 @@ class BaseChannel:
 
         async with self.lock:
             if not start_nodename or start_nodename == "_initial":
+                # If start nodename is None inject at the channel's startpoint, if it's
+                # "_initial", inject at startpoint too but bypass init_nodes
+                # Return the resulted message
                 result = await self._call_base_handling(
                     msg=msg, start_nodename=start_nodename, call_endnodes=call_endnodes,
                     set_state=set_state)
@@ -613,12 +616,14 @@ class BaseChannel:
                 raise ValueError("Node %s not found", start_nodename)
             logger.debug("Will inject msg %r in node %r", msg, start_node)
             if self.init_nodes and start_node in self.init_nodes:
+                # Inject in specific init_node, then run the process and returns resulting message
                 msg = await self._call_init_nodes(msg=msg, start_nodename=start_nodename)
                 result = await self._call_base_handling(
                     msg=msg, start_nodename="_initial",
                     call_endnodes=call_endnodes, set_state=set_state)
                 return result
             elif start_node in self._nodes:
+                # Inject in specific "processing" node and returns the resulting message
                 result = await self._call_base_handling(
                     msg=msg, start_nodename=start_nodename,
                     call_endnodes=call_endnodes, set_state=set_state
@@ -635,6 +640,7 @@ class BaseChannel:
             # nodes, here it's not the case
             # I don't actually know if I have to change the handle or the inject
             if self.join_nodes and start_node in self.join_nodes:
+                # Inject in specific join node (no return) (+ call of final nodes)
                 exc_to_raise = None
                 try:
                     await self._call_join_nodes(msg=msg, start_nodename=start_nodename)
@@ -647,6 +653,7 @@ class BaseChannel:
                 if exc_to_raise is not None:
                     raise exc_to_raise
             elif self.drop_nodes and start_node in self.drop_nodes:
+                # Inject in specific drop node (no return) (+ call of final nodes)
                 exc_to_raise = None
                 try:
                     await self._call_drop_nodes(msg=msg, start_nodename=start_nodename)
@@ -659,6 +666,7 @@ class BaseChannel:
                 if exc_to_raise is not None:
                     raise exc_to_raise
             elif self.reject_nodes and start_node in self.reject_nodes:
+                # Inject in specific reject node (no return) (+ call of final nodes)
                 exc_to_raise = None
                 try:
                     await self._call_reject_nodes(msg=msg, start_nodename=start_nodename)
@@ -671,6 +679,7 @@ class BaseChannel:
                 if exc_to_raise is not None:
                     raise exc_to_raise
             elif self.fail_nodes and start_node in self.fail_nodes:
+                # Inject in specific fail node (no return) (+ call of final nodes)
                 exc_to_raise = None
                 try:
                     await self._call_fail_nodes(msg=msg, start_nodename=start_nodename)
@@ -683,6 +692,7 @@ class BaseChannel:
                 if exc_to_raise is not None:
                     raise exc_to_raise
             elif self.final_nodes and start_node in self.final_nodes:
+                # Inject in specific final node (no return)
                 await self._call_final_nodes(msg=msg, start_nodename=start_nodename)
             else:
                 raise Exception("Node %r found but not in init/handle/end nodes, weird..", start_node)
@@ -702,7 +712,9 @@ class BaseChannel:
         if msg_store_id is not None:
             msg.store_id = msg_store_id
             msg.store_chan_name = self.short_name
-        # await self.message_store.change_message_state(msg.store_id, message.Message.PENDING)  TODO
+        # TODO: Maybe think to add PENDING status to incoming message, this status is never set and
+        # is currently unuseful. Uncomment next line if it's a good idea
+        # await self.message_store.change_message_state(msg.store_id, message.Message.PENDING)
 
         if self.status in [BaseChannel.STOPPED, BaseChannel.STOPPING]:
             raise ChannelStopped("Channel is stopped so you can't send message.")
@@ -717,7 +729,7 @@ class BaseChannel:
                 if self.retry_store:
                     await self.retry_store.store_until_retry(msg=msg, nodename=None)
                 raise exceptions.PausedChanException(
-                    "Channel %s in pause state, put message in retry store",
+                    "Channel %s is in pause state, message now put in retry store",
                     self.short_name
                 )
             else:
@@ -727,12 +739,13 @@ class BaseChannel:
             try:
                 return await self._call_base_handling(msg=msg)
             except exceptions.RetryException as exc:
-                self.logger.warning("Retry Exception catch: Set Channel in retry mode")
+                self.logger.warning("Retry Exception caught: Set Channel in retry mode")
                 self.status = BaseChannel.PAUSED
                 raise exceptions.PausedChanException(exc)
             finally:
                 self.processed_msgs += 1
                 if self.status == BaseChannel.PROCESSING:
+                    # If channel is not paused or stopped
                     self.status = BaseChannel.WAITING
 
     async def subhandle(self, msg, start_nodename=None):
@@ -777,6 +790,9 @@ class BaseChannel:
                 raised_retry_exc = None
                 for gen_msg in gene:
                     if raised_retry_exc and self.retry_store:
+                        # If a RetryException was raised by a yielded message before, don't process others
+                        # and store them in the retry store with an injection defined to the following node
+                        # Reraise the retry exception at the end of the loop
                         await self.retry_store.store_until_retry(
                             msg=gen_msg,
                             nodename=nodes[cur_node_idx].name,

@@ -52,7 +52,15 @@ class Message():
         if meta is None:
             meta = {}
         self.meta = meta
+        # store_id is the id in the message store for this message
+        # If base message is yielded, each submessage keep the origin store_id
+        # Caution: in case of a subchannel, the store_id is removed as the subchannel doesn't
+        # have to influence the base message
         self.store_id = None
+        # store_chan_name is the short name of the channel that lastly store this message or one of
+        # it's parent
+        # Caution: Same as store_id, if the message enter in a subchannel that doesn't have a
+        # configured message store, this attr is set to None
         self.store_chan_name = None
 
         self.ctx = {}

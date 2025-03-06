@@ -19,3 +19,16 @@ class Rejected(Exception):
 class ChannelStopped(Exception):
     """ The channel is stopped and can't process message.
     """
+
+
+class RetryException(Exception):
+    """
+        Custom Exception that is raise when a pypeman node catch an exception
+        that should trigger a delayed relaunch of the msg.
+    """
+
+
+class PausedChanException(Exception):
+    """
+        Custom Exception that is raise when a pypeman channel is paused
+    """

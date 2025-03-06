@@ -1382,9 +1382,10 @@ class ChannelsTests(TestCase):
         msg1 = generate_msg(message_content="msg1")
         self.start_channels()
         msg1.store_id = self.loop.run_until_complete(chan.message_store.store(msg1))
+        msg1.store_chan_name = chan.short_name
         self.loop.run_until_complete(chan.message_store.change_message_state(
             msg1.store_id,
-            message.Message.PENDING,
+            message.Message.WAIT_RETRY,
         ))
         init_node_1 = chan.get_node("CHAN_TEST_INJECTION_init_1")
         init_node_2 = chan.get_node("CHAN_TEST_INJECTION_init_2")
@@ -1437,7 +1438,7 @@ class ChannelsTests(TestCase):
         print("Test inject in handle node")
         self.loop.run_until_complete(chan.message_store.change_message_state(
             msg1.store_id,
-            message.Message.ERROR,
+            message.Message.WAIT_RETRY,
         ))
         chan._reset_test()
         self.loop.run_until_complete(chan.inject(
@@ -1472,6 +1473,10 @@ class ChannelsTests(TestCase):
 
         # Test inject in join nodes
         print("Test inject in join node")
+        self.loop.run_until_complete(chan.message_store.change_message_state(
+            msg1.store_id,
+            message.Message.PROCESSED,
+        ))
         chan._reset_test()
         self.loop.run_until_complete(chan.inject(
             msg=msg1,
@@ -1502,6 +1507,10 @@ class ChannelsTests(TestCase):
 
         # Test inject in drop nodes
         print("Test inject in drop node")
+        self.loop.run_until_complete(chan.message_store.change_message_state(
+            msg1.store_id,
+            message.Message.PROCESSED,
+        ))
         chan._reset_test()
         self.loop.run_until_complete(chan.inject(
             msg=msg1,
@@ -1532,6 +1541,10 @@ class ChannelsTests(TestCase):
 
         # Test inject in reject nodes
         print("Test inject in reject node")
+        self.loop.run_until_complete(chan.message_store.change_message_state(
+            msg1.store_id,
+            message.Message.REJECTED,
+        ))
         chan._reset_test()
         self.loop.run_until_complete(chan.inject(
             msg=msg1,
@@ -1562,6 +1575,10 @@ class ChannelsTests(TestCase):
 
         # Test inject in fail nodes
         print("Test inject in fail node")
+        self.loop.run_until_complete(chan.message_store.change_message_state(
+            msg1.store_id,
+            message.Message.ERROR,
+        ))
         chan._reset_test()
         self.loop.run_until_complete(chan.inject(
             msg=msg1,
@@ -1592,6 +1609,10 @@ class ChannelsTests(TestCase):
 
         # Test inject in final nodes
         print("Test inject in final node")
+        self.loop.run_until_complete(chan.message_store.change_message_state(
+            msg1.store_id,
+            message.Message.PROCESSED,
+        ))
         chan._reset_test()
         self.loop.run_until_complete(chan.inject(
             msg=msg1,

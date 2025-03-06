@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import re
+import time
 
 from itertools import islice
 from collections import OrderedDict
@@ -15,7 +16,7 @@ from pypeman.errors import PypemanConfigError
 
 logger = logging.getLogger("pypeman.store")
 
-DATE_FORMAT = '%Y%m%d_%H%M'
+DATE_FORMAT = '%Y%m%d_%H%M%S%f'
 
 
 class MessageStoreFactory():
@@ -69,6 +70,64 @@ class MessageStore():
         :param id: Message specific store id.
         :param new_state: Target state.
         """
+
+    async def add_sub_message_state(self, id, sub_id, state):
+        """
+        Add a state to the meta 'submessages_state_history" of a message
+        submessages_state_history meta is a list of dicts of this form:
+        {
+            "sub_id": <sub_id>,
+            "state": <state>,
+            "timestamp": <time.time()>
+        }
+
+        :param id: Message specific store id.
+        :param sub_id: The sub message's id (could be the same as the id)
+        :param state: Target state.
+        """
+        try:
+            submessages_state_history = await self.get_message_meta_infos(
+                id=id,
+                meta_info_name="submessages_state_history"
+            )
+            if submessages_state_history is None:
+                submessages_state_history = []
+        except KeyError:
+            submessages_state_history = []
+        submessages_state_history.append(
+            {
+                "sub_id": sub_id,
+                "state": state,
+                "timestamp": time.time(),
+            }
+        )
+        await self.add_message_meta_infos(
+            id=id,
+            meta_info_name="submessages_state_history",
+            info=submessages_state_history,
+        )
+
+    async def set_state_to_worst_sub_state(self, id):
+        """
+        Change the `id` message state to the worst state stored in submessages_state_history
+
+        :param id: Message specific store id.
+        """
+        try:
+            submessages_state_history = await self.get_message_meta_infos(
+                id=id,
+                meta_info_name="submessages_state_history"
+            )
+        except KeyError:
+            submessages_state_history = []
+        if not submessages_state_history:
+            raise IndexError("No sub message state stored, cannot choose the worst")
+        worst_state = submessages_state_history[0]["state"]
+        for submsg_info in submessages_state_history:
+            state = submsg_info["state"]
+            if Message.STATES_PRIORITY.index(worst_state) < Message.STATES_PRIORITY.index(state):
+                worst_state = state
+        await self.change_message_state(id=id, new_state=worst_state)
 
     async def get(self, id):
         """
@@ -166,7 +225,19 @@ class NullMessageStore(MessageStore):
     async def get_message_meta_infos(self, id, meta_info_name=None):
         return None
 
+    async def add_sub_message_state(self, id, sub_id, state):
+        return None
+
+    async def set_state_to_worst_sub_state(self, id):
+        return None
+
     async def get_preview_str(self, id):
+        return None
+
+    async def change_message_state(self, id, new_state):
+        return None
+
+    async def generate_store_id_from_msg(self, msg):
         return None
 
     async def get_msg_content(self, id):
@@ -215,6 +286,15 @@ class FakeMessageStore(MessageStore):
 
     async def is_txt_in_msg(self, id, text):
         return True
+
+    async def change_message_state(self, id, new_state):
+        return None
+
+    async def add_sub_message_state(self, id, sub_id, state):
+        return None
+
+    async def set_state_to_worst_sub_state(self, id):
+        return None
 
     async def search(self, **kwargs):
         return []
@@ -397,8 +477,11 @@ class FileMessageStore(MessageStore):
         self.base_path = os.path.join(path, store_id)
 
         # Match msg file name
-        self.msg_re = re.compile(
+        self.old_msg_re = re.compile(
             r'^(?P<msg_date>[0-9]{8})_(?P<msg_time>[0-9]{2}[0-9]{2})_(?P<msg_uid>[0-9a-zA-Z]*)$')
+        self.msg_re = re.compile(
+            r'^(?P<msg_date>[0-9]{8})_(?P<msg_time>[0-9]{2}[0-9]{2}[0-9]{2}[0-9]{6})_(?P<msg_uid>[0-9a-zA-Z]*)$'  # noqa: E501
+        )
 
         try:
             # Try to make dirs if necessary
@@ -409,9 +492,12 @@ class FileMessageStore(MessageStore):
         self._total = 0
 
     def id2path(self, id):
+        old_match = self.old_msg_re.match(id)
         match = self.msg_re.match(id)
-        if not match:
+        if not (match or old_match):
             raise ValueError(f"Id '{id}' not a correct id")
+        if old_match:
+            match = old_match
         msg_str_date = match.groupdict()["msg_date"]
         year = msg_str_date[:4]
         month = msg_str_date[4:6]
@@ -559,8 +645,9 @@ class FileMessageStore(MessageStore):
             for month in await self.sorted_list_directories(os.path.join(self.base_path, year)):
                 for day in await self.sorted_list_directories(os.path.join(self.base_path, year, month)):
                     for msg_id in sorted(os.listdir(os.path.join(self.base_path, year, month, day))):
+                        old_found = self.old_msg_re.match(msg_id)
                         found = self.msg_re.match(msg_id)
-                        if found:
+                        if found or old_found:
                             count += 1
         return count
 
@@ -626,12 +713,27 @@ class FileMessageStore(MessageStore):
                         elif not start_id_found and start_id and msg_id == start_id:
                             start_id_found = True
                             continue
+                        old_found = self.old_msg_re.match(msg_id)
                         found = self.msg_re.match(msg_id)
-                        if found:
-                            msg_str_time = found.groupdict()["msg_time"]
-                            hour = int(msg_str_time[:2])
-                            minute = int(msg_str_time[2:4])
-                            msg_time = datetime.time(hour=hour, minute=minute, second=0)
+                        if found or old_found:
+                            if old_found:
+                                msg_str_time = found.groupdict()["msg_time"]
+                                hour = int(msg_str_time[:2])
+                                minute = int(msg_str_time[2:4])
+                                second = 0
+                                microsecond = 0
+                            if found:
+                                msg_str_time = found.groupdict()["msg_time"]
+                                hour = int(msg_str_time[:2])
+                                minute = int(msg_str_time[2:4])
+                                second = int(msg_str_time[4:6])
+                                microsecond = int(msg_str_time[6:12])
+                            msg_time = datetime.time(
+                                hour=hour,
+                                minute=minute,
+                                second=second,
+                                microsecond=microsecond,
+                            )
                             msg_dt = datetime.datetime.combine(msg_date, msg_time)
                             if start_dt:
                                 if msg_dt < start_dt:
@@ -676,5 +778,5 @@ class FileMessageStore(MessageStore):
 
         data_to_return = {'id': id, 'state': await self.get_message_state(id), 'message': msg}
         fpath.unlink()
-        self._delete_meta_file(id=id)
+        await self._delete_meta_file(id=id)
         return data_to_return

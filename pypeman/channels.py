@@ -631,6 +631,8 @@ class BaseChannel:
                 return result
 
             if set_state and self.has_message_store:
+                # You enter in this condition when start_nodename is not in init_nodes or "classic"
+                # nodes (so it is in end nodes)
                 # TODO: Must set the final state after end nodes
                 await self.message_store.set_state_to_worst_sub_state(msg.store_id)
 
@@ -745,7 +747,8 @@ class BaseChannel:
             finally:
                 self.processed_msgs += 1
                 if self.status == BaseChannel.PROCESSING:
-                    # If channel is not paused or stopped
+                    # Channel could be set in PAUSE state in the _call_base_handling,
+                    # so make sure that the state don't change before re-WAITING message
                     self.status = BaseChannel.WAITING
 
     async def subhandle(self, msg, start_nodename=None):
@@ -789,24 +792,25 @@ class BaseChannel:
                 raised_exc = None
                 raised_retry_exc = None
                 for gen_msg in gene:
-                    if raised_retry_exc and self.retry_store:
-                        # If a RetryException was raised by a yielded message before, don't process others
-                        # and store them in the retry store with an injection defined to the following node
-                        # Reraise the retry exception at the end of the loop
-                        await self.retry_store.store_until_retry(
-                            msg=gen_msg,
-                            nodename=nodes[cur_node_idx].name,
-                        )
-                        continue
                     try:
                         result = await self._process_nodes(nodes=nodes[cur_node_idx:], msg=gen_msg)
                     except exceptions.RetryException as exc:
                         raised_retry_exc = exc
+                        break
                     except Dropped as exc:
                         raised_drop = exc
                     except Exception as exc:
                         raised_exc = exc
                 if raised_retry_exc is not None:
+                    if self.retry_store:
+                        for gen_msg in gene:
+                            # If a RetryException was raised by a yielded message before, store others
+                            # in the retry store with an injection defined to the following node
+                            # Reraise the retry exception at the end of the loop
+                            await self.retry_store.store_until_retry(
+                                msg=gen_msg,
+                                nodename=nodes[cur_node_idx].name,
+                            )
                     raise raised_retry_exc
                 elif raised_exc is not None:
                     raise raised_exc

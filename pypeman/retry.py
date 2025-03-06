@@ -76,7 +76,7 @@ class RetryFileMsgStore(FileMessageStore):
 
     async def search_by_store_id(self, store_id, count=0):
         """Returns a list of <count> messages ids for a given store_id
-        if count is 0|False|None, returns all messages for this id
+        if count is 0, returns all messages for this id
 
         Args:
             store_id (str|None): The store_id to search in meta
@@ -105,7 +105,7 @@ class RetryFileMsgStore(FileMessageStore):
 
     async def retry_one_store_id(self, msg_store_id):
         """
-        Launch retry of 1 Base message (as a base message could have be
+        Launch retry of 1 Base message (as a base message could have been
         yielded into multiple sub messages, this function could run the retry of
         multiples sub-messages)
 
@@ -121,7 +121,7 @@ class RetryFileMsgStore(FileMessageStore):
             f"Retrystore of {self.channel.short_name} try to retry "
             f"store_id={msg_store_id} ({len(msg_ids)} messages)"
         )
-        # TODO: at moment, the retry store don't handle order of yielded sub messages
+        # TODO: at moment, the retry store doesn't handle order of yielded sub messages
         # as they don't provide their order
         catched_exc = None
         for idx, msg_id in enumerate(msg_ids):

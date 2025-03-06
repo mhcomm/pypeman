@@ -401,15 +401,16 @@ class BaseChannel:
     def _has_callback(self):
         return hasattr(self, "_callback")
 
-    async def _call_special_nodes(self, msg, nodes_type, start_nodename=None):
+    async def _call_special_nodes(self, msg, node_type, start_nodename=None):
         """
             Permits calling init/join/drop/reject/fail/final nodes
 
             Args:
                 msg (message.Message): The message to pass to nodes
+                node_type (str): The special node type (init|join|drop|reject|fail|final)
                 start_nodename (str, optional): The node name where to inject. Defaults to None.
         """
-        nodes_type_to_nodelist = {
+        node_type_to_nodelist = {
             "init": self.init_nodes,
             "join": self.join_nodes,
             "drop": self.drop_nodes,
@@ -417,12 +418,12 @@ class BaseChannel:
             "fail": self.fail_nodes,
             "final": self.final_nodes,
         }
-        nodelist = nodes_type_to_nodelist[nodes_type]
+        nodelist = node_type_to_nodelist[node_type]
         if nodelist:
             if start_nodename:
                 start_node = self.get_node(start_nodename)
                 if start_node not in nodelist:
-                    raise ValueError(f"Node {start_nodename} not in {nodes_type} nodes")
+                    raise ValueError(f"Node {start_nodename} not in {node_type} nodes")
             else:
                 start_node = nodelist[0]
             idx_start_node = nodelist.index(start_node)
@@ -449,11 +450,11 @@ class BaseChannel:
         retry_exc_catched = None
         try:
             if not start_nodename:
-                msg = await self._call_special_nodes(msg=msg, nodes_type="init")
+                msg = await self._call_special_nodes(msg=msg, node_type="init")
             result = await self.subhandle(msg.copy(), start_nodename=start_nodename)
             msg.chan_rslt = result
             if not self._has_callback() and call_endnodes:
-                await self._call_special_nodes(msg=result, nodes_type="join")
+                await self._call_special_nodes(msg=result, node_type="join")
             return result
         except Dropped as exc:
             self.logger.info("%s DROP msg %s", str(self), str(msg))
@@ -461,7 +462,7 @@ class BaseChannel:
             msg.chan_exc_traceback = traceback.format_exc()
             if not self._has_callback() and call_endnodes:
                 try:
-                    await self._call_special_nodes(msg=msg, nodes_type="drop")
+                    await self._call_special_nodes(msg=msg, node_type="drop")
                 except exceptions.RetryException as retry_exc:
                     self.logger.info("%s CATCH RETRY in drop nodes for msg %s", str(self), str(msg))
                     retry_exc_catched = retry_exc
@@ -475,7 +476,7 @@ class BaseChannel:
             await self.message_store.add_message_meta_infos(msg.store_id, "err_msg", str(exc))
             if not self._has_callback() and call_endnodes:
                 try:
-                    await self._call_special_nodes(msg=msg, nodes_type="reject")
+                    await self._call_special_nodes(msg=msg, node_type="reject")
                 except exceptions.RetryException as retry_exc:
                     self.logger.info("%s CATCH RETRY in reject nodes for msg %s", str(self), str(msg))
                     retry_exc_catched = retry_exc
@@ -492,7 +493,7 @@ class BaseChannel:
             await self.message_store.add_message_meta_infos(msg.store_id, "err_msg", str(exc))
             if not self._has_callback() and call_endnodes:
                 try:
-                    await self._call_special_nodes(msg=msg, nodes_type="fail")
+                    await self._call_special_nodes(msg=msg, node_type="fail")
                 except exceptions.RetryException as retry_exc:
                     self.logger.info("%s CATCH RETRY in fail nodes for msg %s", str(self), str(msg))
                     retry_exc_catched = retry_exc
@@ -502,7 +503,7 @@ class BaseChannel:
                 await self.message_store.set_state_to_worst_sub_state(msg.store_id)
             if not retry_exc_catched:
                 if not self._has_callback() and call_endnodes:
-                    await self._call_special_nodes(msg=msg, nodes_type="final")
+                    await self._call_special_nodes(msg=msg, node_type="final")
             try:
                 if self.sub_chan_tasks:
                     # Launch sub chans handle()
@@ -566,7 +567,7 @@ class BaseChannel:
             if self.init_nodes and start_node in self.init_nodes:
                 # Inject in specific init_node, then run the process and returns resulting message
                 msg = await self._call_special_nodes(
-                    msg=msg, nodes_type="init", start_nodename=start_nodename)
+                    msg=msg, node_type="init", start_nodename=start_nodename)
                 result = await self._call_base_handling(
                     msg=msg, start_nodename="_initial",
                     call_endnodes=call_endnodes, set_state=set_state)
@@ -594,26 +595,26 @@ class BaseChannel:
                 # Inject in specific join node (no return) (+ call of final nodes)
                 exc_to_raise = None
                 try:
-                    await self._call_special_nodes(msg=msg, nodes_type="join", start_nodename=start_nodename)
+                    await self._call_special_nodes(msg=msg, node_type="join", start_nodename=start_nodename)
                 except exceptions.RetryException as exc:
                     raise exc
                 except Exception as exc:
                     exc_to_raise = exc
                 base_msg = await self._get_base_msg_from_child(msg)
-                await self._call_special_nodes(msg=base_msg, nodes_type="final")
+                await self._call_special_nodes(msg=base_msg, node_type="final")
                 if exc_to_raise is not None:
                     raise exc_to_raise
             elif self.drop_nodes and start_node in self.drop_nodes:
                 # Inject in specific drop node (no return) (+ call of final nodes)
                 exc_to_raise = None
                 try:
-                    await self._call_special_nodes(msg=msg, nodes_type="drop", start_nodename=start_nodename)
+                    await self._call_special_nodes(msg=msg, node_type="drop", start_nodename=start_nodename)
                 except exceptions.RetryException as exc:
                     raise exc
                 except Exception as exc:
                     exc_to_raise = exc
                 base_msg = await self._get_base_msg_from_child(msg)
-                await self._call_special_nodes(msg=base_msg, nodes_type="final")
+                await self._call_special_nodes(msg=base_msg, node_type="final")
                 if exc_to_raise is not None:
                     raise exc_to_raise
             elif self.reject_nodes and start_node in self.reject_nodes:
@@ -621,31 +622,31 @@ class BaseChannel:
                 exc_to_raise = None
                 try:
                     await self._call_special_nodes(
-                        msg=msg, nodes_type="reject", start_nodename=start_nodename)
+                        msg=msg, node_type="reject", start_nodename=start_nodename)
                 except exceptions.RetryException as exc:
                     raise exc
                 except Exception as exc:
                     exc_to_raise = exc
                 base_msg = await self._get_base_msg_from_child(msg)
-                await self._call_special_nodes(msg=base_msg, nodes_type="final")
+                await self._call_special_nodes(msg=base_msg, node_type="final")
                 if exc_to_raise is not None:
                     raise exc_to_raise
             elif self.fail_nodes and start_node in self.fail_nodes:
                 # Inject in specific fail node (no return) (+ call of final nodes)
                 exc_to_raise = None
                 try:
-                    await self._call_special_nodes(msg=msg, nodes_type="fail", start_nodename=start_nodename)
+                    await self._call_special_nodes(msg=msg, node_type="fail", start_nodename=start_nodename)
                 except exceptions.RetryException as exc:
                     raise exc
                 except Exception as exc:
                     exc_to_raise = exc
                 base_msg = await self._get_base_msg_from_child(msg)
-                await self._call_special_nodes(msg=base_msg, nodes_type="final")
+                await self._call_special_nodes(msg=base_msg, node_type="final")
                 if exc_to_raise is not None:
                     raise exc_to_raise
             elif self.final_nodes and start_node in self.final_nodes:
                 # Inject in specific final node (no return)
-                await self._call_special_nodes(msg=msg, nodes_type="final", start_nodename=start_nodename)
+                await self._call_special_nodes(msg=msg, node_type="final", start_nodename=start_nodename)
             else:
                 raise Exception("Node %r found but not in init/handle/end nodes, weird..", start_node)
 
@@ -1073,14 +1074,14 @@ class SubChannel(BaseChannel):
             result = fut.result()
             entrymsg.chan_rslt = result
             if self.join_nodes:
-                endnode_task = asyncio.create_task(self._call_special_nodes(result.copy(), nodes_type="join"))
+                endnode_task = asyncio.create_task(self._call_special_nodes(result.copy(), node_type="join"))
                 endnodes_tasks.append(endnode_task)
             logger.info(
                 "Subchannel %s end process message %s, rslt is msg %s",
                 str(self), str(entrymsg), str(result))
         except EndChanProcess:
             if self.join_nodes:
-                endnode_task = asyncio.create_task(self._call_special_nodes(result.copy(), nodes_type="join"))
+                endnode_task = asyncio.create_task(self._call_special_nodes(result.copy(), node_type="join"))
                 endnodes_tasks.append(endnode_task)
             logger.info(
                 "Subchannel %s end process message %s, rslt is msg %s",
@@ -1090,7 +1091,7 @@ class SubChannel(BaseChannel):
             entrymsg.chan_exc_traceback = traceback.format_exc()
             if self.drop_nodes:
                 endnode_task = asyncio.create_task(
-                    self._call_special_nodes(entrymsg.copy(), nodes_type="drop"))
+                    self._call_special_nodes(entrymsg.copy(), node_type="drop"))
                 endnodes_tasks.append(endnode_task)
             self.logger.info("Subchannel %s. Msg %s was dropped", str(self), str(entrymsg))
         except Rejected as exc:
@@ -1098,7 +1099,7 @@ class SubChannel(BaseChannel):
             entrymsg.chan_exc_traceback = traceback.format_exc()
             if self.reject_nodes:
                 endnode_task = asyncio.create_task(
-                    self._call_special_nodes(entrymsg.copy(), nodes_type="reject"))
+                    self._call_special_nodes(entrymsg.copy(), node_type="reject"))
                 endnodes_tasks.append(endnode_task)
             self.logger.info("Subchannel %s. Msg %s was Rejected", str(self), str(entrymsg))
             raise
@@ -1110,7 +1111,7 @@ class SubChannel(BaseChannel):
             entrymsg.chan_exc_traceback = traceback.format_exc()
             if self.fail_nodes:
                 endnode_task = asyncio.create_task(
-                    self._call_special_nodes(entrymsg.copy(), nodes_type="fail"))
+                    self._call_special_nodes(entrymsg.copy(), node_type="fail"))
                 endnodes_tasks.append(endnode_task)
             self.logger.exception(
                 "Error while processing msg %s in subchannel %s", str(entrymsg), str(self))
@@ -1118,7 +1119,7 @@ class SubChannel(BaseChannel):
         finally:
             if self.final_nodes and not retry_exc:
                 endnode_task = asyncio.create_task(
-                    self._call_special_nodes(entrymsg.copy(), nodes_type="final"))
+                    self._call_special_nodes(entrymsg.copy(), node_type="final"))
                 endnodes_tasks.append(endnode_task)
             self.parent.sub_chan_endnodes.extend(endnodes_tasks)
             self.parent.sub_chan_tasks.remove(fut)

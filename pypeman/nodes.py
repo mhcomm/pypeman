@@ -217,9 +217,9 @@ class BaseNode:
             store = self.channel.message_store
             for name in self.store_meta:
                 if name in result.meta:
-                    info_list = store.get_message_meta_infos(result.store_id, name) or []
+                    info_list = await store.get_message_meta_infos(result.store_id, name) or []
                     info_list.append(str(result.meta[name]))
-                    store.add_message_meta_infos(result.store_id, name, info_list)
+                    await store.add_message_meta_infos(result.store_id, name, info_list)
 
         if self.store_output_as:
             result.add_context(self.store_output_as, result)

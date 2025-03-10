@@ -6,6 +6,7 @@ import logging
 import os
 import shutil
 import smtplib
+import types
 import warnings
 
 from datetime import datetime
@@ -110,16 +111,29 @@ class BaseNode:
 
     :param name: Name of node. Used in log or test.
     :param log_output: To enable output logging for this node.
-    :store_output_as: Store output message in msg.ctx as specified key
-    :store_input_as: Store input message in msg.ctx as specified key
-    :passthrough: If True, node is executed but output message is same as input
-
+    :param store_output_as: Store output message in msg.ctx as specified key
+    :param store_input_as: Store input message in msg.ctx as specified key
+    :param passthrough: If True, node is executed but output message is same as input
+    :param store_meta: A set of names of entries in `msg.meta` that should be
+                       added in the message store after a message is processed.
+                       str(msg.meta[name]) is saved in the store meta; it is always stored
+                       as a list to accomodate for YielderNode.
     """
 
     _used_names = set()  # already used node names to ensure uniqueness
 
-    def __init__(self, *args, name=None, log_output=False, auto_retry_exceptions=(),
-                 **kwargs):
+    def __init__(
+        self,
+        *args,
+        name: "str | None" = None,
+        log_output: bool = False,
+        store_output_as: "str | None" = None,
+        store_input_as: "str | None" = None,
+        auto_retry_exceptions: tuple = (),
+        passthrough: bool = False,
+        store_meta: "set[str] | None" = None,
+        **kwargs,
+    ):
         cls = self.__class__
         self.channel = None
 
@@ -133,9 +147,9 @@ class BaseNode:
         node_by_name[name] = self
         self.name = name
 
-        self.store_output_as = kwargs.pop('store_output_as', None)
-        self.store_input_as = kwargs.pop('store_input_as', None)
-        self.passthrough = kwargs.pop('passthrough', None)
+        self.store_output_as = store_output_as
+        self.store_input_as = store_input_as
+        self.passthrough = passthrough
         self.next_node = None
 
         self.processed = 0
@@ -146,6 +160,8 @@ class BaseNode:
             # Enable logging
             self._handle_without_log = self.handle
             setattr(self, 'handle', self._log_handle)
+
+        self.store_meta = set(store_meta or ())
 
     def fullpath(self):
         """
@@ -196,6 +212,14 @@ class BaseNode:
         self.channel.logger.debug(
             '%s node end handle msg %s, result is msg %s',
             str(self), str(msg), str(result))
+
+        if not isinstance(result, types.GeneratorType) and getattr(result, 'store_id', None) is not None:
+            store = self.channel.message_store
+            for name in self.store_meta:
+                if name in result.meta:
+                    info_list = await store.get_message_meta_infos(result.store_id, name) or []
+                    info_list.append(str(result.meta[name]))
+                    await store.add_message_meta_infos(result.store_id, name, info_list)
 
         if self.store_output_as:
             result.add_context(self.store_output_as, result)

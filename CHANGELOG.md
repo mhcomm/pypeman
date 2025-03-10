@@ -1,4 +1,17 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
+## [0.5.10](https://github.com/mhcomm/pypeman/compare/0.5.10...0.6.0)
+* Add BaseChannel.inject method
+* Refactorisation of node calls (node calls are on BaseChannel now instead of being in BaseNode)
+* Store and search for meta infos
+* Refactorisation of init|join|drop|reject|fail|final nodes call into a single function named call_special_nodes
+* Add AutoRetry feature to nodes (+ add RetryFileMessageStore)
+* Breaking Changes:
+* - Now conditional subchannel raise an EndIteration at the end instead of returning the msg
+* Know bugs:
+* - The change state doesn't work with conditional subchannels that have a message store (the base message remains in wait_retry state after a successful retry)
+* - end nodes are not called for the first message put in the retry store
+* - Different behaviour with errors in join nodes between handle and inject (if error occur in join nodes in handle, fail nodes are called, in inject it's not the case)
+
 ## [0.5.10](https://github.com/mhcomm/pypeman/compare/0.5.9...0.5.10)
 * Fix Filewatcher logging problem
 * PypemanTestCase.get_channel now call channels.get_channel

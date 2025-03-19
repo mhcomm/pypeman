@@ -1,6 +1,7 @@
 # Mandatory
 click
 daemonlite
+mytb
 python-dateutil
 websockets<14  # not compatible with py38
 jsonrpcserver<5  # cannot import name 'Protocol' from 'typing' : fixed in py3.8

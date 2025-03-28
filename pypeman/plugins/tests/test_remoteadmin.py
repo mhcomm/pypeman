@@ -127,7 +127,7 @@ class TestRemoteAdminPlugin(RemoteAdminBaseMixin):
 
     async def test_search_messages(self, webremoteclient):
         params = {
-            "start": 2,
+            "start_id": self.msg4.uuid,
             "count": 5,
             "order_by": "-timestamp"
         }

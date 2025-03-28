@@ -1186,9 +1186,6 @@ class Case():
 
         self.loop = loop or asyncio.get_event_loop()
 
-        if message_store_factory is None:
-            message_store_factory = msgstore.NullMessageStoreFactory()
-
         for cond, name in zip(args, names):
             b = BaseChannel(name=name, parent_channel=parent_channel,
                             message_store_factory=message_store_factory,

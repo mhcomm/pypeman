@@ -2,14 +2,17 @@ from __future__ import annotations
 from abc import ABC
 from abc import abstractmethod
 from copy import deepcopy
-from datetime import datetime
+from datetime import date, datetime, timedelta
+from dateutil import parser as dateutilparser
 from pathlib import Path, PurePath
 from typing import Any
 from typing import Literal
 from typing import TypedDict
 import asyncio
-import os
+import json
 import re
+
+from typing import override
 
 
 class PypemanConfigError(BaseException):
@@ -21,10 +24,16 @@ class Message:
     timestamp: datetime
     uuid: str
     payload: Any
+    meta: dict[str, Any]
+
+    PENDING = "pending"
 
     def to_dict(self, encode_payload: bool = True) -> dict[str, Any]: ...
+    def to_json(self) -> str: ...
     @staticmethod
     def from_dict(data: dict[str, Any]) -> Message: ...
+    @staticmethod
+    def from_json(data: str) -> Message: ...
 
 
 # base classes {{{1
@@ -44,7 +53,7 @@ class MessageStoreFactory(ABC):
         """(implementation) Create a new store refered to as `store_id`.
 
         Note for implementing classes: this function doesn't perform
-        any heavy work yet (not async), instead the returned store's
+        any heavy work (not async), instead the returned store's
         :meth:`MessageStore.start` does.
 
         :param store_id: Identifier of the corresponding message store.
@@ -115,13 +124,14 @@ class MessageStore(ABC):
         """
 
     @abstractmethod
-    async def _store(self, msg: Message) -> str:
+    async def _store(self, msg: Message, ini_meta: dict[str, Any]) -> str:
         """(implementation) Store a message.
 
         Implementation must ensure that all operations with an id
         obtained this way are valid until a matching :meth:`_delete`.
 
         :param msg: Message to be stored.
+        :param ini_meta: Store-related initial meta.
         :return: Store-dependant id.
         """
 
@@ -179,7 +189,8 @@ class MessageStore(ABC):
         """(implementation) Gather the ids for messages that fall
         within the given time frame.
 
-        To implementing classe: `start_dt` < `end_dt` is verified.
+        Note for implementing classes: `start_dt` < `end_dt` is
+        verified, as well as `self.total() != 0`.
 
         :param start_dt: (optional) Inclusive lower bound, or None.
         :param end_dt: (optional) Exclusive upper bound, or None.
@@ -196,7 +207,8 @@ class MessageStore(ABC):
         :param msg: Message to store.
         :return: Id for this specific message.
         """
-        id = await self._store(msg)
+        # this 'state': PENDING is at least what the FileMessageStore was doing
+        id = await self._store(msg, {"state": Message.PENDING})
         self._cached_total += 1
         return id
 
@@ -219,6 +231,8 @@ class MessageStore(ABC):
     # TODO: this is not async anymore, marking it non-async shows it is a cheap operation
     async def total(self) -> int:
         """Number of messages stored at this time.
+
+        Marked async but will no longer be at some point.
 
         :return: Total Stored message count.
         """
@@ -247,9 +261,11 @@ class MessageStore(ABC):
         efficient than repeatedly calling :meth:`get` in a loop.
         (Which is more or less what this default implementation does.)
 
+        Note for implementing classes: `1 < len(ids)` is verified.
+
         :param ids: Sequence of store-dependant id.
         :return: The sequence of store entries.
-        :raise LookupError: When an id is not valid.
+        :raise LookupError: When an id does not name a stored message.
         """
         return await asyncio.gather(*(self.get(id) for id in ids))
 
@@ -342,7 +358,7 @@ class MessageStore(ABC):
         :raise LookupError: When the id does not name a stored message.
         :return: Textual representation of the payload.
         """
-        return str(await self._get_message(id))
+        return str((await self._get_message(id)).payload)
 
     async def is_regex_in_msg(self, id: str, rtext: str | re.Pattern[str]):
         """Shorthand pattern check `rtext` in :meth:`get_payload_str`.
@@ -362,12 +378,137 @@ class MessageStore(ABC):
         """
         return text in await self.get_payload_str(id)
 
-    @staticmethod
-    def _search_meta_filter_sort(meta_search: dict, results: list):
-        0
+    async def search(
+        self,
+        count: int = 10,
+        order_by: Literal["timestamp", "status", "-timestamp", "-status"] = "timestamp",
+        start_dt: datetime | str | None = None,
+        end_dt: datetime | str | None = None,
+        text: str | None = None,
+        rtext: str | None = None,
+        start_id: str | None = None,
+        meta: dict[str, str] | None = None,
+    ) -> list[StoredEntry_]:
+        """Fetch a list of message entries according to specification.
 
-    async def search(self, _: ...):
-        -NotImplemented("search")
+        :param count: Count of entries to return. This is a maximum:
+            result might consist of fewer matches.
+        :param order_by: Allowed values: ['timestamp', 'status'].
+        :param start_dt: (optional) Limit to messages since this time.
+        :param end_dt: (optional) Limit to messages until this time.
+        :param text: (optional) Text to search in message content.
+        :param rtext: (optional) Pattern to search in message content.
+        :param start_id: (optional): If set, start search from this id
+            (excluded from result).
+        :param meta: (optional): Meta search options (see full doc).
+
+            Message meta are always stored as a list of strings when
+            going through `BaseNode.store_meta`. (If an in-store entry
+            is not a list, it will be handled as if a list of a single
+            item.) If any value from the inspected list of meta
+            correspond to the query, the message is selected.
+
+            In the key/value pairs of the `meta` argument to `search`,
+            keys are processed as follow:
+
+            * `text_<name>`: string to search in meta value;
+            * `rtext_<name>`: string regex to search in meta value;
+
+            * `start_<name>` / `end_<name>`: filter a range, values are
+                interpreted and compared as numbers when possible;
+
+            * `<name>`: only match with exact value;
+
+            * `order_by`: sort result by the meta indicated by value.
+
+            Reminder: when called through web API, ie from `list_msgs`
+            in pypeman/plugins/remoteadmin/views.py, these keys, in the
+            request params, are prefixed with "meta_", eg.
+            "meta_status" "meta_rtext_url".
+
+        :return: List of fitting message entries.
+        """
+        # TODO: phase out the 'str' option, this should be caller responsibility
+        if isinstance(start_dt, str):
+            start_dt = dateutilparser.isoparse(start_dt)
+        if isinstance(end_dt, str):
+            end_dt = dateutilparser.isoparse(end_dt)
+
+        if start_dt and end_dt:
+            assert start_dt < end_dt, "backward time span given"
+            assert start_dt != end_dt, "empty time span given"
+
+        payload_fs = _PayloadFilterSort(order_by, text, rtext)
+        meta_fs = _MetaFilterSort(meta)
+
+        span = await self._span_select(start_dt, end_dt)
+        if start_id:
+            # +1: excluding start id; note that this already raises if `start_id` is not in
+            cut = span.index(start_id) + 1
+            span = span[cut:]
+
+        filtered: list[MessageStore.StoredEntry_] = []
+
+        needed = count
+        span_len = len(span)
+        scan_head = 0
+        # continuously grab however-many messages needed, filter and append
+        # until fulfilled (0 == needed) or exhausted (scan_head >= span_len)
+        while needed and scan_head < span_len:
+            available = span_len - scan_head
+            grab = min(needed, available)
+
+            scan_ahead = scan_head + grab
+            chunk = (
+                [await self.get(span[0])]
+                if 1 == grab  # as per `get_many`'s contract
+                else await self.get_many(span[scan_head:scan_ahead])
+            )
+            filtered.extend(
+                it
+                for it in chunk
+                if payload_fs.filter(it["message"].payload) and meta_fs.filter(it["message"].meta)
+            )
+
+            needed = count - len(filtered)
+            scan_head = scan_ahead
+
+        filtered.sort(
+            key=lambda it: (
+                payload_fs.sorter(it["message"].payload),
+                meta_fs.sorter(it["message"].meta),
+            )
+        )
+        return filtered
+
+
+# filtering and sorting {{{2
+class _PayloadFilterSort:
+    "(internal) see :meth:`MessageStore.sort`"
+
+    def __init__(self, order_by: str, text: str | None, rtext: str | None):
+        self.order_by = order_by
+        self.text = text
+        self.regex = None if rtext is None else re.compile(rtext)
+
+    def filter(self, payload: Any) -> bool:
+        assert not "implemented"
+
+    def sorter(self, payload: Any) -> Any:
+        assert not "implemented"
+
+
+class _MetaFilterSort:
+    "(internal) see :meth:`MessageStore.sort`"
+
+    def __init__(self, meta: dict[str, str] | None):
+        pass
+
+    def filter(self, meta: dict[str, Any]) -> bool:
+        assert not "implemented"
+
+    def sorter(self, meta: dict[str, Any]) -> Any:
+        assert not "implemented"
 
 
 # implementations {{{1
@@ -383,6 +524,7 @@ class NullMessageStoreFactory(MessageStoreFactory):
     Mostly, retrieved messages will be :obj:`NotImplemented`.
     """
 
+    @override
     def _new_store(self, store_id: str) -> MessageStore:
         return NullMessageStore()
 
@@ -397,24 +539,31 @@ class NullMessageStore(MessageStore):
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    async def _store(self, msg: Message) -> str:
+    @override
+    async def _store(self, msg: Message, ini_meta: dict[str, Any]) -> str:
         return ""
 
+    @override
     async def _delete(self, id: str):
         pass
 
+    @override
     async def _total(self) -> int:
         return 0
 
+    @override
     async def _get_message(self, id: str) -> Message:
         return NotImplemented
 
+    @override
     async def _get_storemeta(self, id: str) -> dict[str, Any]:
         return {}
 
+    @override
     async def _set_storemeta(self, id: str, meta: dict[str, Any]):
         pass
 
+    @override
     async def _span_select(self, start_dt: datetime | None, end_dt: datetime | None) -> list[str]:
         return []
 
@@ -426,6 +575,7 @@ class MemoryMessageStoreFactory(MessageStoreFactory):
     All messages are lost at pypeman stop.
     """
 
+    @override
     def _new_store(self, store_id: str) -> MessageStore:
         return MemoryMessageStore()
 
@@ -433,7 +583,7 @@ class MemoryMessageStoreFactory(MessageStoreFactory):
 class MemoryMessageStore(MessageStore):
     class MemoryStoredEntry_(TypedDict):
         meta: dict[str, Any]
-        message: dict[str, Any]  # for now messages are still `to_dict`'d
+        message: dict[str, Any]  # for now messages are still `to_dict`-ified, this may change
         timestamp: datetime
 
     def __init__(self):
@@ -443,12 +593,13 @@ class MemoryMessageStore(MessageStore):
         self._mapped: dict[str, MemoryMessageStore.MemoryStoredEntry_] = {}
         # 2 references are stored to the same entry for 2 different usage
 
-    async def _store(self, msg: Message) -> str:
+    @override
+    async def _store(self, msg: Message, ini_meta: dict[str, Any]) -> str:
         if msg.uuid in self._mapped:
             return msg.uuid
 
         entry: MemoryMessageStore.MemoryStoredEntry_ = {
-            "meta": {},
+            "meta": ini_meta,
             "message": msg.to_dict(),
             "timestamp": msg.timestamp,
         }
@@ -464,29 +615,33 @@ class MemoryMessageStore(MessageStore):
         self._mapped[msg.uuid] = entry
         return msg.uuid
 
+    @override
     async def _delete(self, id: str):
         msg = self._mapped.pop(id)
         self._sorted.remove(msg)
 
+    @override
     async def _total(self) -> int:
         return len(self._sorted)
 
+    @override
     async def _get_message(self, id: str) -> Message:
         return Message.from_dict(self._mapped[id]["message"])
 
+    @override
     async def _get_storemeta(self, id: str) -> dict[str, Any]:
         return deepcopy(self._mapped[id]["meta"])
 
+    @override
     async def _set_storemeta(self, id: str, meta: dict[str, Any]):
         self._mapped[id]["meta"] = meta
 
+    @override
     async def _span_select(self, start_dt: datetime | None, end_dt: datetime | None) -> list[str]:
         # test degenerate cases first
-        if (
-            not self._sorted
-            or (start_dt and self._sorted[-1]["timestamp"] < start_dt)
-            or (end_dt and end_dt <= self._sorted[0]["timestamp"])
-        ):
+        if start_dt and self._sorted[-1]["timestamp"] < start_dt:
+            return []
+        if end_dt and end_dt <= self._sorted[0]["timestamp"]:
             return []
 
         start, end = 0, len(self._sorted)
@@ -518,7 +673,7 @@ class FileMessageStoreFactory(MessageStoreFactory):
     The `<timestamp>` part is as :obj:`FileMessageStore.DATE_FORMAT`.
     """
 
-    # TODO: see if both the parameter and the property can be harmonized
+    # TODO: see if both the parameter and the property names can be harmonized
     def __init__(self, path: str | PurePath):
         super().__init__()
         # sanity check
@@ -526,13 +681,21 @@ class FileMessageStoreFactory(MessageStoreFactory):
             raise PypemanConfigError("file message store requires a path")
         self.base_path = PurePath(path)
 
+    @override
     def _new_store(self, store_id: str) -> MessageStore:
         return FileMessageStore(self.base_path, store_id)
 
 
 class FileMessageStore(MessageStore):
+    """
+
+    Ids are of the form `'{date}_{time}_{uuid}'`. Again, message store
+    ids are **implementation details** and **must not be inspected**
+    other than for debugging/logging/.. purposes!
+    """
+
     DATE_FORMAT = "%Y%m%d_%H%M%S%f"  # 21 guaranteed length (8+1+12)
-    _MSG_RE = re.compile(
+    _PARSE_ID = re.compile(
         """
         ^
             (?P<year>[0-9]{4})
@@ -556,33 +719,211 @@ class FileMessageStore(MessageStore):
     #   see https://github.com/python/asyncio/wiki/ThirdParty#filesystem
     #   as well as the refered https://github.com/Tinche/aiofiles/
     #   as of now, even tho everything is marked async, none is-
+    #   (lastely this likely doesnt matter, I'll try to benchmark both
+    #   somewhat to prove otherwise.. I do belive it would speed up
+    #   `get_many` quite a bit but not so sure)
 
     def __init__(self, path: PurePath, store_id: str):
         super().__init__()
-        # TODO: see if property name and parameter can be changed/harmonized
+        # TODO: see if property name and parameter names can be changed/harmonized
         self.base_path = Path(path, store_id)
         self.base_path.mkdir(parents=True, exist_ok=True)
 
-    async def _store(self, msg: Message) -> str:
-        return ""
+    @override
+    async def _start(self):
+        # in _start rather than __init__ for sematics and potential async rewrite
+        self._earliest = self._extreme(latest=False)
+        self._latest = self._extreme(latest=True)
 
+    def _dt2dir(self, dt: datetime | date) -> Path:
+        """Build the dir path where messages for day `dt` are/would be.
+
+        For use with an already assembled id prefer :meth:`_id2file`.
+        This method is implementation detail.
+
+        :param dt: Date.
+        :return: Directory path.
+        """
+        return self.base_path / f"{dt.year:04}" / f"{dt.month:02}" / f"{dt.day:02}"
+
+    def _id2file(self, id: str) -> Path:
+        """For a vaild `id`, build the corresponding file path.
+
+        For use with a plain dt/timestamp prefer :meth:`_dt2dir`.
+        This method is implementation detail.
+
+        :param id: `'{date}_{time}_{uuid}'`.
+        :return: Suffix-less file path.
+        :raise LookupError: Cannot parse `id`.
+        """
+        res = FileMessageStore._PARSE_ID.match(id)
+        if not res:
+            raise LookupError(f"unknown id format {id!r}")
+        gd = res.groupdict()
+        return self.base_path / gd["year"] / gd["month"] / gd["day"] / id
+
+    @override
+    async def _store(self, msg: Message, ini_meta: dict[str, Any]) -> str:
+        id = f"{msg.timestamp.strftime(FileMessageStore.DATE_FORMAT)}_{msg.uuid}"
+        msg_path = self._dt2dir(msg.timestamp) / id
+
+        msg_path.parent.mkdir(parents=True, exist_ok=True)
+        with msg_path.open("w") as f:
+            f.write(msg.to_json())
+        with msg_path.with_suffix(".meta").open("w") as f:
+            json.dump(ini_meta, f)
+
+        if msg.timestamp < self._earliest:
+            self._earliest = msg.timestamp
+        if self._latest < msg.timestamp:
+            self._latest = msg.timestamp
+
+        return id
+
+    @override
     async def _delete(self, id: str):
-        pass
+        msg_path = self._id2file(id)
+        msg_path.unlink(missing_ok=True)
+        msg_path.with_suffix(".meta").unlink(missing_ok=True)
 
+    @override
     async def _total(self) -> int:
-        return sum(len(files) for _, _, files in self.base_path.walk())
+        return sum(
+            sum(1 for file in files if FileMessageStore._PARSE_ID.match(file))
+            for _, _, files in self.base_path.walk()
+        )
 
+    @override
     async def _get_message(self, id: str) -> Message:
-        return NotImplemented
+        msg_path = self._id2file(id)
+        if not msg_path.exists():
+            raise LookupError(f"no message ever stored under {id!r}")
+        with msg_path.open("r") as f:
+            return Message.from_json(f.read())
 
+    @override
     async def _get_storemeta(self, id: str) -> dict[str, Any]:
-        return {}
+        meta_path = self._id2file(id).with_suffix(".meta")
+        if not meta_path.exists():
+            raise LookupError(f"no meta ever stored under {id!r}")
+        with meta_path.open("r") as f:
+            content = f.read()
+        # (uuuuuuugh) still handle oldass format
+        return json.loads(content) if "{" == content[:1] else {"state": content}
 
+    @override
     async def _set_storemeta(self, id: str, meta: dict[str, Any]):
-        pass
+        with self._id2file(id).with_suffix(".meta").open("w") as f:
+            json.dump(meta, f)
 
+    def _extreme(self, latest: bool) -> datetime:
+        """Find the earliest/latest stored message `dt`.
+
+        This method has the same status as :meth:`_total`: it gets
+        the value form the source only if truly needed, otherwise
+        :attr:`_earliest`/:attr:`_latest` should be sufficient.
+        Not marked async but could be at some point.
+        This method is implementation detail.
+
+        :param latest: False to find earliest, True to find latest.
+        """
+        # quick guard check in case there are no message at all
+        if self.base_path.is_dir() and next(self.base_path.iterdir(), False):
+            return datetime.min if latest else datetime.max
+
+        # if looking for latest, start with smallest values
+        if latest:
+            extrms_ymd = ["0001", "01", "01"]
+            extrms_hmsf = ("00", "00", "00", "000000")
+            if_no_sec_usec = ("59", "999999")
+            cmp = lambda cur, extrm: extrm < cur  # noqa: E731
+        else:
+            extrms_ymd = ["9999", "12", "31"]
+            extrms_hmsf = ("23", "59", "59", "999999")
+            if_no_sec_usec = ("00", "000000")
+            cmp = lambda cur, extrm: cur < extrm  # noqa: E731
+
+        # iter over year/month/day to find each min
+        # this works because components in the path are all fixed-width
+        # (ie str comparison is enough, no need to parse)
+        path_accu = self.base_path
+        for k in range(len(extrms_ymd)):
+            for it in path_accu.iterdir():
+                if cmp(it.name, extrms_ymd[k]):
+                    extrms_ymd[k] = it.name
+            path_accu /= extrms_ymd[k]
+        # now `path_accu` is `'<base>/<y>/<m>/<d>/'`
+
+        for id in path_accu.iterdir():
+            res = FileMessageStore._PARSE_ID.match(id.name)
+            if res:
+                gd = res.groupdict()
+                hmsf = (
+                    gd["hour"],
+                    gd["minute"],
+                    gd.get("second", if_no_sec_usec[0]),
+                    gd.get("microsecond", if_no_sec_usec[1]),
+                )
+                if cmp(hmsf, extrms_hmsf):
+                    extrms_hmsf = hmsf
+
+        Y, m, d = map(int, extrms_ymd)
+        H, M, S, f = map(int, extrms_hmsf)
+        return datetime(Y, m, d, H, M, S, f)
+
+    @override
     async def _span_select(self, start_dt: datetime | None, end_dt: datetime | None) -> list[str]:
-        return []
+        start_dt = start_dt or self._earliest
+        end_dt = end_dt or self._latest
+
+        # needed for first and last day
+        def is_included(id: str) -> bool:
+            "check both: it's a well-formed id, its dt is within span"
+            res = FileMessageStore._PARSE_ID.match(id)
+            if not res:
+                return False
+            gd = res.groupdict()
+            dt = datetime(
+                year=int(gd["year"]),
+                month=int(gd["month"]),
+                day=int(gd["day"]),
+                hour=int(gd["hour"]),
+                minute=int(gd["minute"]),
+                second=int(gd.get("second", "0")),
+                microsecond=int(gd.get("microsecond", "0")),
+            )
+            return start_day < dt <= end_day
+
+        start_day = start_dt.date()
+        end_day = end_dt.date()
+        one_day = timedelta(days=1)
+
+        # trimmed first day
+        ids = [
+            file.name
+            for file in self._dt2dir(start_day).iterdir()
+            if file.is_file() and is_included(file.name)
+        ]
+
+        # everything between start and end
+        k = start_day + one_day
+        while k < end_day:
+            ids.extend(
+                file.name
+                for file in self._dt2dir(k).iterdir()
+                if file.is_file() and FileMessageStore._PARSE_ID.match(file.name)
+            )
+            k += one_day
+
+        # trimmed last day
+        if start_day != end_day:
+            ids.extend(
+                file.name
+                for file in self._dt2dir(end_day).iterdir()
+                if file.is_file() and is_included(file.name)
+            )
+
+        return ids
 
 
 # TODO: this is specific to the FileMessageStore, remove the top-level alias

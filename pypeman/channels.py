@@ -506,6 +506,11 @@ class BaseChannel:
             raise
         finally:
             if set_state and not retry_exc_catched and self.has_message_store and not self._has_callback():
+                # Message's state have to be set only if:
+                # - the chan have a message store
+                # - the chan is not a forked subchannel (the subchan have it's own way to set state)
+                # - the set_state flag is set to True
+                # - No retry exception was raise during the process
                 await self.message_store.set_state_to_worst_sub_state(msg.store_id)
             if not retry_exc_catched:
                 if not self._has_callback() and call_endnodes:

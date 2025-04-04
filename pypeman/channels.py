@@ -1132,6 +1132,10 @@ class SubChannel(BaseChannel):
                 "Error while processing msg %s in subchannel %s", str(entrymsg), str(self))
             raise
         finally:
+            if self.message_store:
+                changestate_task = asyncio.create_task(
+                    self.message_store.set_state_to_worst_sub_state(entrymsg.store_id))
+                endnodes_tasks.append(changestate_task)
             if self.final_nodes and not retry_exc:
                 endnode_task = asyncio.create_task(
                     self._call_special_nodes(entrymsg.copy(), node_type="final"))

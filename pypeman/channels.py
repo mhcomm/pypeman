@@ -1166,6 +1166,7 @@ class SubChannel(BaseChannel):
         return msg
 
     async def process(self, msg, start_nodename=None):
+        # https://github.com/mhcomm/pypeman/pull/319
         async with self.subchan_lock:  # avoid having multiples message in parallel
             return await super().process(msg=msg, start_nodename=start_nodename)
 

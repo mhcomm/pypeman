@@ -505,7 +505,7 @@ class BaseChannel:
                     retry_exc_catched = retry_exc
             raise
         finally:
-            if set_state and not retry_exc_catched and self.has_message_store:
+            if set_state and not retry_exc_catched and self.has_message_store and not self._has_callback():
                 await self.message_store.set_state_to_worst_sub_state(msg.store_id)
             if not retry_exc_catched:
                 if not self._has_callback() and call_endnodes:
@@ -1067,6 +1067,14 @@ def reset_pypeman_channels():
 class SubChannel(BaseChannel):
     """ Subchannel used for forking channel processing. """
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.subchan_lock = None
+
+    async def start(self, *args, **kwargs):
+        self.subchan_lock = asyncio.Lock()
+        return await super().start(*args, **kwargs)
+
     def _callback(self, fut):
         """
         """
@@ -1147,6 +1155,10 @@ class SubChannel(BaseChannel):
         self.parent.sub_chan_tasks.append(fut)
         MSG_CTXVAR.reset(msgctxvartoken)
         return msg
+
+    async def process(self, msg, start_nodename=None):
+        async with self.subchan_lock:  # avoid having multiples message in parallel
+            return await super().process(msg=msg, start_nodename=start_nodename)
 
 
 class ConditionSubChannel(BaseChannel):

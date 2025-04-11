@@ -36,11 +36,18 @@ class Options:
     commit: str
     dir: str
     script: io.TextIOBase
-    prout: str
+    prout: str | None
     timeit: bool
 
 
 def setup_and_run(opts: Options):
+    # restore after this function: it should be transparent to caller
+    oldpwd = os.getcwd()
+
+    # ensure absolute before chdir
+    if opts.prout:
+        opts.prout = os.path.abspath(opts.prout)
+
     # will chdir into the cloned repo, so this ensure user script imports still behave as expected
     spath = getattr(opts.script, "name")
     sys.path.append(os.getcwd() if spath is None else os.path.dirname(os.path.abspath(spath)))
@@ -75,6 +82,8 @@ def setup_and_run(opts: Options):
         print(f"run() took {timeit.timeit('run(*_args)', number=1, globals=mod)}s")
     else:
         profile.runctx("run(*_args)", globals=mod, locals=mod, filename=opts.prout)
+
+    os.chdir(oldpwd)
 
 
 def main():
@@ -124,4 +133,3 @@ def main():
 
 if "__main__" == __name__:
     main()
-# vim: se tw=101:

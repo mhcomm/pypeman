@@ -9,6 +9,7 @@ import random as rnd
 from pypeman.message import Message
 from pypeman.msgstore import MessageStore
 from utils import ALL_STORES_FACTORIES
+from utils import FRUITS
 from utils import random_payload
 
 factory = ALL_STORES_FACTORIES['memory']()
@@ -40,7 +41,7 @@ class op_funcs:
 
     @staticmethod
     async def add_message_meta_infos(store: MessageStore, ids: list[str]):
-        await store.add_message_meta_infos(rnd.choice(ids), f"meta{rnd.random()}", rnd.randbytes(7))
+        await store.add_message_meta_infos(rnd.choice(ids), rnd.choice(FRUITS), str(rnd.random()))
 
     @staticmethod
     async def change_message_state(store: MessageStore, ids: list[str]):
@@ -71,5 +72,3 @@ async def run(store: MessageStore, todo_ops: list):
     print(f"total count: {len(todo_ops)}")
     for op in todo_ops:
         await op(store, ids)
-
-# vim: se tw=101:

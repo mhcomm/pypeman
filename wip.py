@@ -928,7 +928,3 @@ class FileMessageStore(MessageStore):
 
 # TODO: this is specific to the FileMessageStore, remove the top-level alias
 DATE_FORMAT = FileMessageStore.DATE_FORMAT
-
-
-# (modeline) {{{1
-# vim: se tw=101:

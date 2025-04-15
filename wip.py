@@ -6,6 +6,7 @@ from datetime import date, datetime, timedelta
 from dateutil import parser as dateutilparser
 from pathlib import Path, PurePath
 from typing import Any
+from typing import Callable
 from typing import Literal
 from typing import TypedDict
 import asyncio
@@ -37,6 +38,7 @@ class Message:
 
 
 # base classes {{{1
+# factory {{{2
 class MessageStoreFactory(ABC):
     """A :class:`MessageStoreFactory` instance can generate related
     :class:`MessageStore` instances for a specific `store_id`. The
@@ -70,6 +72,7 @@ class MessageStoreFactory(ABC):
         return existing or self._stores.setdefault(store_id, self._new_store(store_id))
 
 
+# store {{{2
 class MessageStore(ABC):
     """A :class:`MessageStore` keep an history of processed messages.
 
@@ -381,25 +384,34 @@ class MessageStore(ABC):
     async def search(
         self,
         count: int = 10,
-        order_by: Literal["timestamp", "status", "-timestamp", "-status"] = "timestamp",
+        start_id: str | None = None,
+        order_by: Literal["timestamp", "state", "-timestamp", "-state"] | str = "timestamp",
+        group_by: Literal["state"] | str | None = None,
         start_dt: datetime | str | None = None,
         end_dt: datetime | str | None = None,
         text: str | None = None,
         rtext: str | None = None,
-        start_id: str | None = None,
         meta: dict[str, str] | None = None,
-    ) -> list[StoredEntry_]:
+    ) -> list[StoredEntry_] | dict[str, StoredEntry_]:
         """Fetch a list of message entries according to specification.
 
         :param count: Count of entries to return. This is a maximum:
             result might consist of fewer matches.
-        :param order_by: Allowed values: ['timestamp', 'status'].
+        :param start_id: (optional): If set, start search from this id
+            (excluded from result).
+
+        :param order_by: Sort results by a key. If the key starts with
+            '-' the ordering is reversed. Default: 'timestamp', allowed
+            values: ['timestamp', 'state', 'meta_<name>'].
+        :param group_by: Group the results by a key. Instead of a list,
+            the result will be a dict that maps from the various values
+            found for the key to a list of matching entries. Value like
+            'meta_<name>' may be used to group by meta.
+
         :param start_dt: (optional) Limit to messages since this time.
         :param end_dt: (optional) Limit to messages until this time.
         :param text: (optional) Text to search in message content.
         :param rtext: (optional) Pattern to search in message content.
-        :param start_id: (optional): If set, start search from this id
-            (excluded from result).
         :param meta: (optional): Meta search options (see full doc).
 
             Message meta are always stored as a list of strings when
@@ -419,14 +431,13 @@ class MessageStore(ABC):
 
             * `<name>`: only match with exact value;
 
-            * `order_by`: sort result by the meta indicated by value.
-
             Reminder: when called through web API, ie from `list_msgs`
             in pypeman/plugins/remoteadmin/views.py, these keys, in the
-            request params, are prefixed with "meta_", eg.
-            "meta_status" "meta_rtext_url".
+            request params, are prefixed with "meta_" (eg.
+            "meta_state" "meta_rtext_url") but here they no longer are.
 
-        :return: List of fitting message entries.
+        :return: List of fitting message entries or, if `group_by` is
+            given, dict of group to list of fitting message entries.
         """
         # TODO: phase out the 'str' option, this should be caller responsibility
         if isinstance(start_dt, str):
@@ -438,8 +449,31 @@ class MessageStore(ABC):
             assert start_dt < end_dt, "backward time span given"
             assert start_dt != end_dt, "empty time span given"
 
-        payload_fs = _PayloadFilterSort(order_by, text, rtext)
-        meta_fs = _MetaFilterSort(meta)
+        # only one of the two is non-none at once
+        order_by_payload = None
+        order_by_meta = None
+        reverse = "-" == order_by[0]
+        if reverse:
+            order_by = order_by[1:]
+        if order_by.startswith("meta_"):
+            order_by_meta = order_by
+        else:
+            assert order_by in {"timestamp", "state"}
+            order_by_payload: ... = order_by
+
+        # only one of the two may be non-none at once
+        group_by_payload = None
+        group_by_meta = None
+        if group_by:
+            if group_by.startswith("meta_"):
+                group_by_meta = group_by[5:]
+            else:
+                assert group_by in {"state"}
+                group_by_payload: ... = group_by
+
+        # note that is compiles any rtext and already raises if invalid
+        payload_filt = _MsgFilt(order_by_payload, group_by_payload, text, rtext)
+        meta_filt = _MetaFilt(order_by_meta, group_by_meta, meta)
 
         span = await self._span_select(start_dt, end_dt)
         if start_id:
@@ -464,51 +498,155 @@ class MessageStore(ABC):
                 if 1 == grab  # as per `get_many`'s contract
                 else await self.get_many(span[scan_head:scan_ahead])
             )
-            filtered.extend(
-                it
-                for it in chunk
-                if payload_fs.filter(it["message"].payload) and meta_fs.filter(it["message"].meta)
-            )
+            filtered.extend(it for it in chunk if payload_filt.filter(it) and meta_filt.filter(it))
 
             needed = count - len(filtered)
             scan_head = scan_ahead
 
-        filtered.sort(
-            key=lambda it: (
-                payload_fs.sorter(it["message"].payload),
-                meta_fs.sorter(it["message"].meta),
-            )
-        )
-        return filtered
+        order = meta_filt.order if order_by_meta else payload_filt.order
+        filtered.sort(key=order)
+        if not group_by:
+            return filtered
+
+        group = meta_filt.group if group_by_meta else payload_filt.group
+        grouped = {group(it): it for it in filtered}
+        return grouped
 
 
 # filtering and sorting {{{2
-class _PayloadFilterSort:
-    "(internal) see :meth:`MessageStore.sort`"
+class _MsgFilt:
+    """(internal) see :meth:`MessageStore.sort`
 
-    def __init__(self, order_by: str, text: str | None, rtext: str | None):
+    used to filter/order/group entries by there message's payload
+    """
+
+    def __init__(
+        self,
+        order_by: Literal["timestamp", "state"] | None,
+        group_by: Literal["state"] | None,
+        text: str | None,
+        rtext: str | None,
+    ):
+        # `self.order()` (resp. `self.group()`) are never called
+        # if `order_by` (resp. `group_by`) is None
         self.order_by = order_by
+        self.group_by = group_by
         self.text = text
-        self.regex = None if rtext is None else re.compile(rtext)
+        self.regex = re.compile(rtext) if rtext else None
+        # no filter, will always return True
+        self.nofilt = not self.text and not self.regex
 
-    def filter(self, payload: Any) -> bool:
-        assert not "implemented"
+    def filter(self, entry: MessageStore.StoredEntry_) -> bool:
+        ":return: true if the entry is to be kept in the result"
+        if self.nofilt:
+            return True
+        astr = str(entry["message"].payload)
+        if self.text and self.text not in astr:
+            return False
+        if self.regex and self.regex.match(astr) is None:
+            return False
+        return True
 
-    def sorter(self, payload: Any) -> Any:
-        assert not "implemented"
+    def order(self, entry: MessageStore.StoredEntry_) -> Any:
+        """:return: 'thing' that can be compared with another 'thing'
+
+        that'll be either a :class:`datetime` or state as :class:`str`
+        """
+        if "timestamp" == self.order_by:
+            return entry["message"].timestamp
+        if "state" == self.order_by:
+            return entry["meta"]["state"]
+        assert None, "unreachable"
+
+    def group(self, entry: MessageStore.StoredEntry_) -> str:
+        ":return: group name for entry"
+        if "state" == self.order_by:
+            return entry["meta"]["state"]
+        assert None, "unreachable"
 
 
-class _MetaFilterSort:
-    "(internal) see :meth:`MessageStore.sort`"
+class _MetaFilt:
+    """(internal) see :meth:`MessageStore.sort`
 
-    def __init__(self, meta: dict[str, str] | None):
-        pass
+    used to filter/order/group entries by there store-related meta
+    """
 
-    def filter(self, meta: dict[str, Any]) -> bool:
-        assert not "implemented"
+    @staticmethod
+    def _isfloat(s: str):
+        """used with start_/end_"""
+        try:
+            float(s)
+            return True
+        except ValueError:
+            return False
 
-    def sorter(self, meta: dict[str, Any]) -> Any:
-        assert not "implemented"
+    class _FILTERS:
+        @staticmethod
+        def exact(value: str) -> Callable[[str], bool]:
+            return lambda info: info == value
+
+        @staticmethod
+        def text(text: str) -> Callable[[str], bool]:
+            return lambda info: text in info
+
+        @staticmethod
+        def rtext(rtext: str) -> Callable[[str], bool]:
+            regex = re.compile(rtext)
+            return lambda info: bool(regex.search(info))
+
+        @staticmethod
+        def start(start: str) -> Callable[[str], bool]:
+            fstart = float(start)
+            return lambda info: _MetaFilt._isfloat(info) and float(info) >= fstart
+
+        @staticmethod
+        def end(end: str) -> Callable[[str], bool]:
+            fend = float(end)
+            return lambda info: _MetaFilt._isfloat(info) and float(info) <= fend
+
+    def __init__(self, order_by: str | None, group_by: str | None, meta: dict[str, str] | None):
+        # `self.order()` (resp. `self.group()`) are never called
+        # if `order_by` (resp. `group_by`) is None
+        # `str()` is for typing reason so that it's a non-none str when used
+        self.order_by = str(order_by)
+        self.group_by = str(group_by)
+        # each key is a `meta_info_name`, and each value is a list of filter functions
+        self.filters: dict[str, list[Callable[[str], bool]]] = {}
+        if meta:
+            for key, value in meta.items():
+                filt_name, _, meta_name = key.partition("_")
+                filt = getattr(_MetaFilt._FILTERS, filt_name, _MetaFilt._FILTERS.exact)
+                self.filters.setdefault(meta_name, []).append(filt(value))
+
+    def filter(self, entry: MessageStore.StoredEntry_) -> bool:
+        """:return: true if the entry is to be kept in the result
+
+        every filter on meta must match, but on any info of the meta
+        """
+        meta = entry["meta"]
+        # note that no filter will return True as expected
+        for name, filts in self.filters.items():
+            info = meta[name] if isinstance(meta[name], list) else [meta[name]]
+            for filt in filts:  #           for each filter for this meta info,
+                if any(map(filt, info)):  # if any value of the meta info list matches
+                    break  #                then it's good;
+            else:  #                        otherwise (ie none of them matched)
+                return False  #             stop here
+        return True
+
+    def order(self, entry: MessageStore.StoredEntry_) -> Any:
+        """:return: :class:`str` of the meta
+
+        uses the first value if the meta is a list
+        """
+        return entry["meta"].get(self.order_by, "")
+
+    def group(self, entry: MessageStore.StoredEntry_) -> str:
+        """:return: group name for entry
+
+        uses the first value if the meta is a list
+        """
+        return entry["meta"].get(self.group_by, "")
 
 
 # implementations {{{1
@@ -819,10 +957,10 @@ class FileMessageStore(MessageStore):
     def _extreme(self, latest: bool) -> datetime:
         """Find the earliest/latest stored message `dt`.
 
-        This method has the same status as :meth:`_total`: it gets
-        the value form the source only if truly needed, otherwise
-        :attr:`_earliest`/:attr:`_latest` should be sufficient.
-        Not marked async but could be at some point.
+        This method has the same status as :meth:`_total`: it gets the
+        value form the source and so should be called only if truly
+        needed, otherwise :attr:`_earliest`/:attr:`_latest` should be
+        sufficient. Not marked async but could be at some point.
         This method is implementation detail.
 
         :param latest: False to find earliest, True to find latest.
@@ -842,9 +980,10 @@ class FileMessageStore(MessageStore):
             extrms_hmsf = ("23", "59", "59", "999999")
             if_no_sec_usec = ("00", "000000")
             cmp = lambda cur, extrm: cur < extrm  # noqa: E731
+        cmp: Callable[[Any, Any], bool]
 
         # iter over year/month/day to find each min
-        # this works because components in the path are all fixed-width
+        # `cmp(..)` works because components in the path are all fixed-width
         # (ie str comparison is enough, no need to parse)
         path_accu = self.base_path
         for k in range(len(extrms_ymd)):

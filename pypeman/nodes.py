@@ -343,7 +343,11 @@ class BaseNode:
         return self._last_input
 
     def __str__(self):
-        return "<%s(%s)>" % (self.channel.name, self.name)
+        if self.channel:
+            chan_name = self.channel.name
+        else:
+            chan_name = ""
+        return "<%s(%s)>" % (chan_name, self.name)
 
 
 class RaiseError(BaseNode):

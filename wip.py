@@ -20,6 +20,8 @@ class PypemanConfigError(BaseException):
     pass
 
 
+from pypeman.message import Message
+"""
 class Message:
     State_ = Literal["wait_retry", "pending", "processing", "processed", "rejected", "error"]
     timestamp: datetime
@@ -35,6 +37,7 @@ class Message:
     def from_dict(data: dict[str, Any]) -> Message: ...
     @staticmethod
     def from_json(data: str) -> Message: ...
+    # """
 
 
 # base classes {{{1
@@ -43,6 +46,9 @@ class MessageStoreFactory(ABC):
     """A :class:`MessageStoreFactory` instance can generate related
     :class:`MessageStore` instances for a specific `store_id`. The
     later in turn is needed to store :class:`Message`s.
+
+    Note for implementing classes: the constructor is expected to do
+    precisely nothing, that is no new dir/file on fs or table in db...
 
     :abstract:
     """
@@ -62,6 +68,16 @@ class MessageStoreFactory(ABC):
         :return: New :class:`MessageStore` instance.
         """
 
+    @abstractmethod
+    async def _delete_store(self, store: MessageStore):
+        """(implementation) Wipeout the store.
+
+        Note to implementing classes: the store might not have been
+        started :meth:`MessageStore.start`.
+
+        :param store: Store instanciated by this very class.
+        """
+
     def get_store(self, store_id: str) -> MessageStore:
         """Return a store corresponding to the given `store_id`.
 
@@ -70,6 +86,29 @@ class MessageStoreFactory(ABC):
         """
         existing = self._stores.get(store_id)
         return existing or self._stores.setdefault(store_id, self._new_store(store_id))
+
+    def list_store(self) -> list[str]:
+        """List of instanciated stores' `store_id`..
+
+        :return: List.
+        """
+        return list(self._stores.keys())
+
+    async def delete_store(self, store_id: str):
+        """Delete the whole store and everything associated with it.
+
+        Really only meant to be used in testing.
+        !CAUTION! this cannot be undone.
+
+        This is a method on the factory and not on the store for book
+        keeping reasons.
+
+        :raise KeyError: When the `store_id` does not exist.
+        """
+        existing = self._stores.pop(store_id)
+        await self._delete_store(existing)
+        # private usage in friend class
+        existing._cached_total = 0
 
 
 # store {{{2
@@ -114,7 +153,7 @@ class MessageStore(ABC):
     class StoredEntry_(TypedDict):
         """Data format used when retrieving messages."""
 
-        id: str  # store-dependant id, different from message.id
+        id: str  # store-dependant id, different from message.uuid
         meta: dict[str, Any]  # store-related meta, different from message.meta
         message: Message
         state: Message.State_  # TODO: remove in favor of _['meta']['state']
@@ -207,22 +246,23 @@ class MessageStore(ABC):
     async def store(self, msg: Message) -> str:
         """Store a message in the store.
 
+        Its state is right away initialized to :obj:`Message.PENDING`.
+
         :param msg: Message to store.
         :return: Id for this specific message.
         """
-        # this 'state': PENDING is at least what the FileMessageStore was doing
         id = await self._store(msg, {"state": Message.PENDING})
         self._cached_total += 1
         return id
 
-    async def delete(self, id: str) -> StoredEntry_:
+    async def delete(self, id: str):
         """Delete a message in the store corresponding to the given id.
 
         Useful for tests and (maybe in the future) for cleanup.
         !CAUTION! this cannot be undone.
 
         :param id: Store-dependant id.
-        :return: Same as :meth:`get`. This may be removed.
+        :return: Same as :meth:`get`. This will be removed.
         :raise LookupError: When the id does not name a stored message.
         """
         # TODO: don't, unnecessary
@@ -270,7 +310,7 @@ class MessageStore(ABC):
         :return: The sequence of store entries.
         :raise LookupError: When an id does not name a stored message.
         """
-        return await asyncio.gather(*(self.get(id) for id in ids))
+        return await asyncio.gather(*map(self.get, ids))
 
     async def add_message_meta_infos(self, id: str, meta_info_name: str, info: Any):
         """Add a store-related meta info to a message.
@@ -284,7 +324,7 @@ class MessageStore(ABC):
         meta[meta_info_name] = info
         await self._set_storemeta(id, meta)
 
-    async def get_message_meta_infos(self, id: str, meta_info_name: str | None = None) -> Any:
+    async def get_message_meta_infos(self, id: str, meta_info_name: str | None = None) -> dict[str, Any] | Any | None:
         """Get a store-related meta info for a message.
 
         :param id: Store-dependant id.
@@ -292,8 +332,8 @@ class MessageStore(ABC):
             retrieve. If `None`, the whole dict is returned.
         :raise LookupError: When the id does not name a stored message.
         """
-        meta = (await self._get_storemeta(id))["meta"]
-        return meta if meta_info_name is None else meta[meta_info_name]
+        meta = await self._get_storemeta(id)
+        return meta if meta_info_name is None else meta.get(meta_info_name)
 
     async def get_message_state(self, id: str) -> Message.State_:
         """Get a message's state. Shorthand for
@@ -439,6 +479,10 @@ class MessageStore(ABC):
         :return: List of fitting message entries or, if `group_by` is
             given, dict of group to list of fitting message entries.
         """
+        # early dum check
+        if 0 == await self.total():
+            return [] if group_by is None else {}
+
         # TODO: phase out the 'str' option, this should be caller responsibility
         if isinstance(start_dt, str):
             start_dt = dateutilparser.isoparse(start_dt)
@@ -446,7 +490,7 @@ class MessageStore(ABC):
             end_dt = dateutilparser.isoparse(end_dt)
 
         if start_dt and end_dt:
-            assert start_dt < end_dt, "backward time span given"
+            assert start_dt <= end_dt, "backward time span given"
             assert start_dt != end_dt, "empty time span given"
 
         # only one of the two is non-none at once
@@ -666,6 +710,10 @@ class NullMessageStoreFactory(MessageStoreFactory):
     def _new_store(self, store_id: str) -> MessageStore:
         return NullMessageStore()
 
+    @override
+    async def _delete_store(self, store: MessageStore):
+        pass
+
 
 class NullMessageStore(MessageStore):
     # made it a singleton for now, we could instead choose to have
@@ -679,7 +727,8 @@ class NullMessageStore(MessageStore):
 
     @override
     async def _store(self, msg: Message, ini_meta: dict[str, Any]) -> str:
-        return ""
+        # non-empty so it doesn't compare falsey and reflects its origin, just in case
+        return "nullstore-key"
 
     @override
     async def _delete(self, id: str):
@@ -716,6 +765,13 @@ class MemoryMessageStoreFactory(MessageStoreFactory):
     @override
     def _new_store(self, store_id: str) -> MessageStore:
         return MemoryMessageStore()
+
+    @override
+    async def _delete_store(self, store: MessageStore):
+        assert isinstance(store, MemoryMessageStore)  # type narrowing
+        # private usage in friend class
+        store._sorted.clear()
+        store._mapped.clear()
 
 
 class MemoryMessageStore(MessageStore):
@@ -821,8 +877,23 @@ class FileMessageStoreFactory(MessageStoreFactory):
 
     @override
     def _new_store(self, store_id: str) -> MessageStore:
+        # there **must not** be any of these char in `store_id`
+        assert not set(r"\./") & set(store_id)
         return FileMessageStore(self.base_path, store_id)
 
+    @override
+    async def _delete_store(self, store: MessageStore):
+        assert isinstance(store, FileMessageStore)  # type narrowing
+        # private usage in friend class
+        store._latest = datetime.min
+        store._earliest = datetime.max
+
+        for path, dirs, files in store.base_path.walk(top_down=False):
+            for dir in dirs:
+                (path / dir).rmdir()
+            for file in files:
+                (path / file).unlink()
+        store.base_path.rmdir()
 
 class FileMessageStore(MessageStore):
     """
@@ -966,7 +1037,7 @@ class FileMessageStore(MessageStore):
         :param latest: False to find earliest, True to find latest.
         """
         # quick guard check in case there are no message at all
-        if self.base_path.is_dir() and next(self.base_path.iterdir(), False):
+        if not self.base_path.is_dir() or not next(self.base_path.iterdir(), False):
             return datetime.min if latest else datetime.max
 
         # if looking for latest, start with smallest values

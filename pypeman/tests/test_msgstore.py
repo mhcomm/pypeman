@@ -1,472 +1,518 @@
+from __future__ import annotations
 
-import asyncio
-import json
-import os
-import shutil
-import tempfile
+from datetime import datetime
+from datetime import timedelta
+from re import error as ReError
+from typing import Any
+from typing import Literal
 
-from pathlib import Path
+import pytest
 
-from pypeman import channels
-from pypeman import message
-from pypeman import msgstore
-from pypeman import nodes
-from pypeman.channels import BaseChannel
+import wip as msgstore
 from pypeman.message import Message
-from pypeman.test import TearDownProjectTestCase as TestCase
-from pypeman.tests.common import generate_msg
-from pypeman.tests.common import TstException
-from pypeman.tests.common import TstNode
+from wip import MessageStoreFactory
+
+TESTED_STORE_FACTORIES = [
+    # can't be tested generically, breaks too many invariants
+    # (msgstore.NullMessageStoreFactory, ()),
+    (msgstore.MemoryMessageStoreFactory, ()),
+    (msgstore.FileMessageStoreFactory, ("/tmp/test/this/out",)),
+]
+
+TESTED_PERSISTENT_STORE_FACTORIES = [
+    (msgstore.FileMessageStoreFactory, ("/tmp/test/this/out",)),
+]
 
 
-class ObjectWithoutStr:
-    def __str__(self):
-        raise NotImplementedError("__str__ not implemented")
+@pytest.fixture(scope="function", params=TESTED_STORE_FACTORIES, ids=lambda p: p[0])
+async def factory(request):
+    "Fixture that, when used in a test function, will test every store."
+    current: ... = request.param
+    current: tuple[type[MessageStoreFactory], tuple[object, ...]]
+
+    cls, args = current
+    factory = cls(*args)
+    yield factory
+
+    for store_id in factory.list_store():
+        await factory.delete_store(store_id)
 
 
-class TstConditionalErrorNode(nodes.BaseNode):
-
-    def process(self, msg):
-        print("Process %s" % self.name)
-
-        if isinstance(msg.payload, str) and "shall_fail" in msg.payload:
-            raise TstException()
-
-        return msg
+# general store/retrieve test {{{1
+async def test_store_identity(factory: MessageStoreFactory):
+    store_a = factory.get_store("a")
+    store_b = factory.get_store("b")
+    assert store_a is not store_b
+    store_a_again = factory.get_store("a")
+    assert store_a is store_a_again
 
 
-class MsgstoreTests(TestCase):
-    def clean_loop(self):
-        # Useful to execute future callbacks
-        pending = asyncio.all_tasks(loop=self.loop)
+async def test_store_retrieve(factory: MessageStoreFactory):
+    """For a restored message, it ensures the following:
+    * timestamp is a datetime and equal to original
+    * uuid is a str and equal to original
+    * payload
+    * meta is a POPO (ie. json-compatible) dict
+    * ctx is a plain dict of dicts with `'payload'` `'meta'`
+    """
+    store = factory.get_store("a")
+    await store.start()
 
-        if pending:
-            self.loop.run_until_complete(asyncio.gather(*pending))
+    msg = Message(
+        payload="thingymabob",
+        meta={
+            "": "empty named meta",
+            "meta that is a list": [1, 2, 3],
+            "true": False,
+            "queneni": None,
+        },
+    )
+    id = await store.store(msg)
+    assert type(id) is str
 
-    def start_channels(self):
-        # Start channels
-        for chan in channels.all_channels:
-            self.loop.run_until_complete(chan.start())
+    entry = await store.get(id)
+    assert entry["id"] == id
 
-    def setUp(self):
-        # Create class event loop used for tests to avoid failing
-        # previous tests to impact next test ? (Not sure)
-        self.loop = asyncio.new_event_loop()
-        self.loop.set_debug(True)
-        # Remove thread event loop to be sure we are not using
-        # another event loop somewhere
-        asyncio.set_event_loop(None)
+    remsg = entry["message"]
+    assert remsg.timestamp == msg.timestamp
+    assert remsg.uuid == msg.uuid
+    assert remsg.payload == msg.payload
+    assert remsg.meta == msg.meta
+    assert remsg.ctx == msg.ctx
 
-        # Avoid calling already tested channels
-        channels.all_channels.clear()
 
-    def tearDown(self):
-        super().tearDown()
-        self.clean_loop()
+async def test_store_delete(factory: MessageStoreFactory):
+    "Using an `id` after a call to :meth:`MessageStore.delete` fails."
+    store = factory.get_store("a")
+    await store.start()
 
-    def test_null_message_store(self):
-        """ We can store a message in NullMessageStore """
+    id = await store.store(Message())
+    _ = await store.get(id)  # store successful, message exists
+    await store.delete(id)
 
-        chan = BaseChannel(
-            name="test_channel9", loop=self.loop,
-            message_store_factory=msgstore.FakeMessageStoreFactory())
-        n = TstNode()
-        msg = generate_msg(with_context=True)
+    # do it with both implementation methods directly because we want
+    # to make sure both work (one might always shadow the other if eg the
+    # meta is always used first in implementation of says `.get`)
+    rose = None
+    try:
+        _ = await store._get_storemeta(id)
+    except BaseException as exc:
+        rose = exc
+    assert isinstance(rose, LookupError), rose
+    try:
+        _ = await store._get_message(id)
+    except BaseException as exc:
+        rose = exc
+    assert isinstance(rose, LookupError), rose
 
-        chan.add(n)
 
-        # Launch channel processing
-        self.start_channels()
-        self.loop.run_until_complete(chan.handle(msg))
+async def test_get_invalid(factory: MessageStoreFactory):
+    "Using a wrong `id` fails."
+    store = factory.get_store("a")
+    await store.start()
 
-        self.assertTrue(n.processed, "Channel handle not working")
+    id = await store.store(Message())
 
-    def test_memory_message_store(self):
-        """ We can store a message in FileMessageStore """
+    rose = None
+    try:
+        _ = await store._get_storemeta("nop!" + id)
+    except BaseException as exc:
+        rose = exc
+    assert isinstance(rose, LookupError), rose
+    try:
+        _ = await store._get_message("nop!" + id)
+    except BaseException as exc:
+        rose = exc
+    assert isinstance(rose, LookupError), rose
 
-        store_factory = msgstore.MemoryMessageStoreFactory()
 
-        chan = BaseChannel(name="test_channel10", loop=self.loop, message_store_factory=store_factory)
+async def test_store_state_management(factory: MessageStoreFactory):
+    "Updates to the state"
+    store = factory.get_store("a")
+    await store.start()
 
-        n = TstNode()
-        n_error = TstConditionalErrorNode()
+    id = await store.store(Message())
+    assert await store.get_message_state(id) == Message.PENDING
 
-        msg = generate_msg(with_context=True)
-        msg2 = generate_msg(timestamp=(1982, 11, 27, 12, 35), message_content="message content2")
-        msg3 = generate_msg(timestamp=(1982, 11, 28, 12, 35), message_content="message content3")
-        msg4 = generate_msg(timestamp=(1982, 11, 28, 14, 35), message_content="message_content4")
+    await store.change_message_state(id, Message.PROCESSING)
+    assert await store.get_message_state(id) == Message.PROCESSING
 
-        # This message should be in error
-        msg5 = generate_msg(timestamp=(1982, 11, 12, 14, 35),
-                            message_content='{"test1": "shall_fail"}')
-        msg6 = generate_msg(timestamp=(1982, 11, 28, 14, 35), message_content=ObjectWithoutStr())
-        msg2_uuid = msg2.uuid
-        chan.add(n)
-        chan.add(n_error)
+    await store.change_message_state(id, Message.PROCESSED)
+    assert await store.get_message_state(id) == Message.PROCESSED
 
-        # Launch channel processing
-        self.start_channels()
-        self.loop.run_until_complete(chan.handle(msg))
-        self.loop.run_until_complete(chan.handle(msg2))
-        self.loop.run_until_complete(chan.handle(msg3))
-        self.loop.run_until_complete(chan.handle(msg4))
 
-        with self.assertRaises(TstException):
-            # This message should be in error state
-            self.loop.run_until_complete(chan.handle(msg5))
-        self.loop.run_until_complete(chan.handle(msg6))
-        msg6 = generate_msg(timestamp=(1982, 11, 28, 14, 35), message_content=ObjectWithoutStr())
+async def test_double_store_message(factory: MessageStoreFactory):
+    """By double store I mean twice the same, (mostly the same uuid).
 
-        self.assertEqual(self.loop.run_until_complete(chan.message_store.total()),
-                         6, "Should be a total of 6 messages in store!")
+    The behavior in this situation is not really specified yet:
+        * Return id of the existing message without modifying it?
+        * Update/replace and return same or even new id?
+        * Raise an error (making it possible to find the bug)?
 
-        msg_stored1 = list(self.loop.run_until_complete(chan.message_store.search(0, 2)))
-        self.assertEqual(len(msg_stored1), 2, "Should be 2 results from search!")
+    TODO: for now this is fake coverage! (really minor but still fake!)
+    """
+    store = factory.get_store("a")
+    await store.start()
+    msg = Message()
+    id1 = await store.store(msg)
+    id2 = await store.store(msg)
+    ..., id1, id2
 
-        msg_stored2 = list(self.loop.run_until_complete(chan.message_store.search(2, 5)))
-        self.assertEqual(len(msg_stored2), 4, "Should be 4 results from search!")
 
-        msg_stored = list(self.loop.run_until_complete(chan.message_store.search()))
+@pytest.mark.parametrize("cls,params", TESTED_PERSISTENT_STORE_FACTORIES)
+async def test_store_persistence(cls: type[MessageStoreFactory], params: ...):
+    factory = cls(*params)
+    store = factory.get_store("a")
+    await store.start()
 
-        # All message stored ?
-        self.assertEqual(len(msg_stored), 6, "Should be 6 messages in store!")
+    ids = [await store.store(Message(payload=k)) for k in range(3)]
 
-        for msg in msg_stored:
-            print(msg)
+    # pypeman shutdown (only thing that matter is to re-new 'factory' with same params)
+    del store, factory
 
-        for msg in msg_stored1 + msg_stored2:
-            print(msg)
+    factory = cls(*params)
+    store = factory.get_store("a")
+    await store.start()
 
-        ids1 = [msg['id'] for msg in msg_stored1 + msg_stored2]
-        ids2 = [msg['id'] for msg in msg_stored]
+    # try/finally to ensure cleanup
+    try:
+        assert await store.total() == 3
+        for k, entry in enumerate(await store.get_many(ids)):
+            assert entry["message"].payload == k
 
-        self.assertEqual(ids1, ids2, "Should be 6 messages in store!")
+    finally:
+        for store_id in factory.list_store():
+            await factory.delete_store(store_id)
 
-        # Test processed message
-        dict_msg = self.loop.run_until_complete(chan.message_store.get('%s' % msg3.uuid))
-        self.assertEqual(dict_msg['state'], 'processed', "Message %s should be in processed state!" % msg3)
 
-        # Test failed message
-        dict_msg = self.loop.run_until_complete(chan.message_store.get('%s' % msg5.uuid))
-        self.assertEqual(dict_msg['state'], 'error', "Message %s should be in error state!" % msg5)
+# others, shorthands and misc. {{{1
+# TODO:
+#   these are not even implemented yet
+#     * add_sub_message_state
+#     * set_state_to_worst_sub_state
 
-        # Test list messages
-        msgs = self.loop.run_until_complete(chan.message_store.search(start_id=msg2_uuid, count=5))
-        self.assertEqual(len(msgs), 4, "Failure of listing messages from memory msg store")
 
-        # Test list messages with date filters
-        msgs = self.loop.run_until_complete(chan.message_store.search(
-            start_dt="1982-11-27", end_dt="1982-11-28T13:00:00"))
-        self.assertEqual(len(msgs), 2, "Failure of listing messages from memory msg store")
+async def test_get_aliases_fake_coverage():
+    """Things that might not be needed anymore but are kept for now:
+    * get_preview_str
+    * get_msg_content
+    * get_payload_str
+    * is_regex_in_msg
+    * is_txt_in_msg
+    """
+    # same reasoning as for `search` tests; any store does it
+    store = msgstore.MemoryMessageStoreFactory().get_store("a")
+    await store.start()
 
-        # Test list messages with text filter
-        msgs = self.loop.run_until_complete(chan.message_store.search(text="sage con"))
-        self.assertEqual(len(msgs), 2, "Failure of listing messages from memory msg store")
+    id = await store.store(Message(payload={"banana": ["good"]}))
 
-        # Test view message
-        msg_content = self.loop.run_until_complete(chan.message_store.get_msg_content('%s' % msg5.uuid))
-        self.assertEqual(msg_content.payload, msg5.payload, "Failure of message %s view!" % msg5)
+    assert (await store.get_preview_str(id)).payload == str({"banana": ["good"]})
+    assert (await store.get_msg_content(id)).payload == {"banana": ["good"]}
+    assert await store.get_payload_str(id) == str({"banana": ["good"]})
 
-        # Test preview message
-        msg_content = self.loop.run_until_complete(chan.message_store.get_preview_str('%s' % msg5.uuid))
-        self.assertEqual(msg_content.payload, msg5.payload[:1000], "Failure of message %s preview!" % msg5)
+    assert await store.is_regex_in_msg(id, "b[an]+")
+    assert not await store.is_regex_in_msg(id, "0")
+    try:
+        assert await store.is_regex_in_msg(id, ":)")
+    except ReError:
+        pass
 
-    def test_memory_message_store_store_id(self):
-        """
-            Test that store_id is correctly added to message's attrs and is correctly added to
-            yielded sub-messages
-        """
-        store_factory = msgstore.MemoryMessageStoreFactory()
+    assert await store.is_txt_in_msg(id, "oo")
+    assert not await store.is_txt_in_msg(id, "xx")
 
-        # Basic chan
-        chan_name = "test_channel_mem_store_id"
-        chan = BaseChannel(
-            name=chan_name,
-            loop=self.loop,
-            message_store_factory=store_factory
+
+# search-related tests {{{1
+async def test_span_select_many(factory: MessageStoreFactory):
+    """Test span selection:
+        * :meth:`MessageStore._span_select`
+        * :meth:`MessageStore.get_many`
+
+    As part of testing the search, stores must be able to provide
+    all the ids of message within a given time span. `get_many`
+    might be overriden so it is tested alongside.
+
+    Reminders:
+        we guarentee to `_span_select` implementations that:
+            * `start_dt < end_dt`;
+            * `self.total() != 0`.
+        we guarentee to `get_many` reimplementations that:
+            * `1 < len(ids)`;
+            * `self.total() != 0`.
+    """
+    store = factory.get_store("a")
+    await store.start()
+
+    # make a bunch of messages with sorted timestamps and non-sorted payloads
+    msgs = [Message(payload=char) for char in "123546798"]
+    msg = msgs[0]
+    first_dt = last_dt = msg.timestamp
+    for msg in msgs[1:]:
+        last_dt += timedelta(1)
+        msg.timestamp = last_dt
+    del msg
+
+    # store these but not in timestamp order (notice char in list above)
+    not_ts_sorted_msgs = sorted(msgs, key=lambda msg: msg.payload)
+    not_ts_sorted_ids = [await store.store(msg) for msg in not_ts_sorted_msgs]
+    # re-sort the ids by corresponding message timestamp
+    ids = [
+        id
+        for id, msg in sorted(
+            zip(not_ts_sorted_ids, not_ts_sorted_msgs),
+            key=lambda pair: pair[1].timestamp,
         )
-        yieldernode = nodes.YielderNode()
-        chan.add(yieldernode)
+    ]
+    # now `msgs` and `ids` are in correspondence; this whole bit above is to test
+    # the store even when messages may not have been stored in timestamp order
 
-        # Second chan with no msgstore configured
-        chan_name2 = "test_channel_wo_store"
-        chan2_wo_msgstore = BaseChannel(
-            name=chan_name2,
-            loop=self.loop
-        )
-        chan2_wo_msgstore.add(nodes.BaseNode())
+    async def tester(start_dt: datetime | None, end_dt: datetime | None, expect: slice):
+        "a tester walks into a bar- runs into a bar- crawls into a bar-"
+        sel = await store._span_select(start_dt, end_dt)
+        # this test for both correct ids and correct ordering
+        assert sel == ids[expect]
+        # if enough elements, also test `get_many`
+        if 1 < len(sel):
+            many = await store.get_many(sel)
+            # (explicit loop, not with :func:`all` for better reporting)
+            for expected, actual in zip(msgs[expect], many):
+                # (only match the payload, rest is not this test's responsibility)
+                assert actual["message"].payload == expected.payload
 
-        data = [1, 2, 3]
-        msg = message.Message(payload=data)
-        assert msg.store_id is None
-        assert msg.store_chan_name is None
+    # span largely wide enough to select everything
+    await tester(first_dt - timedelta(5), last_dt + timedelta(5), slice(9))
+    # span outside before / outside after
+    await tester(first_dt - timedelta(10), first_dt - timedelta(1), slice(0))
+    await tester(last_dt + timedelta(1), last_dt + timedelta(10), slice(0))
+    # span with start/end only (hshift excludes the first/last 2)
+    await tester(first_dt + timedelta(1.5), None, slice(2, 9))
+    await tester(None, last_dt - timedelta(1.5), slice(-2))
+    # span with neither start nor end (should be everything)
+    await tester(None, None, slice(9))
+    # result should be start inclusive and end exclusive
+    await tester(msgs[2].timestamp, msgs[4].timestamp, slice(2, 4))
 
-        # Launch channel processing
-        self.start_channels()
-        result_generator_msg = self.loop.run_until_complete(chan.handle(msg))
-        assert msg.store_id is not None
-        assert msg.store_chan_name == chan_name
-        msg_store_id = msg.store_id
-        for entry in result_generator_msg:
-            # Pass the entry in the second chan wo msgstore to verify that the msg attrs
-            # are not modified by the second chan
-            rslt_msg = self.loop.run_until_complete(chan2_wo_msgstore.handle(entry))
-            assert rslt_msg.store_id == msg_store_id
-            assert rslt_msg.store_chan_name == chan_name
 
-    def test_memory_message_store_in_fork(self):
-        """ We can store a message in FileMessageStore """
+# for every search tests: the tested function is in base :class:`MessageStore`
+# which is abstract; :meth:`search` is not to be overriden, so we can pick any
+# (lightweight and easily cleaned) concrete implementing class
 
-        store_factory = msgstore.MemoryMessageStoreFactory()
 
-        chan = BaseChannel(name="test_channel10.25", loop=self.loop, message_store_factory=store_factory)
+async def test_search_dum_checks():
+    "Collection of not that bright tests for search."
+    store = msgstore.MemoryMessageStoreFactory().get_store("a")
+    await store.start()
 
-        n1 = TstNode()
-        n2 = TstNode()
-        n3 = TstNode()
-        n4 = TstNode()
+    # empty store
+    assert await store.search() == [], "search without group_by should be a list"
+    assert await store.search(group_by="state") == {}, "search with group_by should be a dict"
 
-        chan.add(n1, n2)
-        fork = chan.fork()
-        fork.add(n3)
+    await store.store(Message(payload=0))
 
-        self.assertTrue(isinstance(fork.message_store, msgstore.NullMessageStore))
+    # still supported for now (this test is not contractual)
+    await store.search(start_dt="2002 12")
+    await store.search(end_dt="2002-123 17:42")
 
-        whe = chan.when(True, message_store_factory=store_factory)
-        whe.add(n4)
+    # broken time spans
+    try:
+        await store.search(start_dt=datetime(5555, 1, 1), end_dt=datetime(5555, 1, 1))
+    except:
+        pass
+    else:
+        raise AssertionError("search should have not accepted parameters (same dt)")
+    try:
+        await store.search(start_dt=datetime(8888, 1, 1), end_dt=datetime(2222, 1, 1))
+    except:
+        pass
+    else:
+        raise AssertionError("search should have not accepted parameters (backward)")
 
-        self.assertTrue(isinstance(whe.message_store, msgstore.MemoryMessageStore))
 
-    def test_replay_from_memory_message_store(self):
-        """ We can store a message in FileMessageStore """
+async def test_search_hashtag_nofilter():
+    "Searches with no params are expected to return everything."
+    store = msgstore.MemoryMessageStoreFactory().get_store("a")
+    await store.start()
 
-        store_factory = msgstore.MemoryMessageStoreFactory()
+    list_ids = [await store.store(Message(payload=char)) for char in "123546798"]
+    ids = set(list_ids)
+    # sanity check that shouldn't be necessary; but this invarient is crucial for the rest of the test
+    assert len(ids) == 9, "sanity check oops; cannot test"
+    # change a few messages' state
+    await store.change_message_state(list_ids[3], Message.REJECTED)
+    await store.change_message_state(list_ids[7], Message.ERROR)
 
-        chan = BaseChannel(name="test_channel10.5", loop=self.loop, message_store_factory=store_factory)
+    found = await store.search()
+    assert isinstance(found, list), "search without group_by should be a list"
+    assert {entry["id"] for entry in found} == ids, found
 
-        n = TstNode()
+    # (remark: this is not a comprehensive `group_by` test! this test is
+    # only concerned with the fact that every message stored is returned;
+    # this is why we are fine with not caring about the actual groups)
+    found = await store.search(group_by="state")
+    assert isinstance(found, dict), "search with group_by should be a dict"
+    assert {entry["id"] for group in found.values() for entry in group} == ids, found
 
-        msg = generate_msg(with_context=True)
-        msg2 = generate_msg(timestamp=(1982, 11, 27, 12, 35))
 
-        chan.add(n)
+async def test_search_count_and_start_id():
+    "Tests `count` and `start_id`."
+    store = msgstore.MemoryMessageStoreFactory().get_store("a")
+    await store.start()
 
-        # Launch channel processing
-        self.start_channels()
-        self.loop.run_until_complete(chan.handle(msg))
-        self.loop.run_until_complete(chan.handle(msg2))
+    # make a bunch of messages with increasing timestamps (because we'll be ordering by timestamp)
+    msgs = [Message(payload=char) for char in "123546798"]
+    msg = msgs[0]
+    first_dt = last_dt = msg.timestamp
+    for msg in msgs[1:]:
+        last_dt += timedelta(1)
+        msg.timestamp = last_dt
+    del msg
+    ids = [await store.store(msg) for msg in msgs]
 
-        msg_stored = list(self.loop.run_until_complete(chan.message_store.search()))
+    async def tester(
+        count: int,
+        start_id: str | None,
+        direction: Literal["+", "-"],  # easier to read at call site than True/False
+        expect_or_except: slice | type[BaseException],
+    ):
+        "a tester walks into a bar- runs into a bar- crawls into a bar-"
+        try:
+            found = await store.search(
+                count=count,
+                start_id=start_id,
+                order_by="-timestamp" if "-" == direction else "timestamp",
+            )
 
-        for msg in msg_stored:
-            print(msg)
+        except BaseException as rose:
+            if isinstance(expect_or_except, slice):
+                raise  # were not expecting an exception
+            assert isinstance(rose, expect_or_except), expect_or_except
+            return
 
-        self.assertEqual(len(msg_stored), 2, "Should be 2 messages in store!")
+        assert isinstance(expect_or_except, slice)
+        assert isinstance(found, list)  # (at this point, this is mostly for type hints)
+        expect = ids[expect_or_except]
+        if "-" == direction:
+            expect.reverse()
+        assert [entry["id"] for entry in found] == expect, found
 
-        self.loop.run_until_complete(chan.replay(msg_stored[0]['id']))
+    # big enough of a count should get all of them
+    await tester(42, None, "+", slice(9))
+    # count of zero
+    await tester(0, None, "+", slice(0))
+    # smaller count should return begining (resp. ending) if non reversed (resp. reversed)
+    await tester(4, None, "+", slice(4))  # .    [----     ]
+    await tester(4, None, "-", slice(5, 9))  # . [     ----]
+    # same idea but starting at a message
+    await tester(3, ids[3], "+", slice(4, 7))  # [    |--- ]
+    await tester(3, ids[4], "-", slice(1, 4))  # [ ---|    ]
+    # same again but with less results than count
+    await tester(3, ids[6], "+", slice(7, 9))  # [      |--]
+    await tester(3, ids[2], "-", slice(0, 2))  # [--|      ]
+    # 'out of range' start_id should throw
+    # (we use a made-up id which for this function acts the same as an existing but out of range id)
+    await tester(3, "$#!@", "+", ValueError)  # |[         ]
 
-        msg_stored = list(self.loop.run_until_complete(chan.message_store.search()))
-        self.assertEqual(len(msg_stored), 3, "Should be 3 messages in store!")
 
-    def test_file_message_store(self):
-        """ We can store a message in FileMessageStore """
+async def test_search_filter_order_group():
+    "Test all of filtering/ordering/grouping"
+    store = msgstore.MemoryMessageStoreFactory().get_store("a")
+    await store.start()
 
-        tempdir = tempfile.mkdtemp()
-        print(tempdir)
+    bunch: list[tuple[datetime, Any, dict[str, Any]]] = [
+        (
+            datetime(2000, 1, 1),
+            "ayo",
+            {"state": Message.PROCESSED, "one": "one", "two": ["ononn", "uouii"], "num": ["42"]},
+        ),
+        (
+            datetime(2000, 1, 2),
+            0,
+            {"state": Message.ERROR, "one": ["not", "today", "!"], "two": ["okiuki", "-"], "num": ["15"]},
+        ),
+        (
+            datetime(2000, 2, 1),
+            True,
+            {"state": Message.ERROR, "one": ["yesterday", "?", "one"], "num": ["12", "72"]},
+        ),
+        (
+            datetime(2001, 1, 2),
+            {9: 3 / 4},
+            {"state": Message.REJECTED, "one": [], "num": ["notnum.. sad"]},
+        ),
+        (
+            datetime(2001, 2, 1),
+            ["payload", "is", "a", "list"],
+            {"state": Message.PENDING, "one": [], "two": "ononn", "num": 37},
+        ),
+    ]
+    # with other tests covering for edge cases, this one can be way less ceremonious
+    ids: list[str] = []
+    for timestamp, payload, meta in bunch:
+        msg = Message(payload=payload)
+        msg.timestamp = timestamp
+        ids.append(await store._store(msg, meta))
+    store._cached_total = len(ids)
 
-        store_factory = msgstore.FileMessageStoreFactory(path=tempdir)
+    async def tester_filter(text: str | None, rtext: str | None, meta: dict[str, str], expect: set[int]):
+        "a-"
+        found = await store.search(text=text, rtext=rtext, meta=meta)
+        assert isinstance(found, list)  # (at this point, this is mostly for type hints)
+        assert {it["id"] for it in found} == {ids[k] for k in expect}, found
 
-        chan = BaseChannel(name="test_channel11", loop=self.loop, message_store_factory=store_factory)
+    async def tester_order(order_by: str, expect: list[int]):
+        "tester-"
+        found = await store.search(order_by=order_by)
+        assert isinstance(found, list)  # (at this point, this is mostly for type hints)
+        assert [it["id"] for it in found] == [ids[k] for k in expect], found
 
-        n = TstNode()
-        n_error = TstConditionalErrorNode()
+    async def tester_group(group_by: str, expect: dict[str, set[int]]):
+        "walks-"
+        found = await store.search(group_by=group_by)
+        assert isinstance(found, dict)  # (at this point, this is mostly for type hints)
+        ex = {g: {ids[k] for k in s} for g, s in expect.items()}
+        assert {g: {it["id"] for it in l} for g, l in found.items()} == ex, found
 
-        msg = generate_msg(with_context=True)
-        msg2 = generate_msg(timestamp=(1982, 11, 27, 12, 35), message_content="message content2")
-        msg3 = generate_msg(timestamp=(1982, 11, 28, 12, 35), message_content="message content3")
-        msg4 = generate_msg(timestamp=(1982, 11, 28, 14, 35), message_content="message_content4")
+    await tester_filter("ay", None, {}, {0, 4})
+    await tester_filter(None, "\\d", {}, {1, 3})
+    await tester_filter(None, None, {"exact_one": "one"}, {0, 2})
+    await tester_filter(None, None, {"text_one": "day"}, {1, 2})
+    await tester_filter(None, None, {"rtext_two": "(.).{2}\\1"}, {0, 1, 4})
+    # this start/end range is inclusive (idk y i did that...)
+    await tester_filter(None, None, {"start_num": "17"}, {0, 2, 4})
+    await tester_filter(None, None, {"end_num": "17"}, {1, 2})
+    # multiple filters combine with logical 'and'
+    await tester_filter(",", None, {"exact_one": "one"}, set())
+    await tester_filter(None, None, {"text_one": "day", "start_num": "22"}, {2}),
+    # filter on multiple meta values (a list) is an implicit logical 'or';
+    # specifying a range via start+end, with the message having ['12', '72']:
+    # * what you might be expecting:
+    #     12  [40   60]  72   -> not in
+    # * what it's actually doing:
+    #     12  [40   60   72   -> yes above
+    #     12   40   60]  72   -> yes below
+    #                           `> yes in
+    await tester_filter(None, None, {"start_num": "40", "end_num": "60"}, {0, 2}),
 
-        # This message should be in error
-        msg5 = generate_msg(timestamp=(1982, 11, 12, 14, 35),
-                            message_content='{"test1": "shall_fail"}')
-        msg6 = generate_msg(timestamp=(1982, 11, 28, 14, 35), message_content=ObjectWithoutStr())
-        chan.add(n)
-        chan.add(n_error)
+    await tester_order("timestamp", [0, 1, 2, 3, 4])
+    # not that these are not sorted by severity but alphabetically
+    # (then by timestamp because stable sort)
+    await tester_order("state", [1, 2, 4, 0, 3])
+    await tester_order("meta_one", [3, 4, 1, 0, 2])
+    await tester_order("-meta_one", [2, 0, 1, 4, 3])
 
-        # Launch channel processing
-        self.start_channels()
-        self.loop.run_until_complete(chan.handle(msg))
-        self.loop.run_until_complete(chan.handle(msg2))
-        self.loop.run_until_complete(chan.handle(msg3))
-        self.loop.run_until_complete(chan.handle(msg4))
-        with self.assertRaises(TstException):
-            # This message should be in error state
-            self.loop.run_until_complete(chan.handle(msg5))
-        self.loop.run_until_complete(chan.handle(msg6))
-
-        self.assertEqual(self.loop.run_until_complete(chan.message_store.total()),
-                         6, "Should be a total of 6 messages in store!")
-
-        msg_stored = list(self.loop.run_until_complete(chan.message_store.search()))
-        msg2_id = msg_stored[1]["id"]
-        msg_stored1 = list(self.loop.run_until_complete(chan.message_store.search(count=2)))
-        self.assertEqual(len(msg_stored1), 2, "Should be 2 results from search!")
-
-        msg_stored2 = list(self.loop.run_until_complete(chan.message_store.search(start_id=msg2_id, count=5)))
-        self.assertEqual(len(msg_stored2), 4, "Should be 4 results from search!")
-
-        # All message stored ?
-        self.assertEqual(len(msg_stored), 6, "Should be 6 messages in store!")
-
-        for msg in msg_stored:
-            print(msg)
-
-        for msg in msg_stored1 + msg_stored2:
-            print(msg)
-
-        ids1 = [msg['id'] for msg in msg_stored1 + msg_stored2]
-        ids2 = [msg['id'] for msg in msg_stored]
-
-        self.assertEqual(ids1, ids2, "Should be 5 messages in store!")
-
-        # Test processed message
-        dict_msg = self.loop.run_until_complete(
-            chan.message_store.get('19821128_123500000000_%s' % msg3.uuid))
-        self.assertEqual(dict_msg['state'], 'processed', "Message %s should be in processed state!" % msg3)
-
-        # Test failed message
-        dict_msg = self.loop.run_until_complete(
-            chan.message_store.get('19821112_143500000000_%s' % msg5.uuid))
-        self.assertEqual(dict_msg['state'], 'error', "Message %s should be in error state!" % msg5)
-
-        self.assertTrue(os.path.exists("%s/%s/1982/11/28/19821128_123500000000_%s"
-                        % (tempdir, chan.name, msg3.uuid)))
-
-        # Test list messages
-        msgs = self.loop.run_until_complete(chan.message_store.search(start_id=msg2_id, count=5))
-        self.assertEqual(len(msgs), 4, "Failure of listing messages for file msg store")
-
-        # Test list messages with date filters
-        msgs = self.loop.run_until_complete(chan.message_store.search(
-            start_dt="1982-11-27", end_dt="1982-11-28T13:00:00"))
-        self.assertEqual(len(msgs), 2, "Failure of listing messages for file msg store")
-
-        # Test list messages with text filters
-        msgs = self.loop.run_until_complete(chan.message_store.search(
-            text="sage con"))
-        self.assertEqual(len(msgs), 2, "Failure of listing messages for file msg store")
-
-        # Test list messages with regex filters
-        msgs = self.loop.run_until_complete(chan.message_store.search(
-            rtext="\w+_\w+"))  # noqa: W605
-        self.assertEqual(len(msgs), 1, "Failure of listing messages for file msg store")
-
-        # Test view message
-        msg_content = self.loop.run_until_complete(chan.message_store.get_msg_content(
-            '19821112_143500000000_%s' % msg5.uuid))
-        self.assertEqual(msg_content.payload, msg5.payload, "Failure of message %s view!" % msg5)
-
-        # Test preview message
-        msg_content = self.loop.run_until_complete(chan.message_store.get_preview_str(
-            '19821112_143500000000_%s' % msg5.uuid))
-        self.assertEqual(msg_content.payload, msg5.payload[:1000], "Failure of message %s preview!" % msg5)
-
-        self.clean_loop()
-
-        # TODO put in tear_down ?
-        shutil.rmtree(tempdir, ignore_errors=True)
-
-    def test_file_message_store_meta(self):
-        """Tests for meta in file message store"""
-        data_tst_path = Path(__file__).resolve().parent / "data"
-        old_meta_tst_path = data_tst_path / "old_meta.meta"
-        new_meta_tst_path = data_tst_path / "new_meta.meta"
-        with new_meta_tst_path.open("r") as fin:
-            new_meta_data = json.load(fin)
-        msg_uid = "msgid"
-        msg_year = "2024"
-        msg_month = "06"
-        msg_day = "13"
-        msg_date = f"{msg_year}{msg_month}{msg_day}"
-        msg_time = "0000"
-        msg_id = f"{msg_date}_{msg_time}_{msg_uid}"
-
-        with tempfile.TemporaryDirectory() as tempdir:
-            store_factory = msgstore.FileMessageStoreFactory(path=tempdir)
-            store = store_factory.get_store(store_id="")
-            meta_dst_folder_path = Path(tempdir) / msg_year / msg_month / msg_day
-            meta_dst_folder_path.mkdir(parents=True, exist_ok=True)
-            meta_dst_path = meta_dst_folder_path / f"{msg_id}.meta"
-            shutil.copy(old_meta_tst_path, meta_dst_path)
-            # Tests that msgstore could read an old meta file
-            msg_state = asyncio.run(store.get_message_state(msg_id))
-            self.assertEqual(msg_state, "processed")
-            # Test that the old meta file is converted to a new json meta file
-            with meta_dst_path.open("r") as fin:
-                meta_data = json.load(fin)
-            self.assertDictEqual(new_meta_data, meta_data)
-
-    def test_search_meta_filter_sort(self):
-        """Retrieve, filter and sort messages based on meta info"""
-
-        results = [
-            {'id': str(k), 'message': Message(meta=meta)}  # trimmed version with only what we need
-            for k, meta in enumerate((
-                {
-                    'one': 'one',
-                    'two': ['uouii', 'ononn'],
-                    'num': ['42'],
-                },
-                {
-                    'one': ['not', 'today', '!'],
-                    'two': ['-', 'okiuki', '-'],
-                    'num': ['15'],
-                },
-                {
-                    'one': ['yesterday', '?'],
-                    'num': ['12', '72'],
-                },
-                {
-                    'one': [],
-                    'num': ['notnum.. sad'],
-                },
-                {
-                    'one': [],
-                    'num': 37,
-                },
-            ))
-        ]
-
-        # filt/ord by .. should yield .. (indices in list)
-        cases = [
-            ({'exact_one': 'one'}, [0]),
-            ({'text_one': 'day'}, [1, 2]),
-            ({'exact_two': 'okiuki'}, [1]),
-            ({'rtext_two': '(.).{2}\\1'}, [0, 1]),
-            ({'start_num': '17'}, [0, 2, 4]),
-            ({'end_num': '17'}, [1, 2]),
-            ({'text_one': 'day', 'start_num': '22'}, [2]),
-
-            # specifying a range via start+end, with the message having ['12', '72']:
-            # * what you might be expecting:
-            #     12  [40   60]  72   -> not in
-            # * what it's actually doing:
-            #     12  [40   60   72   -> yes above
-            #     12   40   60]  72   -> yes below
-            #                           `> yes in
-            ({'start_num': '40', 'end_num': '60'}, [0, 2]),
-
-            ({'order_by': 'num'}, [2, 1, 4, 0, 3]),
-            ({'order_by': '-num'}, [3, 0, 4, 1, 2]),
-
-            # no search param should forward all the results
-            ({}, list(range(len(results)))),
-        ]
-
-        for search, expect in cases:
-            actual = [
-                int(item['id'])
-                for item in
-                msgstore.MessageStore._search_meta_filter_sort(search, results)
-            ]
-            self.assertListEqual(expect, actual)
+    await tester_group(
+        "state",
+        {
+            Message.ERROR: {1, 2},
+            Message.PENDING: {4},
+            Message.PROCESSED: {0},
+            Message.REJECTED: {3},
+        },
+    )
+    await tester_group(
+        "meta_two",
+        {
+            "": {2, 3},
+            "ononn": {0, 4},
+            "okiuki": {1},
+        },
+    )

@@ -1,26 +1,35 @@
 from __future__ import annotations
+
+import asyncio
+import json
+import re
 from abc import ABC
 from abc import abstractmethod
 from copy import deepcopy
-from datetime import date, datetime, timedelta
-from dateutil import parser as dateutilparser
-from pathlib import Path, PurePath
+from datetime import date
+from datetime import datetime
+from datetime import timedelta
+from pathlib import Path
+from pathlib import PurePath
+from typing import TYPE_CHECKING
 from typing import Any
 from typing import Callable
 from typing import Literal
 from typing import TypedDict
-import asyncio
-import json
-import re
 
-from typing import override
+from dateutil import parser as dateutilparser
 
-
-class PypemanConfigError(BaseException):
-    pass
-
-
+from pypeman.errors import PypemanConfigError
 from pypeman.message import Message
+
+if TYPE_CHECKING:  # pragma: no cover
+    from typing import override
+else:
+
+    def override(f):
+        return f
+
+
 """
 class Message:
     State_ = Literal["wait_retry", "pending", "processing", "processed", "rejected", "error"]
@@ -70,10 +79,11 @@ class MessageStoreFactory(ABC):
 
     @abstractmethod
     async def _delete_store(self, store: MessageStore):
-        """(implementation) Wipeout the store.
+        """(implementation) Wipe out the store.
 
         Note to implementing classes: the store might not have been
-        started :meth:`MessageStore.start`.
+        started :meth:`MessageStore.start`, and there is no logic
+        calling :meth:`delete` on all the stored messages.
 
         :param store: Store instanciated by this very class.
         """
@@ -88,7 +98,7 @@ class MessageStoreFactory(ABC):
         return existing or self._stores.setdefault(store_id, self._new_store(store_id))
 
     def list_store(self) -> list[str]:
-        """List of instanciated stores' `store_id`..
+        """List of instanciated stores' `store_id`.
 
         :return: List.
         """
@@ -231,8 +241,12 @@ class MessageStore(ABC):
         """(implementation) Gather the ids for messages that fall
         within the given time frame.
 
-        Note for implementing classes: `start_dt` < `end_dt` is
-        verified, as well as `self.total() != 0`.
+        These must be sorted by (increasing) timestamps.
+
+        Note for implementing classes: `start_dt < end_dt` is
+        verified, as well as `self.total() != 0`. However either or
+        both datetimes given may be completely out of the range of
+        stored entries.
 
         :param start_dt: (optional) Inclusive lower bound, or None.
         :param end_dt: (optional) Exclusive upper bound, or None.
@@ -300,11 +314,15 @@ class MessageStore(ABC):
     async def get_many(self, ids: list[str]) -> list[StoredEntry_]:
         """Retrieve multiple store entries at once.
 
+        This method does not expect being used to retrieve a single
+        entry; see :meth:`get` instead.
+
         Some implementation may override this method to be more
         efficient than repeatedly calling :meth:`get` in a loop.
         (Which is more or less what this default implementation does.)
 
-        Note for implementing classes: `1 < len(ids)` is verified.
+        Note for implementing classes: `1 < len(ids)` is verified, as
+        well as `self.total() != 0`.
 
         :param ids: Sequence of store-dependant id.
         :return: The sequence of store entries.
@@ -324,7 +342,7 @@ class MessageStore(ABC):
         meta[meta_info_name] = info
         await self._set_storemeta(id, meta)
 
-    async def get_message_meta_infos(self, id: str, meta_info_name: str | None = None) -> dict[str, Any] | Any | None:
+    async def get_message_meta_infos(self, id: str, meta_info_name: str | None = None) -> Any | None:
         """Get a store-related meta info for a message.
 
         :param id: Store-dependant id.
@@ -376,7 +394,11 @@ class MessageStore(ABC):
         msg = await self.get_msg_content(id)
         try:
             msg.payload = str(msg.payload)[:1000]
-        except Exception:
+        # rational for the pragma: this code was ported over 1:1 from ol' msgstore;
+        # in python no object throws on `str()` unless done intentionally in `__str__`,
+        # which nobody does or should even think about doing (keep in mind that
+        # `__repr__` could too.. so does literally anything actually)
+        except Exception:  # pragma: no cover
             msg.payload = repr(msg.payload)[:1000]
         return msg
 
@@ -410,7 +432,7 @@ class MessageStore(ABC):
         :param rtext: String or regular expression.
         :return: True if it matches False otherwise.
         """
-        return re.match(rtext, await self.get_payload_str(id)) is not None
+        return re.search(rtext, await self.get_payload_str(id)) is not None
 
     async def is_txt_in_msg(self, id: str, text: str):
         """Shorthand to check if `text` is in :meth:`get_payload_str`.
@@ -432,11 +454,14 @@ class MessageStore(ABC):
         text: str | None = None,
         rtext: str | None = None,
         meta: dict[str, str] | None = None,
-    ) -> list[StoredEntry_] | dict[str, StoredEntry_]:
+    ) -> list[StoredEntry_] | dict[str, list[StoredEntry_]]:
         """Fetch a list of message entries according to specification.
 
-        :param count: Count of entries to return. This is a maximum:
-            result might consist of fewer matches.
+        :param count: Number of entries to return. This is a maximum:
+            result might consist of fewer matches. `count` only applies
+            time-wise, that is it will result in the `count` first (or
+            last if `order_by` is reversed) messages (within the time
+            span `start_dt`..`end_dt`).
         :param start_id: (optional): If set, start search from this id
             (excluded from result).
 
@@ -479,7 +504,7 @@ class MessageStore(ABC):
         :return: List of fitting message entries or, if `group_by` is
             given, dict of group to list of fitting message entries.
         """
-        # early dum check
+        # early dum check (as per contract, don't call _span_select in this case)
         if 0 == await self.total():
             return [] if group_by is None else {}
 
@@ -500,7 +525,7 @@ class MessageStore(ABC):
         if reverse:
             order_by = order_by[1:]
         if order_by.startswith("meta_"):
-            order_by_meta = order_by
+            order_by_meta = order_by[5:]
         else:
             assert order_by in {"timestamp", "state"}
             order_by_payload: ... = order_by
@@ -515,11 +540,13 @@ class MessageStore(ABC):
                 assert group_by in {"state"}
                 group_by_payload: ... = group_by
 
-        # note that is compiles any rtext and already raises if invalid
+        # note that it compiles any rtext and already raises if invalid
         payload_filt = _MsgFilt(order_by_payload, group_by_payload, text, rtext)
         meta_filt = _MetaFilt(order_by_meta, group_by_meta, meta)
 
         span = await self._span_select(start_dt, end_dt)
+        if reverse:
+            span.reverse()
         if start_id:
             # +1: excluding start id; note that this already raises if `start_id` is not in
             cut = span.index(start_id) + 1
@@ -547,13 +574,19 @@ class MessageStore(ABC):
             needed = count - len(filtered)
             scan_head = scan_ahead
 
+        # a word to (whoever) when :param:`order_by` is by timestamp,
+        # ie `order_by_payload == "timestamp"`, `filtered` will always
+        # be already sorted...
         order = meta_filt.order if order_by_meta else payload_filt.order
-        filtered.sort(key=order)
+        filtered.sort(key=order, reverse=reverse)
         if not group_by:
             return filtered
 
         group = meta_filt.group if group_by_meta else payload_filt.group
-        grouped = {group(it): it for it in filtered}
+        grouped: dict[str, list[MessageStore.StoredEntry_]] = {}
+        for it in filtered:
+            # at this point filtered is also sorted, so each individual group will be too
+            grouped.setdefault(group(it), []).append(it)
         return grouped
 
 
@@ -587,32 +620,32 @@ class _MsgFilt:
         astr = str(entry["message"].payload)
         if self.text and self.text not in astr:
             return False
-        if self.regex and self.regex.match(astr) is None:
+        if self.regex and self.regex.search(astr) is None:
             return False
         return True
 
     def order(self, entry: MessageStore.StoredEntry_) -> Any:
-        """:return: 'thing' that can be compared with another 'thing'
-
-        that'll be either a :class:`datetime` or state as :class:`str`
-        """
+        """:return: SupportsRichComparison (see usage)"""
         if "timestamp" == self.order_by:
             return entry["message"].timestamp
         if "state" == self.order_by:
             return entry["meta"]["state"]
-        assert None, "unreachable"
+        assert None, "unreachable"  # pragma: no cover
 
     def group(self, entry: MessageStore.StoredEntry_) -> str:
         ":return: group name for entry"
-        if "state" == self.order_by:
+        if "state" == self.group_by:
             return entry["meta"]["state"]
-        assert None, "unreachable"
+        assert None, "unreachable"  # pragma: no cover
 
 
 class _MetaFilt:
     """(internal) see :meth:`MessageStore.sort`
 
     used to filter/order/group entries by there store-related meta
+
+    remark: in constructor params, `order_by` and `group_by` are
+    without the leading 'meta_'
     """
 
     @staticmethod
@@ -670,32 +703,42 @@ class _MetaFilt:
         meta = entry["meta"]
         # note that no filter will return True as expected
         for name, filts in self.filters.items():
-            info = meta[name] if isinstance(meta[name], list) else [meta[name]]
-            for filt in filts:  #           for each filter for this meta info,
-                if any(map(filt, info)):  # if any value of the meta info list matches
-                    break  #                then it's good;
-            else:  #                        otherwise (ie none of them matched)
-                return False  #             stop here
+            m = meta.get(name, [])
+            info = m if isinstance(m, list) else [m]
+            for filt in filts:  # .             for each filter for this meta info,
+                if not any(map(filt, info)):  # if none of the values matche
+                    return False  # .           then stop here
+            # the lines above are roughly equivalent to:
+            # ( filts[0](info[0]) OR filts[0](info[1]) OR .. ) AND ( filts[1](info[0]) OR .. ) AND ..
         return True
 
     def order(self, entry: MessageStore.StoredEntry_) -> Any:
         """:return: :class:`str` of the meta
 
         uses the first value if the meta is a list
+        for an empty list will use an empty string
+        same if this meta is not present
         """
-        return entry["meta"].get(self.order_by, "")
+        m = entry["meta"].get(self.order_by, "")
+        return str(m if not isinstance(m, list) else m[0] if len(m) else "")
 
     def group(self, entry: MessageStore.StoredEntry_) -> str:
         """:return: group name for entry
 
         uses the first value if the meta is a list
+        for an empty list will use an empty string
+        same if this meta is not present
+
+        TODO(potential evolution): if deemed interesting,
+            messages could be present in multiple groups
         """
-        return entry["meta"].get(self.group_by, "")
+        m = entry["meta"].get(self.group_by, "")
+        return str(m if not isinstance(m, list) else m[0] if len(m) else "")
 
 
 # implementations {{{1
 # null/noop {{{2
-class NullMessageStoreFactory(MessageStoreFactory):
+class NullMessageStoreFactory(MessageStoreFactory):  # pragma: no cover
     """A no-op message store.
 
     Always successful, nothing is stored. I don't know what that
@@ -715,7 +758,7 @@ class NullMessageStoreFactory(MessageStoreFactory):
         pass
 
 
-class NullMessageStore(MessageStore):
+class NullMessageStore(MessageStore):  # pragma: no cover
     # made it a singleton for now, we could instead choose to have
     # a 'logger: logger | None' constructor parameter
     _instance: NullMessageStore | None = None
@@ -844,13 +887,14 @@ class MemoryMessageStore(MessageStore):
             for start, entry in enumerate(self._sorted):
                 if start_dt <= entry["timestamp"]:
                     break  # start found
-            # degenerate cases test ensure it's found
+            # no `else`: degenerate cases test ensure it's found
 
         if end_dt is not None:
-            for end, entry in enumerate(self._sorted[start + 1 :]):  # noqa: E203 (black formatting)
-                if end_dt <= entry["timestamp"]:
+            for end in range(start + 1, len(self._sorted)):
+                if end_dt <= self._sorted[end]["timestamp"]:
                     break  # end found
-            # degenerate cases test ensure it's found
+            else:
+                end = len(self._sorted)
 
         return [msg["message"]["uuid"] for msg in self._sorted[start:end]]
 
@@ -872,7 +916,7 @@ class FileMessageStoreFactory(MessageStoreFactory):
         super().__init__()
         # sanity check
         if not isinstance(path, (str, PurePath)):
-            raise PypemanConfigError("file message store requires a path")
+            raise PypemanConfigError("file message store requires a path")  # pragma: no cover
         self.base_path = PurePath(path)
 
     @override
@@ -888,12 +932,17 @@ class FileMessageStoreFactory(MessageStoreFactory):
         store._latest = datetime.min
         store._earliest = datetime.max
 
-        for path, dirs, files in store.base_path.walk(top_down=False):
-            for dir in dirs:
-                (path / dir).rmdir()
-            for file in files:
-                (path / file).unlink()
-        store.base_path.rmdir()
+        def rmrf(path: Path):
+            "helper for older pathlib without :meth:`Path.walk`"
+            for child in path.iterdir():
+                if not child.is_symlink() and child.is_dir():
+                    rmrf(child)
+                else:
+                    child.unlink()
+            path.rmdir()
+
+        rmrf(store.base_path)
+
 
 class FileMessageStore(MessageStore):
     """
@@ -974,7 +1023,11 @@ class FileMessageStore(MessageStore):
     @override
     async def _store(self, msg: Message, ini_meta: dict[str, Any]) -> str:
         id = f"{msg.timestamp.strftime(FileMessageStore.DATE_FORMAT)}_{msg.uuid}"
-        msg_path = self._dt2dir(msg.timestamp) / id
+        # at time of writing :class:`Message` isn't correctly typed (*at all)
+        # these two lines are to enforce correct type (the aliase can be removed when updated)
+        timestamp: ... = msg.timestamp
+        timestamp: datetime
+        msg_path = self._dt2dir(timestamp) / id
 
         msg_path.parent.mkdir(parents=True, exist_ok=True)
         with msg_path.open("w") as f:
@@ -982,10 +1035,10 @@ class FileMessageStore(MessageStore):
         with msg_path.with_suffix(".meta").open("w") as f:
             json.dump(ini_meta, f)
 
-        if msg.timestamp < self._earliest:
-            self._earliest = msg.timestamp
-        if self._latest < msg.timestamp:
-            self._latest = msg.timestamp
+        if timestamp < self._earliest:
+            self._earliest = timestamp
+        if self._latest < timestamp:
+            self._latest = timestamp
 
         return id
 
@@ -998,15 +1051,15 @@ class FileMessageStore(MessageStore):
     @override
     async def _total(self) -> int:
         return sum(
-            sum(1 for file in files if FileMessageStore._PARSE_ID.match(file))
-            for _, _, files in self.base_path.walk()
+            file.is_file() and FileMessageStore._PARSE_ID.match(file.name) is not None
+            for file in self.base_path.glob("*/*/*/*")  # <y>/<m>/<d>/<file>
         )
 
     @override
     async def _get_message(self, id: str) -> Message:
         msg_path = self._id2file(id)
         if not msg_path.exists():
-            raise LookupError(f"no message ever stored under {id!r}")
+            raise LookupError(f"no message stored under {id!r}")
         with msg_path.open("r") as f:
             return Message.from_json(f.read())
 
@@ -1014,7 +1067,7 @@ class FileMessageStore(MessageStore):
     async def _get_storemeta(self, id: str) -> dict[str, Any]:
         meta_path = self._id2file(id).with_suffix(".meta")
         if not meta_path.exists():
-            raise LookupError(f"no meta ever stored under {id!r}")
+            raise LookupError(f"no meta stored under {id!r}")
         with meta_path.open("r") as f:
             content = f.read()
         # (uuuuuuugh) still handle oldass format
@@ -1083,55 +1136,34 @@ class FileMessageStore(MessageStore):
 
     @override
     async def _span_select(self, start_dt: datetime | None, end_dt: datetime | None) -> list[str]:
-        start_dt = start_dt or self._earliest
-        end_dt = end_dt or self._latest
+        # test degenerate cases first
+        if start_dt and self._latest < start_dt:
+            return []
+        if end_dt and end_dt <= self._earliest:
+            return []
 
-        # needed for first and last day
-        def is_included(id: str) -> bool:
-            "check both: it's a well-formed id, its dt is within span"
-            res = FileMessageStore._PARSE_ID.match(id)
-            if not res:
-                return False
-            gd = res.groupdict()
-            dt = datetime(
-                year=int(gd["year"]),
-                month=int(gd["month"]),
-                day=int(gd["day"]),
-                hour=int(gd["hour"]),
-                minute=int(gd["minute"]),
-                second=int(gd.get("second", "0")),
-                microsecond=int(gd.get("microsecond", "0")),
-            )
-            return start_day < dt <= end_day
+        start_dt = start_dt or self._earliest
+        end_dt = end_dt or self._latest + timedelta(hours=1)  # as to include the last one
 
         start_day = start_dt.date()
         end_day = end_dt.date()
         one_day = timedelta(days=1)
 
-        # trimmed first day
-        ids = [
-            file.name
-            for file in self._dt2dir(start_day).iterdir()
-            if file.is_file() and is_included(file.name)
-        ]
-
-        # everything between start and end
-        k = start_day + one_day
-        while k < end_day:
-            ids.extend(
-                file.name
-                for file in self._dt2dir(k).iterdir()
-                if file.is_file() and FileMessageStore._PARSE_ID.match(file.name)
-            )
-            k += one_day
-
-        # trimmed last day
-        if start_day != end_day:
-            ids.extend(
-                file.name
-                for file in self._dt2dir(end_day).iterdir()
-                if file.is_file() and is_included(file.name)
-            )
+        ids: list[str] = []
+        day = start_day
+        while day <= end_day:
+            dir = self._dt2dir(day)
+            if dir.is_dir():
+                for file in dir.iterdir():
+                    # check it's a well-formed id
+                    res = FileMessageStore._PARSE_ID.match(file.name)
+                    if not res:
+                        continue
+                    # check its dt is within span
+                    ymd_hmsf = res.group("year", "month", "day", "hour", "minute", "second", "microsecond")
+                    if start_dt <= datetime(*(int(t or 0) for t in ymd_hmsf)) < end_dt:
+                        ids.append(file.name)
+            day += one_day
 
         return ids
 

@@ -372,11 +372,53 @@ class MessageStore(ABC):
         """
         await self.add_message_meta_infos(id, "state", new_state)
 
-    async def add_sub_message_state(self, id, sub_id, state):
-        -NotImplemented
+    async def add_sub_message_state(self, id: str, sub_id: str, state: str):
+        """
+        Add a state to the meta 'submessages_state_history" of a message
+        submessages_state_history meta is a list of dicts of this form:
+        {
+            "sub_id": <sub_id>,
+            "state": <state>,
+            "timestamp": <datetime.now()>
+        }
 
-    async def set_state_to_worst_sub_state(self, id):
-        -NotImplemented
+        :param id: Message specific store id.
+        :param sub_id: The sub message's id (could be the same as the id).
+        :param state: Target state.
+        """
+        try:
+            submessages_state_history = await self.get_message_meta_infos(id, "submessages_state_history")
+            if submessages_state_history is None:
+                submessages_state_history = []
+        except KeyError:
+            submessages_state_history = []
+        submessages_state_history.append(
+            {
+                "sub_id": sub_id,
+                "state": state,
+                "timestamp": datetime.now(),
+            }
+        )
+        await self.add_message_meta_infos(id, "submessages_state_history", submessages_state_history)
+
+    async def set_state_to_worst_sub_state(self, id: str):
+        """
+        Change the `id` message state to the worst state stored in submessages_state_history
+
+        :param id: Message specific store id.
+        """
+        try:
+            submessages_state_history = await self.get_message_meta_infos(id, "submessages_state_history")
+        except LookupError:
+            submessages_state_history = []
+        if not submessages_state_history:
+            raise IndexError("No sub message state stored, cannot choose the worst")
+        worst_state = submessages_state_history[0]["state"]
+        for submsg_info in submessages_state_history:
+            state = submsg_info["state"]
+            if Message.STATES_PRIORITY.index(worst_state) < Message.STATES_PRIORITY.index(state):
+                worst_state = state
+        await self.change_message_state(id, worst_state)
 
     async def get_preview_str(self, id: str) -> Message:
         """A deprecated weirdness which absolutely does not return str.

@@ -315,13 +315,13 @@ async def test_search_dum_checks():
     # broken time spans
     try:
         await store.search(start_dt=datetime(5555, 1, 1), end_dt=datetime(5555, 1, 1))
-    except:
+    except BaseException:
         pass
     else:
         raise AssertionError("search should have not accepted parameters (same dt)")
     try:
         await store.search(start_dt=datetime(8888, 1, 1), end_dt=datetime(2222, 1, 1))
-    except:
+    except BaseException:
         pass
     else:
         raise AssertionError("search should have not accepted parameters (backward)")
@@ -360,7 +360,7 @@ async def test_search_count_and_start_id():
     # make a bunch of messages with increasing timestamps (because we'll be ordering by timestamp)
     msgs = [Message(payload=char) for char in "123546798"]
     msg = msgs[0]
-    first_dt = last_dt = msg.timestamp
+    last_dt = msg.timestamp
     for msg in msgs[1:]:
         last_dt += timedelta(1)
         msg.timestamp = last_dt

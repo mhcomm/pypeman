@@ -204,13 +204,13 @@ class RetryFileMsgStore(FileMessageStore):
                 await self.retry_one_store_id(msg_store_id=message_store_id)
                 logger.debug(
                     f"Retrystore Retry {self.channel.short_name}: Retry of "
-                    f"store_id={ message_store_id } Done"
+                    f"store_id={message_store_id} Done"
                 )
                 continue
             except exceptions.RetryException:
                 logger.debug(
                     f"Retrystore Retry {self.channel.short_name}: Retry of "
-                    f"store_id={ message_store_id } not good: RetryExc catched,"
+                    f"store_id={message_store_id} not good: RetryExc catched,"
                     " will retry later"
                 )
                 retry_exc_catched = True
@@ -218,7 +218,7 @@ class RetryFileMsgStore(FileMessageStore):
             except Exception:
                 logger.debug(
                     f"Retrystore Retry {self.channel.short_name}: Retry of "
-                    f"store_id={ message_store_id } Done (with err)"
+                    f"store_id={message_store_id} Done (with err)"
                 )
                 continue
             finally:

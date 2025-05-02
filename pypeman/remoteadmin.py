@@ -6,7 +6,6 @@ import logging
 import re
 import sys
 
-from datetime import datetime
 # TODO use readline for history ?
 # import readline
 

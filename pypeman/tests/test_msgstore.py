@@ -410,7 +410,7 @@ class MsgstoreTests(TestCase):
         """Retrieve, filter and sort messages based on meta info"""
 
         results = [
-            {'id': str(k), 'message': Message(meta=meta)}  # trimmed version with only what we need
+            {'id': str(k), 'message': Message(), 'meta': meta}  # trimmed version with only what we need
             for k, meta in enumerate((
                 {
                     'one': 'one',

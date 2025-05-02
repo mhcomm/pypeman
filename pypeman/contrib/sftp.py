@@ -89,7 +89,7 @@ class SFTPHelper():
         async with SFTPConnection(host=self.host, port=self.port,
                                   credentials=self.credentials,
                                   hostkey=self.hostkey) as sftp_conn:
-            async with sftp_conn.open(filepath, asyncssh.FXF_READ, encoding=encoding) as fin:
+            async with sftp_conn.open(filepath, "r", encoding=encoding) as fin:
                 content = await fin.read()
         return content
 
@@ -104,7 +104,7 @@ class SFTPHelper():
         async with SFTPConnection(host=self.host, port=self.port,
                                   credentials=self.credentials,
                                   hostkey=self.hostkey) as sftp_conn:
-            async with sftp_conn.open(filepath, asyncssh.FXF_WRITE, encoding=encoding) as fout:
+            async with sftp_conn.open(filepath, "w", encoding=encoding) as fout:
                 content = await fout.write(content)
         return content
 
@@ -144,17 +144,26 @@ class SFTPHelper():
             else:
                 return False
 
+    async def chmod(self, filepath, mode):
+        """
+        Change permission of a file
+        :param filepath: File to change
+        :param mode: The new file permissions, expressed as an int
+        """
+        async with SFTPConnection(host=self.host, port=self.port,
+                                  credentials=self.credentials,
+                                  hostkey=self.hostkey) as sftp_conn:
+            await sftp_conn.chmod(filepath, mode)
+
 
 class SFTPWatcherChannel(channels.BaseChannel):
     """
     Channel that watch sftp for file creation.
     """
 
-    PERSISTENCE_TABLENAME = "sftpwatcher"
-
     def __init__(self, *args, host, port=22, credentials=None, hostkey=None, basedir="",
-                 regex='.*', interval=6, delete_after=False, encoding="utf-8",
-                 real_extensions=None, **kwargs):
+                 regex='.*', interval=1, delete_after=False, encoding="utf-8",
+                 real_extensions=None, backend=None, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.basedir = basedir
@@ -168,8 +177,9 @@ class SFTPWatcherChannel(channels.BaseChannel):
 
         self.sftphelper = SFTPHelper(
             host=host, port=port, credentials=credentials, hostkey=hostkey)
-        self.backend = None
+        self.backend = backend
         self.last_read_mtime = 0
+        self.PERSISTENCE_TABLENAME = self.name
 
     async def get_last_read_mtime(self):
         """
@@ -191,7 +201,7 @@ class SFTPWatcherChannel(channels.BaseChannel):
         return mtime_value
 
     async def start(self):
-        if not self.backend:
+        if self.backend is None:
             self.backend = await persistence.get_backend(loop=self.loop)
         self.last_read_mtime = await self.get_last_read_mtime()
         logger.debug("last_read_mtime at start is %s", str(self.last_read_mtime))
@@ -211,9 +221,9 @@ class SFTPWatcherChannel(channels.BaseChannel):
             return await self.sftphelper.download_file(
                 self.basedir + '/' + filename, encoding=self.encoding)
 
-    async def get_file_and_process(self, filename):
+    async def get_message(self, filename):
         """
-        Download a file from sftp and launch channel processing on msg with result as payload.
+        Download a file from sftp and create the message.
         Also add a `filepath` header with sftp relative path of downloaded file.
 
         :param filename: file to download relative to `basedir`.
@@ -238,31 +248,32 @@ class SFTPWatcherChannel(channels.BaseChannel):
         msg = message.Message()
         msg.payload = payload
         msg.meta['filepath'] = self.basedir + '/' + filename
-
-        if not self.is_stopped():
-            await super().handle(msg)
+        return msg
 
     async def tick(self):
         """
         One iteration of watching.
         """
         sftp_ls = await self.sftphelper.list_dir(self.basedir)
-        logger.critical(sftp_ls)
+        last_read_mtime = float(self.last_read_mtime)
         for filestat in sftp_ls:
-            logger.critical(filestat)
-            logger.critical(vars(filestat))
             fname = filestat.filename
             if self.re.match(fname):
-                file_mtime = filestat.attrs.mtime
-                if self.last_read_mtime < file_mtime:
-                    logger.critical(filestat)
-                    logger.critical(self.last_read_mtime)
-                    logger.critical(filestat.filename)
+                if filestat.attrs.ctime:
+                    file_mtime = filestat.attrs.ctime
+                else:
+                    file_mtime = filestat.attrs.mtime
+                is_new_file = last_read_mtime <= file_mtime
+                if is_new_file:
+                    msg = await self.get_message(fname)
                     try:
-                        # TODO: ask if a try/finally here is a good idea
-                        await self.get_file_and_process(fname)
+                        if not self.is_stopped():
+                            await self.handle(msg)
+                    except Exception:
+                        pass
                     finally:
-                        await self.set_last_read_mtime(file_mtime)
+                        if self.last_read_mtime < file_mtime:
+                            await self.set_last_read_mtime(file_mtime)
 
     async def watch_for_file(self):
         """
@@ -275,7 +286,6 @@ class SFTPWatcherChannel(channels.BaseChannel):
                 await self.tick()
             except Exception as exc:
                 logger.exception(exc)
-                raise exc
 
 
 class SFTPFileReader(nodes.BaseNode):
@@ -337,7 +347,7 @@ class SFTPFileWriter(nodes.BaseNode):
     """
     def __init__(self, host, port=22, credentials=None, hostkey=None, filepath=None,
                  create_valid_file=False, validation_extension=".ok", encoding="utf-8",
-                 **kwargs):
+                 mode=None, **kwargs):
 
         super().__init__(**kwargs)
 
@@ -346,6 +356,7 @@ class SFTPFileWriter(nodes.BaseNode):
         self.validation_extension = validation_extension
         self.sftphelper = SFTPHelper(host, port, credentials, hostkey)
         self.encoding = encoding
+        self.mode = mode
 
     async def process(self, msg):
 
@@ -353,13 +364,14 @@ class SFTPFileWriter(nodes.BaseNode):
             nodes.callable_or_value(self.filepath, msg),
             msg.meta.get('filepath'))
         content = msg.payload
-        if isinstance(content, str):
-            content = content.encode(self.encoding)
 
-        await self.sftphelper.upload_file(filepath + '.part', content)
+        await self.sftphelper.upload_file(filepath + '.part', content, encoding=self.encoding)
         await self.sftphelper.rename(filepath + '.part', filepath)
+        if self.mode:
+            await self.sftphelper.chmod(filepath, self.mode)
         if self.create_valid_file:
             validation_path = Path(filepath).with_suffix(self.validation_extension)
-            await self.sftphelper.upload_file(str(validation_path), b"")
-
+            await self.sftphelper.upload_file(str(validation_path), "")
+            if self.mode:
+                await self.sftphelper.chmod(str(validation_path), self.mode)
         return msg

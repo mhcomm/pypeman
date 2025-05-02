@@ -27,7 +27,7 @@ from pypeman.tests.common import generate_msg
 from pypeman.tests.common import MllPChannelTestThread
 from pypeman.tests.common import TstException
 from pypeman.tests.common import TstNode
-from pypeman.tests.test_sftp import MockedSFTPHelper
+from pypeman.tests.tst_sftp_utils import MockedSFTPConnection
 from pypeman.persistence import MemoryBackend
 
 logger = logging.getLogger(__name__)
@@ -77,7 +77,7 @@ class ChannelsTests(TestCase):
     def start_channels(self):
         # Start channels
         for chan in channels.all_channels:
-            self.loop.create_task(chan.start())
+            self.loop.run_until_complete(chan.start())
 
     def setUp(self):
         # Create class event loop used for tests to avoid failing
@@ -1645,26 +1645,25 @@ class ChannelsTests(TestCase):
             processed_nodes=processed_nodes,
             not_processed_nodes=not_processed_nodes
         )
+
     def test_sftpwatcher_channel(self):
         fake_sftp_config = dict(host="fake", port=22, credentials=("fake", "fake"))
         ftest_dir = Path(__file__).parent / "data"
         ok_fpath = ftest_dir / "testfile.ok"
+        now_ts = time.time()
 
-        with mock.patch('pypeman.contrib.sftp.SFTPHelper', new=MockedSFTPHelper):
+        with mock.patch('pypeman.contrib.sftp.SFTPConnection', new=MockedSFTPConnection):
             chan = channels.SFTPWatcherChannel(
-                name="sftpchan", regex=".*", loop=self.loop,
-                basedir=str(ftest_dir), **fake_sftp_config)
+                name="sftpchan", regex=r".*\.ok$", loop=self.loop,
+                basedir=str(ftest_dir), backend=MemoryBackend(), real_extensions=[".txt"],
+                **fake_sftp_config)
             n = nodes.Log(name="test_sftpwatch_chan")
             chan.add(n)
-            chan.backend = MemoryBackend()
-            asyncio.run(chan.backend.start())
-            n._reset_test()
             self.start_channels()
-            # raise Exception
+            self.loop.run_until_complete(chan.set_last_read_mtime(now_ts))
+            chan._reset_test()
             self.loop.run_until_complete(chan.tick())
-            raise Exception
             self.assertEqual(n.last_input(), None)
             ok_fpath.touch()
             self.loop.run_until_complete(chan.tick())
             self.assertEqual(n.last_input().payload, "testfilecontent")
-            self.clean_loop()

@@ -140,7 +140,7 @@ class RemoteAdminServer():
         }
 
     @method
-    async def list_msgs(self, channel, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None,
+    async def list_msgs(self, channel, count=10, order_by='timestamp', start_dt=None, end_dt=None,
                         text=None, rtext=None, start_id=None):
         """
         List first `count` messages from message store of specified channel.
@@ -150,16 +150,13 @@ class RemoteAdminServer():
         chan = self.get_channel(channel)
 
         messages = await chan.message_store.search(
-            start=start, count=count, order_by=order_by, start_dt=start_dt, end_dt=end_dt,
+            count=count, order_by=order_by, start_dt=start_dt, end_dt=end_dt,
             text=text, rtext=rtext, start_id=start_id) or []
 
         for res in messages:
-            timestamp = res['timestamp']
-            if isinstance(timestamp, datetime):
-                timestamp = datetime.timestamp(timestamp)
-            res['timestamp'] = timestamp
             res['id'] = res['id']
             res['state'] = res["state"]
+            res['timestamp'] = res['message'].timestamp_str()
             if "message" in res:
                 res.pop("message")
 
@@ -291,13 +288,12 @@ class RemoteAdminClient():
         """
         return self.send_command('stop_channel', [channel])
 
-    def list_msgs(self, channel, start=0, count=10, order_by='timestamp', start_dt=None, end_dt=None,
+    def list_msgs(self, channel, count=10, order_by='timestamp', start_dt=None, end_dt=None,
                   text=None, rtext=None, start_id=None):
         """
         List first 10 messages on specified channel from remote instance.
 
         :params channel: The channel name.
-        :params start: Start index of listing.
         :params count: Count from index.
         :params start_dt: (optional) start datetime filter (isoformat)
         :params end_dt: (optional) start datetime filter (isoformat)
@@ -306,7 +302,7 @@ class RemoteAdminClient():
         :params order_by: Message order. only 'timestamp' and '-timestamp' handled for now.
         :returns: list of message with status.
         """
-        list_msg_args = [channel, start, count, order_by, start_dt, end_dt, text, rtext, start_id]
+        list_msg_args = [channel, count, order_by, start_dt, end_dt, text, rtext, start_id]
         result = self.send_command('list_msgs', list_msg_args)
 
         for m in result['messages']:
@@ -450,7 +446,7 @@ class PypemanShell(cmd.Cmd):
     @_with_current_channel
     def do_list(self, channel, arg):
         """
-        List messages of selected channel. You can specify start, end and order_by arguments
+        List messages of selected channel. You can specify count and order_by arguments
         Optional args:
             - to filter messages, you can pass start_dt and end_dt (isoformat datetimes)
             to filter messages
@@ -465,7 +461,7 @@ class PypemanShell(cmd.Cmd):
         args = arg.split()
         if dquote_args:
             args.extend(dquote_args)
-        start, end, order_by = 0, 100, '-timestamp'
+        count, order_by = 100, '-timestamp'
         start_dt = None
         end_dt = None
         text = None
@@ -493,14 +489,12 @@ class PypemanShell(cmd.Cmd):
                     args.remove(arg)
 
         # Parsing of common args
-        if args:
-            start = int(args[0])
+        if len(args) > 0:
+            count = int(args[0])
         if len(args) > 1:
-            end = int(args[1])
-        if len(args) > 2:
-            order_by = args[2]
+            order_by = args[1]
         result = self.client.list_msgs(
-            channel, start, end, order_by, start_dt=start_dt, end_dt=end_dt,
+            channel, count, order_by, start_dt=start_dt, end_dt=end_dt,
             text=text, rtext=rtext, start_id=start_id)
 
         if not result['total']:

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import time
 from abc import ABC
 from abc import abstractmethod
 from copy import deepcopy
@@ -148,7 +149,6 @@ class MessageStore(ABC):
         meta: dict[str, Any]  # store-related meta, different from message.meta
         message: Message
         state: Message.State_  # TODO: remove in favor of _['meta']['state']
-        # timestamp: datetime  # TODO: remove in favor of message.timestamp if equivalent
 
     async def _start(self):
         """(implementation) Called at startup to initialize the store.
@@ -360,7 +360,7 @@ class MessageStore(ABC):
         {
             "sub_id": <sub_id>,
             "state": <state>,
-            "timestamp": <datetime.now()>
+            "timestamp": <time.time()>
         }
 
         :param id: Message specific store id.
@@ -377,7 +377,7 @@ class MessageStore(ABC):
             {
                 "sub_id": sub_id,
                 "state": state,
-                "timestamp": datetime.now(),
+                "timestamp": time.time(),
             }
         )
         await self.add_message_meta_infos(id, "submessages_state_history", submessages_state_history)
@@ -793,8 +793,10 @@ class NullMessageStore(MessageStore):  # pragma: no cover
 
     @override
     async def _store(self, msg: Message, ini_meta: dict[str, Any]) -> str:
-        # non-empty so it doesn't compare falsey and reflects its origin, just in case
-        return "nullstore-key"
+        """broken invariant: does not return :class:`str` because
+        (at least at time of writing) a None check is used in
+        :meth:`BaseChannel.handle` and it fails at least 1 test..."""
+        return None
 
     @override
     async def _delete(self, id: str):
@@ -806,6 +808,7 @@ class NullMessageStore(MessageStore):  # pragma: no cover
 
     @override
     async def _get_message(self, id: str) -> Message:
+        """broken invariant: does not return :class:`Message`"""
         return NotImplemented
 
     @override

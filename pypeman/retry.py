@@ -45,7 +45,7 @@ class RetryFileMsgStore(FileMessageStore):
 
     async def start(self):
         await super().start()
-        cnt_msgs = await self.count_msgs()
+        cnt_msgs = await self.total()
         if cnt_msgs > 0:
             await self.start_retry_mode()
 
@@ -73,6 +73,14 @@ class RetryFileMsgStore(FileMessageStore):
         await self.add_message_meta_infos(id=id, meta_info_name="store_chan_name", info=store_chan_name)
         if self.state != self.RETRY_MODE:
             await self.start_retry_mode()
+
+    async def sorted_list_directories(self, path, reverse=True):
+        """
+        :param path: Base path
+        :param reverse: reverse order
+        :return: List of directories in specified path ordered
+        """
+        return sorted([d for d in os.listdir(path) if os.path.isdir(os.path.join(path, d))], reverse=reverse)
 
     async def search_by_store_id(self, store_id, count=0):
         """Returns a list of <count> messages ids for a given store_id

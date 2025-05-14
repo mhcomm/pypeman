@@ -194,7 +194,7 @@ class HttpRequest(nodes.BaseNode):
         :param binary: bool, Get response content as bytes
         :param send_as_json: bool, If the method is a PATCH/POST/PUT, send data as json
         :param json: bool, Parse Json response content
-        :param add_meta: bool, If set, add resp infos in out message's meta (like headers)
+        :param add_meta: bool, If set, add resp infos in out message's meta (like headers and cookies)
         # TODO maybe add an auto parser if for example Content-Type header is application/json
     """
 
@@ -349,6 +349,7 @@ class HttpRequest(nodes.BaseNode):
         msg.meta["url"] = str(resp.url)
         if self.add_meta:
             msg.meta["headers"] = resp.headers
+            msg.meta["cookies"] = resp.cookies
         resp_content = resp.content
         if self.json:
             try:

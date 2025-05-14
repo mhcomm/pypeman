@@ -38,7 +38,6 @@ async def factory(request):
         await factory.delete_store(store_id)
 
 
-# general store/retrieve test {{{1
 async def test_store_identity(factory: MessageStoreFactory):
     store_a = factory.get_store("a")
     store_b = factory.get_store("b")
@@ -142,25 +141,24 @@ async def test_store_state_management(factory: MessageStoreFactory):
 
 
 async def test_double_store_message(factory: MessageStoreFactory):
-    """By double store I mean twice the same, (mostly the same uuid).
-
-    The behavior in this situation is not really specified yet:
-        * Return id of the existing message without modifying it?
-        * Update/replace and return same or even new id?
-        * Raise an error (making it possible to find the bug)?
-
-    TODO: for now this is fake coverage! (really minor but still fake!)
-    """
+    "By double store I mean twice the same, (same uuid)."
     store = factory.get_store("a")
     await store.start()
+
     msg = Message()
-    id1 = await store.store(msg)
-    id2 = await store.store(msg)
-    ..., id1, id2
+    _ = await store.store(msg)
+
+    rose = None
+    try:
+        _ = await store.store(msg)
+    except BaseException as exc:
+        rose = exc
+    assert isinstance(rose, ValueError), rose
 
 
 @pytest.mark.parametrize("cls,params", TESTED_PERSISTENT_STORE_FACTORIES)
 async def test_store_persistence(cls: type[MessageStoreFactory], params: ...):
+    "Store, shutdown, reboot, expect messages to still be there."
     factory = cls(*params)
     store = factory.get_store("a")
     await store.start()
@@ -185,13 +183,6 @@ async def test_store_persistence(cls: type[MessageStoreFactory], params: ...):
             await factory.delete_store(store_id)
 
 
-# others, shorthands and misc. {{{1
-# TODO:
-#   these are not even implemented yet
-#     * add_sub_message_state
-#     * set_state_to_worst_sub_state
-
-
 async def test_get_aliases_fake_coverage():
     """Things that might not be needed anymore but are kept for now:
     * get_preview_str
@@ -212,16 +203,17 @@ async def test_get_aliases_fake_coverage():
 
     assert await store.is_regex_in_msg(id, "b[an]+")
     assert not await store.is_regex_in_msg(id, "0")
+    rose = None
     try:
         assert await store.is_regex_in_msg(id, ":)")
-    except ReError:
-        pass
+    except BaseException as exc:
+        rose = exc
+    assert isinstance(rose, ReError), rose
 
     assert await store.is_txt_in_msg(id, "oo")
     assert not await store.is_txt_in_msg(id, "xx")
 
 
-# search-related tests {{{1
 async def test_span_select_many(factory: MessageStoreFactory):
     """Test span selection:
         * :meth:`MessageStore._span_select`
@@ -268,7 +260,7 @@ async def test_span_select_many(factory: MessageStoreFactory):
     async def tester(start_dt: datetime | None, end_dt: datetime | None, expect: slice):
         "a tester walks into a bar- runs into a bar- crawls into a bar-"
         sel = await store._span_select(start_dt, end_dt)
-        # this test for both correct ids and correct ordering
+        # this tests for both correct ids and correct ordering
         assert sel == ids[expect]
         # if enough elements, also test `get_many`
         if 1 < len(sel):

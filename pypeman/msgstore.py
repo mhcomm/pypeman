@@ -31,8 +31,6 @@ else:
         return f
 
 
-# base classes {{{1
-# factory {{{2
 class MessageStoreFactory(ABC):
     """A :class:`MessageStoreFactory` instance can generate related
     :class:`MessageStore` instances for a specific `store_id`. The
@@ -103,7 +101,6 @@ class MessageStoreFactory(ABC):
         existing._cached_total = 0
 
 
-# store {{{2
 class MessageStore(ABC):
     """A :class:`MessageStore` keep an history of processed messages.
 
@@ -163,9 +160,13 @@ class MessageStore(ABC):
         Implementation must ensure that all operations with an id
         obtained this way are valid until a matching :meth:`_delete`.
 
+        An exact same message (same uuid) should not be stored twice;
+        the implementation may raise an error if it detects such.
+
         :param msg: Message to be stored.
         :param ini_meta: Store-related initial meta.
         :return: Store-dependant id.
+        :raise ValueError: When a double-store (same uuid) is detected.
         """
 
     @abstractmethod
@@ -242,6 +243,8 @@ class MessageStore(ABC):
         """Store a message in the store.
 
         Its state is right away initialized to :obj:`Message.PENDING`.
+
+        An exact same message (same uuid) should not be stored twice.
 
         :param msg: Message to store.
         :return: Id for this specific message.
@@ -434,7 +437,7 @@ class MessageStore(ABC):
         :raise LookupError: When the id does not name a stored message.
         :return: go figure.
         """
-        return (await self.get(id))["message"]
+        return await self._get_message(id)
 
     async def get_payload_str(self, id: str) -> str:
         """Shorthand to get a representation of the message's payload.
@@ -511,13 +514,13 @@ class MessageStore(ABC):
             In the key/value pairs of the `meta` argument to `search`,
             keys are processed as follow:
 
+            * `exact_<name>`: only match with exact value;
+
             * `text_<name>`: string to search in meta value;
             * `rtext_<name>`: string regex to search in meta value;
 
             * `start_<name>` / `end_<name>`: filter a range, values are
                 interpreted and compared as numbers when possible;
-
-            * `<name>`: only match with exact value;
 
             Reminder: when called through web API, ie from `list_msgs`
             in pypeman/plugins/remoteadmin/views.py, these keys, in the
@@ -613,7 +616,6 @@ class MessageStore(ABC):
         return grouped
 
 
-# filtering and sorting {{{2
 class _MsgFilt:
     """(internal) see :meth:`MessageStore.sort`
 
@@ -715,7 +717,7 @@ class _MetaFilt:
         if meta:
             for key, value in meta.items():
                 filt_name, _, meta_name = key.partition("_")
-                filt = getattr(_MetaFilt._FILTERS, filt_name, _MetaFilt._FILTERS.exact)
+                filt = getattr(_MetaFilt._FILTERS, filt_name)
                 self.filters.setdefault(meta_name, []).append(filt(value))
 
     def filter(self, entry: MessageStore.StoredEntry_) -> bool:
@@ -727,10 +729,10 @@ class _MetaFilt:
         # note that no filter will return True as expected
         for name, filts in self.filters.items():
             m = meta.get(name, [])
-            info = m if isinstance(m, list) else [m]
-            for filt in filts:  # .             for each filter for this meta info,
-                if not any(map(filt, info)):  # if none of the values matche
-                    return False  # .           then stop here
+            info: list[Any] = m if isinstance(m, list) else [m]
+            for filt in filts:  # .                        for each filter for this meta info,
+                if not any(filt(str(i)) for i in info):  # if none of the values matche
+                    return False  # .                      then stop here
             # the lines above are roughly equivalent to:
             # ( filts[0](info[0]) OR filts[0](info[1]) OR .. ) AND ( filts[1](info[0]) OR .. ) AND ..
         return True
@@ -742,8 +744,9 @@ class _MetaFilt:
         for an empty list will use an empty string
         same if this meta is not present
         """
-        m = entry["meta"].get(self.order_by, "")
-        return str(m if not isinstance(m, list) else m[0] if len(m) else "")
+        m = entry["meta"].get(self.order_by, [])
+        info: list[Any] = m if isinstance(m, list) else [m]
+        return str(info[0] if info else "")
 
     def group(self, entry: MessageStore.StoredEntry_) -> str:
         """:return: group name for entry
@@ -755,12 +758,11 @@ class _MetaFilt:
         TODO(potential evolution): if deemed interesting,
             messages could be present in multiple groups
         """
-        m = entry["meta"].get(self.group_by, "")
-        return str(m if not isinstance(m, list) else m[0] if len(m) else "")
+        m = entry["meta"].get(self.group_by, [])
+        info: list[Any] = m if isinstance(m, list) else [m]
+        return str(info[0] if info else "")
 
 
-# implementations {{{1
-# null/noop {{{2
 class NullMessageStoreFactory(MessageStoreFactory):  # pragma: no cover
     """A no-op message store.
 
@@ -824,7 +826,6 @@ class NullMessageStore(MessageStore):  # pragma: no cover
         return []
 
 
-# memory {{{2
 class MemoryMessageStoreFactory(MessageStoreFactory):
     """An in-memory message store.
 
@@ -859,7 +860,7 @@ class MemoryMessageStore(MessageStore):
     @override
     async def _store(self, msg: Message, ini_meta: dict[str, Any]) -> str:
         if msg.uuid in self._mapped:
-            return msg.uuid
+            raise ValueError(f"message {msg} is being stored again in {self}")
 
         entry: MemoryMessageStore.MemoryStoredEntry_ = {
             "meta": ini_meta,
@@ -925,7 +926,6 @@ class MemoryMessageStore(MessageStore):
         return [msg["message"]["uuid"] for msg in self._sorted[start:end]]
 
 
-# file {{{2
 class FileMessageStoreFactory(MessageStoreFactory):
     """A filesystem-based message store.
 
@@ -1016,8 +1016,23 @@ class FileMessageStore(MessageStore):
     @override
     async def _start(self):
         # in _start rather than __init__ for sematics and potential async rewrite
-        self._earliest = self._extreme(latest=False)
-        self._latest = self._extreme(latest=True)
+        every = sorted(
+            file.name
+            for file in self.base_path.glob("*/*/*/*")  # <y>/<m>/<d>/<file>
+            if file.is_file() and FileMessageStore._PARSE_ID.match(file.name) is not None
+        )
+        if not every:
+            self._earliest = datetime.max
+            self._latest = datetime.min
+
+        else:
+            res = FileMessageStore._PARSE_ID.match(every[0])
+            ymd_hmsf = res.group("year", "month", "day", "hour", "minute", "second", "microsecond")
+            self._earliest = datetime(*(int(t or 0) for t in ymd_hmsf))
+
+            res = FileMessageStore._PARSE_ID.match(every[-1])
+            ymd_hmsf = res.group("year", "month", "day", "hour", "minute", "second", "microsecond")
+            self._latest = datetime(*(int(t or 0) for t in ymd_hmsf))
 
     def _dt2dir(self, dt: datetime | date) -> Path:
         """Build the dir path where messages for day `dt` are/would be.
@@ -1054,6 +1069,9 @@ class FileMessageStore(MessageStore):
         timestamp: ... = msg.timestamp
         timestamp: datetime
         msg_path = self._dt2dir(timestamp) / id
+
+        if msg_path.exists():
+            raise ValueError(f"message {msg} is being stored again in {self}")
 
         msg_path.parent.mkdir(parents=True, exist_ok=True)
         with msg_path.open("w") as f:
@@ -1095,7 +1113,7 @@ class FileMessageStore(MessageStore):
         if not meta_path.exists():
             raise LookupError(f"no meta stored under {id!r}")
         with meta_path.open("r") as f:
-            content = f.read()
+            content = f.read().strip()
         # (uuuuuuugh) still handle oldass format
         return json.loads(content) if "{" == content[:1] else {"state": content}
 
@@ -1103,62 +1121,6 @@ class FileMessageStore(MessageStore):
     async def _set_storemeta(self, id: str, meta: dict[str, Any]):
         with self._id2file(id).with_suffix(".meta").open("w") as f:
             json.dump(meta, f)
-
-    def _extreme(self, latest: bool) -> datetime:
-        """Find the earliest/latest stored message `dt`.
-
-        This method has the same status as :meth:`_total`: it gets the
-        value form the source and so should be called only if truly
-        needed, otherwise :attr:`_earliest`/:attr:`_latest` should be
-        sufficient. Not marked async but could be at some point.
-        This method is implementation detail.
-
-        :param latest: False to find earliest, True to find latest.
-        """
-        # quick guard check in case there are no message at all
-        if not self.base_path.is_dir() or not next(self.base_path.iterdir(), False):
-            return datetime.min if latest else datetime.max
-
-        # if looking for latest, start with smallest values
-        if latest:
-            extrms_ymd = ["0001", "01", "01"]
-            extrms_hmsf = ("00", "00", "00", "000000")
-            if_no_sec_usec = ("59", "999999")
-            cmp = lambda cur, extrm: extrm < cur  # noqa: E731
-        else:
-            extrms_ymd = ["9999", "12", "31"]
-            extrms_hmsf = ("23", "59", "59", "999999")
-            if_no_sec_usec = ("00", "000000")
-            cmp = lambda cur, extrm: cur < extrm  # noqa: E731
-        cmp: Callable[[Any, Any], bool]
-
-        # iter over year/month/day to find each min
-        # `cmp(..)` works because components in the path are all fixed-width
-        # (ie str comparison is enough, no need to parse)
-        path_accu = self.base_path
-        for k in range(len(extrms_ymd)):
-            for it in path_accu.iterdir():
-                if cmp(it.name, extrms_ymd[k]):
-                    extrms_ymd[k] = it.name
-            path_accu /= extrms_ymd[k]
-        # now `path_accu` is `'<base>/<y>/<m>/<d>/'`
-
-        for id in path_accu.iterdir():
-            res = FileMessageStore._PARSE_ID.match(id.name)
-            if res:
-                gd = res.groupdict()
-                hmsf = (
-                    gd["hour"],
-                    gd["minute"],
-                    gd.get("second", if_no_sec_usec[0]),
-                    gd.get("microsecond", if_no_sec_usec[1]),
-                )
-                if cmp(hmsf, extrms_hmsf):
-                    extrms_hmsf = hmsf
-
-        Y, m, d = map(int, extrms_ymd)
-        H, M, S, f = map(int, extrms_hmsf)
-        return datetime(Y, m, d, H, M, S, f)
 
     @override
     async def _span_select(self, start_dt: datetime | None, end_dt: datetime | None) -> list[str]:
@@ -1169,18 +1131,18 @@ class FileMessageStore(MessageStore):
             return []
 
         start_dt = start_dt or self._earliest
-        end_dt = end_dt or self._latest + timedelta(hours=1)  # as to include the last one
+        end_dt = end_dt or self._latest + timedelta(hours=1)  # as to include the last day
 
-        start_day = start_dt.date()
-        end_day = end_dt.date()
+        start_date = start_dt.date()
+        end_date = end_dt.date()
         one_day = timedelta(days=1)
 
         ids: list[str] = []
-        day = start_day
-        while day <= end_day:
-            dir = self._dt2dir(day)
+        current_date = start_date
+        while current_date <= end_date:
+            dir = self._dt2dir(current_date)
             if dir.is_dir():
-                for file in dir.iterdir():
+                for file in sorted(dir.iterdir(), key=lambda file: file.name):
                     # check it's a well-formed id
                     res = FileMessageStore._PARSE_ID.match(file.name)
                     if not res:
@@ -1189,7 +1151,7 @@ class FileMessageStore(MessageStore):
                     ymd_hmsf = res.group("year", "month", "day", "hour", "minute", "second", "microsecond")
                     if start_dt <= datetime(*(int(t or 0) for t in ymd_hmsf)) < end_dt:
                         ids.append(file.name)
-            day += one_day
+            current_date += one_day
 
         return ids
 

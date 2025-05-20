@@ -248,6 +248,7 @@ class MessageStore(ABC):
 
         :param msg: Message to store.
         :return: Id for this specific message.
+        :raise ValueError: When a double-store (same uuid) is detected.
         """
         id = await self._store(msg, {"state": Message.PENDING})
         self._cached_total += 1
@@ -746,7 +747,7 @@ class _MetaFilt:
         """
         m = entry["meta"].get(self.order_by, [])
         info: list[Any] = m if isinstance(m, list) else [m]
-        return str(info[0] if info else "")
+        return str(info[0]) if info else ""
 
     def group(self, entry: MessageStore.StoredEntry_) -> str:
         """:return: group name for entry
@@ -760,7 +761,7 @@ class _MetaFilt:
         """
         m = entry["meta"].get(self.group_by, [])
         info: list[Any] = m if isinstance(m, list) else [m]
-        return str(info[0] if info else "")
+        return str(info[0]) if info else ""
 
 
 class NullMessageStoreFactory(MessageStoreFactory):  # pragma: no cover

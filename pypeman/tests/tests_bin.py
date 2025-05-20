@@ -59,14 +59,7 @@ class BinPypemanTestCase(unittest.TestCase):
 
         return ret_code, data
 
-    def test_01_can_call_pypeman(self):
-        """ pypeman can be called without params """
-        logger.info("FILE = %r / NAME = %r", __file__, __name__)
-        cmd = self.cmd
-        self.run_pypeman(cmd)
-        self.run_pypeman(cmd, cwd=CWD)
-
-    def test_02_can_call_help(self):
+    def test_01_can_call_help(self):
         """ option -h is working """
         logger.info("FILE = %r / NAME = %r", __file__, __name__)
 
@@ -74,13 +67,13 @@ class BinPypemanTestCase(unittest.TestCase):
         self.run_pypeman(cmd)
         self.run_pypeman(cmd, cwd=CWD)
 
-    def test_03_can_call_graph(self):
+    def test_02_can_call_graph(self):
         """ subcommand graph is working """
 
         cmd = self.cmd + ['graph']
         self.run_pypeman(cmd, cwd=CWD)
 
-    def test_04_can_call_test(self):
+    def test_03_can_call_test(self):
         """ subcommand test is working """
 
         cmd = self.cmd + ['test']

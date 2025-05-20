@@ -12,23 +12,14 @@ from datetime import datetime
 from datetime import timedelta
 from pathlib import Path
 from pathlib import PurePath
-from typing import TYPE_CHECKING
 from typing import Any
 from typing import Callable
 from typing import Literal
 from typing import TypedDict
 
 from dateutil import parser as dateutilparser
-
 from pypeman.errors import PypemanConfigError
 from pypeman.message import Message
-
-if TYPE_CHECKING:  # pragma: no cover
-    from typing import override
-else:
-
-    def override(f):
-        return f
 
 
 class MessageStoreFactory(ABC):
@@ -775,11 +766,9 @@ class NullMessageStoreFactory(MessageStoreFactory):  # pragma: no cover
     Mostly, retrieved messages will be :obj:`NotImplemented`.
     """
 
-    @override
     def _new_store(self, store_id: str) -> MessageStore:
         return NullMessageStore()
 
-    @override
     async def _delete_store(self, store: MessageStore):
         pass
 
@@ -794,35 +783,28 @@ class NullMessageStore(MessageStore):  # pragma: no cover
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    @override
     async def _store(self, msg: Message, ini_meta: dict[str, Any]) -> str:
         """broken invariant: does not return :class:`str` because
         (at least at time of writing) a None check is used in
         :meth:`BaseChannel.handle` and it fails at least 1 test..."""
         return None
 
-    @override
     async def _delete(self, id: str):
         pass
 
-    @override
     async def _total(self) -> int:
         return 0
 
-    @override
     async def _get_message(self, id: str) -> Message:
         """broken invariant: does not return :class:`Message`"""
         return NotImplemented
 
-    @override
     async def _get_storemeta(self, id: str) -> dict[str, Any]:
         return {}
 
-    @override
     async def _set_storemeta(self, id: str, meta: dict[str, Any]):
         pass
 
-    @override
     async def _span_select(self, start_dt: datetime | None, end_dt: datetime | None) -> list[str]:
         return []
 
@@ -833,11 +815,9 @@ class MemoryMessageStoreFactory(MessageStoreFactory):
     All messages are lost at pypeman stop.
     """
 
-    @override
     def _new_store(self, store_id: str) -> MessageStore:
         return MemoryMessageStore()
 
-    @override
     async def _delete_store(self, store: MessageStore):
         assert isinstance(store, MemoryMessageStore)  # type narrowing
         # private usage in friend class
@@ -858,7 +838,6 @@ class MemoryMessageStore(MessageStore):
         self._mapped: dict[str, MemoryMessageStore.MemoryStoredEntry_] = {}
         # 2 references are stored to the same entry for 2 different usage
 
-    @override
     async def _store(self, msg: Message, ini_meta: dict[str, Any]) -> str:
         if msg.uuid in self._mapped:
             raise ValueError(f"message {msg} is being stored again in {self}")
@@ -880,28 +859,22 @@ class MemoryMessageStore(MessageStore):
         self._mapped[msg.uuid] = entry
         return msg.uuid
 
-    @override
     async def _delete(self, id: str):
         msg = self._mapped.pop(id)
         self._sorted.remove(msg)
 
-    @override
     async def _total(self) -> int:
         return len(self._sorted)
 
-    @override
     async def _get_message(self, id: str) -> Message:
         return Message.from_dict(self._mapped[id]["message"])
 
-    @override
     async def _get_storemeta(self, id: str) -> dict[str, Any]:
         return deepcopy(self._mapped[id]["meta"])
 
-    @override
     async def _set_storemeta(self, id: str, meta: dict[str, Any]):
         self._mapped[id]["meta"] = meta
 
-    @override
     async def _span_select(self, start_dt: datetime | None, end_dt: datetime | None) -> list[str]:
         # test degenerate cases first
         if start_dt and self._sorted[-1]["timestamp"] < start_dt:
@@ -946,13 +919,11 @@ class FileMessageStoreFactory(MessageStoreFactory):
             raise PypemanConfigError("file message store requires a path")  # pragma: no cover
         self.base_path = PurePath(path)
 
-    @override
     def _new_store(self, store_id: str) -> MessageStore:
         # there **must not** be any of these char in `store_id`
         assert not set(r"\./") & set(store_id)
         return FileMessageStore(self.base_path, store_id)
 
-    @override
     async def _delete_store(self, store: MessageStore):
         assert isinstance(store, FileMessageStore)  # type narrowing
         # private usage in friend class
@@ -1014,7 +985,6 @@ class FileMessageStore(MessageStore):
         self.base_path = Path(path, store_id)
         self.base_path.mkdir(parents=True, exist_ok=True)
 
-    @override
     async def _start(self):
         # in _start rather than __init__ for sematics and potential async rewrite
         every = sorted(
@@ -1062,7 +1032,6 @@ class FileMessageStore(MessageStore):
         gd = res.groupdict()
         return self.base_path / gd["year"] / gd["month"] / gd["day"] / id
 
-    @override
     async def _store(self, msg: Message, ini_meta: dict[str, Any]) -> str:
         id = f"{msg.timestamp.strftime(FileMessageStore.DATE_FORMAT)}_{msg.uuid}"
         # at time of writing :class:`Message` isn't correctly typed (*at all)
@@ -1087,20 +1056,17 @@ class FileMessageStore(MessageStore):
 
         return id
 
-    @override
     async def _delete(self, id: str):
         msg_path = self._id2file(id)
         msg_path.unlink(missing_ok=True)
         msg_path.with_suffix(".meta").unlink(missing_ok=True)
 
-    @override
     async def _total(self) -> int:
         return sum(
             file.is_file() and FileMessageStore._PARSE_ID.match(file.name) is not None
             for file in self.base_path.glob("*/*/*/*")  # <y>/<m>/<d>/<file>
         )
 
-    @override
     async def _get_message(self, id: str) -> Message:
         msg_path = self._id2file(id)
         if not msg_path.exists():
@@ -1108,7 +1074,6 @@ class FileMessageStore(MessageStore):
         with msg_path.open("r") as f:
             return Message.from_json(f.read())
 
-    @override
     async def _get_storemeta(self, id: str) -> dict[str, Any]:
         meta_path = self._id2file(id).with_suffix(".meta")
         if not meta_path.exists():
@@ -1118,12 +1083,10 @@ class FileMessageStore(MessageStore):
         # (uuuuuuugh) still handle oldass format
         return json.loads(content) if "{" == content[:1] else {"state": content}
 
-    @override
     async def _set_storemeta(self, id: str, meta: dict[str, Any]):
         with self._id2file(id).with_suffix(".meta").open("w") as f:
             json.dump(meta, f)
 
-    @override
     async def _span_select(self, start_dt: datetime | None, end_dt: datetime | None) -> list[str]:
         # test degenerate cases first
         if start_dt and self._latest < start_dt:

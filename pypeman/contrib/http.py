@@ -163,10 +163,11 @@ class HttpChannel(channels.BaseChannel):
                 body_to_send = result.payload.encode(self.encoding)
             else:
                 body_to_send = str(result.payload).encode(self.encoding)
+            status = result.meta.get('status', result.meta.get('status_code', 200))
             return web.Response(
                 body=body_to_send,
                 content_type=getattr(result, "content_type", self.response_content_type),
-                status=result.meta.get('status', 200)
+                status=status
             )
 
         except Dropped:

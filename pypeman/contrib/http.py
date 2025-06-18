@@ -163,6 +163,9 @@ class HttpChannel(channels.BaseChannel):
                 body_to_send = result.payload.encode(self.encoding)
             else:
                 body_to_send = str(result.payload).encode(self.encoding)
+            if 'status' in result.meta:
+                logger.warning("'status_code' should be used instead of 'status'")
+            # TODO: To be switched to result.meta.get('status_code', result.meta.get('status', 200))
             status = result.meta.get('status', result.meta.get('status_code', 200))
             return web.Response(
                 body=body_to_send,

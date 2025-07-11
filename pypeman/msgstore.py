@@ -921,7 +921,8 @@ class FileMessageStoreFactory(MessageStoreFactory):
 
     def _new_store(self, store_id: str) -> MessageStore:
         # there **must not** be any of these char in `store_id`
-        assert not set(r"\./") & set(store_id)
+        # (matches the set of illegal DOS/Windows path characters)
+        assert not set(r'<>:"/\|?*') & set(store_id), f"store id {store_id!r} contains annoying characters"
         return FileMessageStore(self.base_path, store_id)
 
     async def _delete_store(self, store: MessageStore):

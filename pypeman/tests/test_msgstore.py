@@ -21,10 +21,12 @@ TESTED_STORE_FACTORIES = [
     # (msgstore.NullMessageStoreFactory, ()),
     (msgstore.MemoryMessageStoreFactory, ()),
     (msgstore.FileMessageStoreFactory, (_NEEDS_TMPDIR,)),
+    (msgstore.DatabaseMessageStoreFactory, (_NEEDS_TMPDIR,)),
 ]
 
 TESTED_PERSISTENT_STORE_FACTORIES = [
     (msgstore.FileMessageStoreFactory, (_NEEDS_TMPDIR,)),
+    (msgstore.DatabaseMessageStoreFactory, (_NEEDS_TMPDIR,)),
 ]
 
 

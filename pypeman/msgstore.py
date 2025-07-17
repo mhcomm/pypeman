@@ -14,7 +14,8 @@ factory. The following ones are provided, differing only by there
 backing storage:
     * :class:`NullMessageStoreFactory`,
     * :class:`MemoryMessageStoreFactory`,
-    * :class:`FileMessageStoreFactory`.
+    * :class:`FileMessageStoreFactory`,
+    * :class:`DatabaseMessageStoreFactory`.
 
 At channel level, a store is associated at creation by handing it the
 factory. Every new message passing through the channel's
@@ -45,11 +46,14 @@ from datetime import datetime
 from datetime import timedelta
 from pathlib import Path
 from pathlib import PurePath
+from sqlite3 import IntegrityError
+from sqlite3 import OperationalError
 from typing import Any
 from typing import Callable
 from typing import Literal
 from typing import TypedDict
 
+import aiosqlite
 from dateutil import parser as dateutilparser
 
 from .errors import PypemanConfigError
@@ -108,6 +112,10 @@ class MessageStoreFactory(ABC):
     def list_store(self) -> list[str]:
         """List of instanciated stores' `store_id`.
 
+        Remark: this only lists stores instanciated _during this run_
+        of the pypeman project; if other stores where once created but
+        are not currently used, they will not appear.
+
         :return: List.
         """
         return list(self._stores.keys())
@@ -128,6 +136,20 @@ class MessageStoreFactory(ABC):
         await self._delete_store(existing)
         # private usage in friend class
         existing._cached_total = 0
+
+    async def _delete_everything(self):
+        """Used in testing; meant to be overridden traditionally ie with
+        an `await super()._delete_everything()`. Each factory must
+        cleanly remove everything ensuring that a new store factory
+        created with the exact same argument (regardless of interpreter
+        restart) will be exactly from scratch. You surely don't need to
+        use this method.
+        """
+        for store_id in self.list_store():
+            store = self.get_store(store_id)
+            if store._active:
+                await store.stop()
+            await self.delete_store(store_id)
 
 
 class MessageStore(ABC):
@@ -163,6 +185,7 @@ class MessageStore(ABC):
 
     It may also override:
         * :meth:`_start` -- default is no-op
+        * :meth:`_stop` -- default is no-op
         * :meth:`get_many` -- default might be inefficient
 
     :abstract:
@@ -177,8 +200,17 @@ class MessageStore(ABC):
         message: Message
         state: Message.State_  # TODO: remove in favor of _['meta']['state']
 
+    def __init__(self):
+        self._active = False
+
     async def _start(self):
         """(implementation) Called at startup to initialize the store.
+
+        This method is not marked as abstract and thus not required.
+        """
+
+    async def _stop(self):
+        """(implementation) Called at teardown to finalize the store.
 
         This method is not marked as abstract and thus not required.
         """
@@ -267,8 +299,15 @@ class MessageStore(ABC):
     async def start(self):
         """Called at startup to initialize the store."""
         await self._start()
+        self._active = True
         self._cached_total = await self._total()
         logger.debug(f"store started successfully {self!r}: {self._cached_total} message(s)")
+
+    async def stop(self):
+        """Called at teardown to finalize the store."""
+        await self._stop()
+        self._active = False
+        logger.debug(f"store stopped {self!r}")
 
     async def store(self, msg: Message) -> str:
         """Store a message in the store.
@@ -330,6 +369,8 @@ class MessageStore(ABC):
 
     async def get_many(self, ids: list[str]) -> list[StoredEntry_]:
         """Retrieve multiple store entries at once.
+
+        Order is preserved.
 
         This method does not expect being used to retrieve a single
         entry; see :meth:`get` instead.
@@ -991,6 +1032,13 @@ class FileMessageStoreFactory(MessageStoreFactory):
         else:
             logger.warning(f"deleting file message store that was not started: {self.base_path!r}")
 
+    async def _delete_everything(self):
+        await super()._delete_everything()
+        path = Path(self.base_path)
+        # exists and is empty, remove the dir
+        if path.exists() and next(path.iterdir(), None) is None:
+            path.rmdir()
+
 
 class FileMessageStore(MessageStore):
     """
@@ -1175,3 +1223,303 @@ class FileMessageStore(MessageStore):
 
 # TODO: this is specific to the FileMessageStore, remove the top-level alias
 DATE_FORMAT = FileMessageStore.DATE_FORMAT
+
+
+class DatabaseMessageStoreFactory(MessageStoreFactory):
+    """A database-backed message store.
+
+    There is a single actual database file (if it is a file) and each
+    new store is tables within it.
+
+    The schema is an implementation detail and you must assume it will
+    change. See :meth:`_start` for detail anyway.
+    """
+
+    def __init__(self, path: str | Path):
+        super().__init__()
+        # sanity check (Path inherit from PurePath)
+        if not isinstance(path, (str, PurePath)):
+            raise PypemanConfigError("database message store requires a path")  # pragma: no cover
+        self._path = Path(path)  # XXX: maybe it shouldnt be 'Path', cause it could be other than a file
+        # set of the active (between _start and _stop) stores: when it's empty, `self._conn` doesn't exist;
+        # this is essentially a reference counter for the connection
+        self._active_stores: set[str] = set()
+        # aiosqlite works by offloading the connection to its own thread and sending
+        # commands via a queue; this lock is necessary to ensure two groups of writing
+        # operations are not mingled (eg saving a message uses 2~3 writing operations)
+        # and that a stop is not sent during a such group
+        self._conn_write_lock = asyncio.Lock()
+
+    def _new_store(self, store_id: str) -> MessageStore:
+        # there **must not** be any of these char in `store_id`
+        # (picked as to avoid all and any escaping need - ie quoting is enough but we're being extra-careful)
+        assert not set("\"':?\\[]`") & set(store_id), f"store id {store_id!r} contains annoying characters"
+        # see notes in constructor for the parameters
+        return DatabaseMessageStore(self, store_id)
+
+    async def _store_started(self, store_id: str):
+        """Called by MessageStore when starting.
+
+        When this is the first store, a connection is established.
+        """
+        if not self._active_stores:
+            self._conn = await aiosqlite.connect(self._path)
+        self._active_stores.add(store_id)
+
+    async def _store_stopped(self, store_id: str):
+        """Called by MessageStore when stopping.
+
+        If this was the last known store, the connection is closed.
+        """
+        self._active_stores.remove(store_id)
+        if not self._active_stores:
+            # ensure no group of writing operations is in-flight
+            async with self._conn_write_lock:
+                await self._conn.close()
+            del self._conn
+
+    def write_lock(self):
+        """Delegate method. Not private because used in MessageStore."""
+        return self._conn_write_lock
+
+    async def execute(self, sql: str, parameters: tuple[Any, ...]):
+        """Delegate method. Not private because used in MessageStore."""
+        return await self._conn.execute(sql, parameters)
+
+    async def executescript(self, sql_script: str):
+        """Delegate method. Not private because used in MessageStore."""
+        return await self._conn.executescript(sql_script)
+
+    async def executemany(self, sql: str, parameters: list[tuple[Any, ...]]):
+        """Delegate method. Not private because used in MessageStore."""
+        return await self._conn.executemany(sql, parameters)
+
+    async def execute_fetchall(self, sql: str, parameters: tuple[Any, ...]):
+        """Delegate method. Not private because used in MessageStore."""
+        return await self._conn.execute_fetchall(sql, parameters)
+
+    async def commit(self):
+        """Delegate method. Not private because used in MessageStore."""
+        return await self._conn.commit()
+
+    async def _delete_store(self, store: MessageStore):
+        assert isinstance(store, DatabaseMessageStore)  # type narrowing
+        # private usage in friend class
+        store_id = store._store_id
+        # why this:
+        # stopping a messages store removes it from _active_stores, and if this was the last one
+        # the connection is closed; now it is reasonable to imagine that the store is stopped
+        # before asking for deletion...
+        # if this happend to be the situation we are in, a temporary connection is established
+        conn = getattr(self, "_conn", None) or await aiosqlite.connect(self._path)
+        try:
+            await conn.executescript(
+                f"""
+ DROP TABLE "{store_id}.entries_ctx";
+ DROP TABLE "{store_id}.stored_entries";
+ """,
+            )
+        except OperationalError as e:
+            # this is upsetting, but it is how it is;
+            # we must accept deleting a store that wasn't even started yet
+            if "no such table" not in str(e):
+                # there should be no reason any other OperationalError happens,
+                # but just in case we re-raise it
+                raise  # pragma: no cover
+        finally:
+            if not hasattr(self, "_conn"):
+                await conn.close()
+
+    async def _delete_everything(self):
+        await super()._delete_everything()
+        if self._path.exists():
+            self._path.unlink()
+
+
+class DatabaseMessageStore(MessageStore):
+    def __init__(self, factory_handle: DatabaseMessageStoreFactory, store_id: str):
+        super().__init__()
+        # the factory acts as a proxy to the connection (then to the database)
+        self._db = factory_handle
+        self._store_id = store_id
+
+    async def _start(self):
+        # notify that we are starting; after that only is the connection ensured to exist
+        await self._db._store_started(self._store_id)
+
+        await self._db.executescript(
+            f"""
+ CREATE TABLE IF NOT EXISTS "{self._store_id}.stored_entries" (
+     id                   TEXT PRIMARY KEY                                    NOT NULL,
+     timestamp            REAL                                                NOT NULL,
+     meta                 TEXT                                                NOT NULL,
+     -- ^ json, tho we know it should be dict[str, list[str] | str], anything better we can do? thinkin no..
+     store_id             TEXT, -- XXX
+     store_chan_name      TEXT, -- XXX
+     message_payload      TEXT                                                NOT NULL, -- json
+     message_meta         TEXT                                                NOT NULL) -- json
+ STRICT, WITHOUT ROWID;
+ CREATE TABLE IF NOT EXISTS "{self._store_id}.entries_ctx" (
+     name                 TEXT                                                NOT NULL,
+     payload              TEXT                                                NOT NULL, -- json
+     meta                 TEXT                                                NOT NULL, -- json
+     ctx_of               TEXT                                                NOT NULL,
+     FOREIGN KEY(ctx_of)  REFERENCES "{self._store_id}.stored_entries"(id),
+     PRIMARY KEY(ctx_of, name))
+ STRICT, WITHOUT ROWID;
+ """,
+        )
+
+    async def _stop(self):
+        # notify that we are stopping and will not be using the connection anymore
+        await self._db._store_stopped(self._store_id)
+
+    async def _store(self, msg: Message, ini_meta: dict[str, Any]) -> str:
+        try:
+            async with self._db.write_lock():
+                await self._db.execute(
+                    f'INSERT INTO "{self._store_id}.stored_entries" VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    (
+                        msg.uuid,
+                        msg.timestamp.timestamp(),
+                        json.dumps(ini_meta),
+                        msg.store_id,
+                        msg.store_chan_name,
+                        json.dumps(msg.payload),
+                        json.dumps(msg.meta),
+                    ),
+                )
+                await self._db.executemany(
+                    f'INSERT INTO "{self._store_id}.entries_ctx" VALUES (?, ?, ?, ?)',
+                    [
+                        (name, json.dumps(thingy["payload"]), json.dumps(thingy["meta"]), msg.uuid)
+                        for name, thingy in msg.ctx.items()
+                    ],
+                )
+                await self._db.commit()
+
+        except IntegrityError as e:
+            raise ValueError(*e.args)
+        return msg.uuid
+
+    async def _delete(self, id: str):
+        # no error when `id` didn't exist..
+        await self._db.execute(f'DELETE FROM "{self._store_id}.entries_ctx" WHERE ? = ctx_of', (id,))
+        await self._db.execute(f'DELETE FROM "{self._store_id}.stored_entries" WHERE ? = id', (id,))
+
+    async def _total(self) -> int:
+        res = await self._db.execute_fetchall(f'SELECT count(*) FROM "{self._store_id}.stored_entries"', ())
+        return res[0][0]
+
+    async def _get_message(self, id: str) -> Message:
+        ctx_bits = await self._db.execute_fetchall(
+            f'SELECT name, payload, meta FROM "{self._store_id}.entries_ctx" WHERE ? = ctx_of',
+            (id,),
+        )
+
+        msg_bits = await self._db.execute_fetchall(
+            f"""
+ SELECT timestamp, store_id, store_chan_name, message_payload, message_meta
+ FROM "{self._store_id}.stored_entries" WHERE ? = id
+ """,
+            (id,),
+        )
+
+        if not msg_bits:
+            raise LookupError(f"no message stored under {id!r}")
+        timestamp, store_id, store_chan_name, message_payload, message_meta = msg_bits[0]
+
+        msg = Message()
+        msg.timestamp = datetime.fromtimestamp(timestamp)
+        msg.uuid = id
+        msg.payload = json.loads(message_payload)
+        msg.meta = json.loads(message_meta)
+        msg.store_id = store_id
+        msg.store_chan_name = store_chan_name
+        msg.ctx = {
+            name: {"payload": json.loads(payload), "meta": json.loads(meta)}
+            for name, payload, meta in ctx_bits
+        }
+        return msg
+
+    async def _get_storemeta(self, id: str) -> dict[str, Any]:
+        res = await self._db.execute_fetchall(
+            f'SELECT meta FROM "{self._store_id}.stored_entries" WHERE ? = id',
+            (id,),
+        )
+        if not res:
+            raise LookupError(f"no message stored under {id!r}")
+        return json.loads(res[0][0])
+
+    async def _set_storemeta(self, id: str, meta: dict[str, Any]):
+        async with self._db.write_lock():
+            res = await self._db.execute_fetchall(
+                f'UPDATE "{self._store_id}.stored_entries" SET meta = ? WHERE ? = id RETURNING id',
+                (json.dumps(meta), id),
+            )
+            # raise is before commit: nothing happened if the RETURNING claused didn't return anything
+            if not res:
+                raise LookupError(f"no message stored under {id!r}")
+            await self._db.commit()
+
+    async def _span_select(self, start_dt: datetime | None, end_dt: datetime | None) -> list[str]:
+        ids = await self._db.execute_fetchall(
+            f"""
+ SELECT id FROM "{self._store_id}.stored_entries"
+ WHERE ? <= timestamp AND timestamp < ?
+ ORDER BY timestamp
+ """,
+            (
+                0 if start_dt is None else start_dt.timestamp(),
+                # hopefully pypeman burns before 2286!
+                10**10 if end_dt is None else end_dt.timestamp(),
+            ),
+        )
+        return [id for id, in ids]
+
+    # overrides base method with a more efficient approach (way fewer queries)
+    async def get_many(self, ids: list[str]):
+        by_id: dict[str, MessageStore.StoredEntry_] = {}
+
+        many_msg_bits = await self._db.execute_fetchall(
+            f"""
+ SELECT id, timestamp, meta, store_id, store_chan_name, message_payload, message_meta
+ FROM "{self._store_id}.stored_entries" WHERE id in ({','.join('?' for _ in ids)})
+ """,
+            tuple(ids),
+        )
+
+        missing = set(ids).difference(p[0] for p in many_msg_bits)
+        if missing:
+            raise LookupError(f"no message stored under these: {missing!r}")
+
+        for id, timestamp, meta, store_id, store_chan_name, message_payload, message_meta in many_msg_bits:
+            store_meta = json.loads(meta)
+            msg = Message()
+            msg.timestamp = datetime.fromtimestamp(timestamp)
+            msg.uuid = id
+            msg.payload = json.loads(message_payload)
+            msg.meta = json.loads(message_meta)
+            msg.store_id = store_id
+            msg.store_chan_name = store_chan_name
+            msg.ctx = {}
+            by_id[id] = {
+                "id": id,
+                "meta": store_meta,
+                "message": msg,
+                "state": store_meta["state"],  # TODO: phase out/remove
+            }
+
+        many_ctx_bits = await self._db.execute_fetchall(
+            f"""
+ SELECT name, payload, meta, ctx_of
+ FROM "{self._store_id}.entries_ctx" WHERE ctx_of in ({','.join('?' for _ in ids)})
+ """,
+            tuple(ids),
+        )
+
+        for name, payload, meta, ctx_of in many_ctx_bits:
+            by_id[ctx_of]["message"].ctx[name] = {"payload": json.loads(payload), "meta": json.loads(meta)}
+
+        # restore ordering (SELECT may not, so you cant just .append to a list..)
+        return [by_id[id] for id in ids]

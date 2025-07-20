@@ -54,8 +54,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "pypeman = pypeman.commands:cli",
-            "pypeman_tool = pypeman.tool_commands:main",
+            "pypeman = pypeman.commands:main",
         ]
     },
 

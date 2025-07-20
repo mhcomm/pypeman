@@ -1,86 +1,79 @@
-#!/usr/bin/env python
-
-# # Copyright  : (C) 2014 by MHComm. All rights reserved
-#
-# Name       : conf.py
+"""TODO: doc
 """
-   Summary    :  TBD...
-"""
-__author__ = "jeremie"
-__copyright__ = "(C) 2016 by MHComm. All rights reserved"
-__email__ = "info@mhcomm.fr"
 
-import sys
-import importlib
-import traceback
-import os
-import pypeman.default_settings as default_settings
-import logging
 import logging.config
+from logging import getLogger
+from importlib import import_module
 
-NOT_FOUND = object()  # sentinel object
+from . import default_settings
+
+# XXX: @rem channels
 SETTINGS_IMPORTED = False
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 
 class ConfigError(ImportError):
-    """ custom exception """
+    """Pypeman conf error, likely due to `settings.py` not being found."""
 
 
-class Settings():
-    """ pypeman projects settings. Rather similar implementations to django.conf.settings """
+class Settings:
+    """Pypeman project-level (ie global as fuck) settings.
 
-    def __init__(self, module_name=None):
-        self.__dict__['_settings_mod'] = None
-        if module_name:
-            self.__dict__['SETTINGS_MODULE'] = module_name
-        else:
-            self.__dict__['SETTINGS_MODULE'] = os.environ.get('PYPEMAN_SETTINGS_MODULE', 'settings')
-        self.__dict__["RETRY_STORE_PATH"] = None
+    Loosely inspired by the beautiful and influential
+    `django.conf.settings` that we all came to love :gun:.
 
-    def init_settings(self):
-        global SETTINGS_IMPORTED
-        try:
-            settings_module = self.__dict__['SETTINGS_MODULE']
-            settings_mod = self.__dict__['_settings_mod'] = importlib.import_module(settings_module)
-        except Exception:
-            msg = "Can't import '%s' module !" % self.__dict__['SETTINGS_MODULE']
-            print(msg, file=sys.stderr)
-            print(traceback.format_exc(), file=sys.stderr)
-            raise ConfigError(msg)
+    Only names with an uppercase letter in A-Z will ever be considered.
+    """
 
-        # populate entire dict with values. helpful e.g. for ipython tab completion
-        default_vals = [(key, val) for (key, val) in default_settings.__dict__.items()
-                        if 'A' <= key[0] <= 'Z']
-        self.__dict__.update(default_vals)
+    def __init__(self):
+        pass
 
-        mod_vals = [(key, val) for (key, val) in settings_mod.__dict__.items()
-                    if 'A' <= key[0] <= 'Z']
-        self.__dict__.update(mod_vals)
-        if not self.__dict__["RETRY_STORE_PATH"]:
-            logger.warning("RETRY_STORE_PATH setting not set, will disable Retry msgstore ... Change this")
+    def __getattr__(self, name: str):
+        """Get a setting value.
 
-        logging.config.dictConfig(self.__dict__['LOGGING'])
-        SETTINGS_IMPORTED = True
+        This wrapper implements lazy initialisation of the `settings`
+        global object. It is needed for 2 reasons:
+            * constructor must not do any work so as to keep me sane;
+            * sys.path can be wrong (see :func:`pypeman.commands.main`).
+        """
+        global SETTINGS_IMPORTED  # XXX(wip)
+        if not self:
+            self.__dict__.update(p for p in vars(default_settings).items() if "A" <= p[0][0] <= "Z")
 
-    def __getattr__(self, name):
-        """ lazy getattr. first access imports and populates settings """
-        if name in self.__dict__:
-            return self.__dict__[name]
+            try:
+                settings_mod = self.__dict__["_settings_mod"] = import_module(self.SETTINGS_MODULE)
+                self.__dict__.update(p for p in vars(settings_mod).items() if "A" <= p[0][0] <= "Z")
+                if self.__dict__.get("RETRY_STORE_PATH") is None:
+                    logger.warning(
+                        "No RETRY_STORE_PATH in settings, retry store unavailable."
+                        + " (You may want to change this.)"
+                    )
 
-        if not self.__dict__['_settings_mod']:
-            self.init_settings()
+                SETTINGS_IMPORTED = True  # XXX(wip)
 
-        return self.__dict__[name]
+            except BaseException as e:
+                self.__dict__["_loading_exc"] = e
+
+            logging.config.dictConfig(self.LOGGING)
+            return super().__getattribute__(name)
+
+        raise AttributeError(f"type object '{type(self).__name__}' has no attribute '{name}'")
+
+    def raise_for_missing(self):
+        """If the user settings module couldn't be loaded, raise a ConfigError."""
+        exc = self.__dict__.get("_loading_exc")
+        if exc is not None:
+            raise ConfigError(f"Cannot import setting module '{self.SETTINGS_MODULE}' (see above).") from exc
+
+    def __bool__(self):
+        """`settings` is truhty if it was imported (or attempted at all)."""
+        return self.__dict__.get("_settings_mod") is not None or self.__dict__.get("_loading_exc") is not None
 
     def __setattr__(self, name, value):
-        """ make sure nobody tries to modify settings manually """
-        if name in self.__dict__:
-            self.__dict__[name] = value
-        else:
-            print(name, value)
-            raise Exception("Settings are not editable !")
+        """This disallows mutating the settings (to some extent)."""
+        # i'd like if it could be this way: ie no you dont modify settings at runtime _at all_
+        raise TypeError(f"Settings are immutable (setting {name} to {value!r}).")
 
 
 settings = Settings()

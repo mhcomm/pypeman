@@ -888,6 +888,7 @@ class BaseChannel:
                     res.append(chan_dict)
         return res
 
+    # XXX: usl
     def graph(self, prefix='', dot=False):
         """
         Generate a text graph for this channel.
@@ -912,6 +913,7 @@ class BaseChannel:
             else:
                 yield prefix + '|-' + node.name
 
+    # XXX: usl
     def graph_dot(self, end=''):
         """
         Generate a compatible dot graph for this channel.

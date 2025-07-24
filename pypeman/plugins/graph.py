@@ -1,15 +1,19 @@
+from __future__ import annotations
+
 from argparse import ArgumentParser
 from argparse import Namespace
+from typing import Literal
 
 from .base import BasePlugin
 from .base import CommandPluginMixin
 from ..channels import BaseChannel
-from ..channels import all_channels
-from ..graph import load_project
-
-from ..channels import SubChannel
-from ..channels import ConditionSubChannel
 from ..channels import Case
+from ..channels import ConditionSubChannel
+from ..channels import SubChannel
+from ..channels import all_channels
+from ..channels import get_channel
+from ..graph import load_project
+from ..nodes import BaseNode
 
 
 class GraphPlugin(BasePlugin, CommandPluginMixin):
@@ -20,98 +24,184 @@ class GraphPlugin(BasePlugin, CommandPluginMixin):
         parser.add_argument(
             "--dot",
             action="store_true",
-            help="generate output in graphviz 'dot' format",
+            help="generate output in graphviz 'dot' format instead of the default ascii-based",
+        )
+        parser.add_argument(
+            "--special",
+            "-s",
+            nargs="?",
+            choices={"init", "join", "drop", "reject", "fail", "final"},
+            help="graph specifically this special node path, instead of the main one",
+        )
+        parser.add_argument(
+            "channel",
+            nargs="?",
+            help="graph specifically this channel, regardless of whether it top-level or not",
         )
 
     async def command(self, options: Namespace):
         load_project()
 
-        tips = (chan for chan in all_channels if not chan.parent)
+        if options.channel:
+            tips = [get_channel(options.channel)]
+        else:
+            tips = (chan for chan in all_channels if not chan.parent)
 
-        print("digraph {")
-        print("    node [shape=rect]")
-        for chan in tips:
-            graph_channel(chan, ["    "])
-        print("}")
+        if options.dot:
+            print("digraph {")
+            print("    node [shape=rect]")
+            for chan in tips:
+                _, last = _graph_gvdot(chan, ["    "], options.special)
+                print(f'    _{id(chan)} [shape=circle label=""]')
+                print(f"    {last} -> _{id(chan)}")
+            print("}")
+        else:
+            for chan in tips:
+                print(type(chan).__name__)
+                _graph_ascii(chan, [""], options.special)
+                print("|-> out")
+                print("")
 
 
-def ident(ty: type, nm: str):
-    return nm if nm.startswith(ty.__name__) else f'"{ty.__name__} {nm}"'
+# XXX: format basically untouched for now
+def _graph_ascii(
+    chan: BaseChannel,
+    indent: list[str],
+    path: Literal["init", "join", "drop", "reject", "fail", "final"] | None,
+):
+    nodes = {
+        "_": (chan.init_nodes or []) + chan._nodes + (chan.join_nodes or []),
+        "init": chan.init_nodes,
+        "join": chan.join_nodes,
+        "drop": chan.drop_nodes,
+        "reject": chan.reject_nodes,
+        "fail": chan.fail_nodes,
+        "final": chan.final_nodes,
+    }[path or "_"] or []
+
+    prefix = "".join(indent)
+    for node in nodes:
+
+        if isinstance(node, SubChannel):
+            print(f"{prefix}|=\\ ({node.name})")
+            indent.append("|  ")
+            _graph_ascii(node, indent, path)
+            indent.pop()
+
+        elif isinstance(node, ConditionSubChannel):
+            print(f"{prefix}|?\\ ({node.name})")
+            indent.append("|  ")
+            _graph_ascii(node, indent, path)
+            indent.pop()
+            print(f"{prefix}|  -> out")
+
+        elif isinstance(node, Case):
+            for i, c in enumerate(node.cases):
+                print(f"{prefix}|c{i}\\")
+                indent.append("|  ")
+                _graph_ascii(c[1], indent, path)
+                indent.pop()
+                print(f"{prefix}|<--")
+
+        else:
+            print(f"{prefix}|-{node.name}")
+
+    if path and chan.final_nodes:  # TODO: always?
+        assert not "implemented"
 
 
-def graph_channel(chan: BaseChannel, indent: list[str]) -> tuple[str, str]:
+def _graph_gvdot(
+    chan: BaseChannel,
+    indent: list[str],
+    path: Literal["init", "join", "drop", "reject", "fail", "final"] | None,
+) -> tuple[str, str]:
+    """Make the subgraph for a channel.
+
+    The subgraph will consiste of all the nodes in the main path as
+    a chain. Intermittent channels are handled as followed:
+        * :class:`SubChannel` creates a nested subgraph, the forked
+            channel is linked with dashes and the fake node is a double
+            octagon;
+        * :class:`ConditionSubChannel` also creates a nested subgraph,
+            conditional path liked with dashs, fake node shown as
+            a diamond;
+        * :class:`Case` also a diamond, the in and out of branches are
+            dashed.
+    """
+    nodes = {
+        "_": (chan.init_nodes or []) + chan._nodes + (chan.join_nodes or []),
+        "init": chan.init_nodes,
+        "join": chan.join_nodes,
+        "drop": chan.drop_nodes,
+        "reject": chan.reject_nodes,
+        "fail": chan.fail_nodes,
+        "final": chan.final_nodes,
+    }[path or "_"] or []
+
     def fart(*a: object):
+        """prints with current indentation level"""
         print("".join(indent), *a, sep="")
+
+    def ident(b: BaseChannel | BaseNode):
+        """make an identifier from thing that has a `.name` (channel or node)"""
+        ty = type(b)
+        nm = str(b.name)
+        return nm if nm.startswith(ty.__name__) else f'"{ty.__name__} {nm}"'
+
+    def condit(c: type[bool] | bool):
+        return f"{c.__module__} {c.__name__}" if callable(c) else str(c)
 
     fart("{")
     indent.append("    ")
 
-    first = prev = ident(type(chan), chan.name)
-    fart(prev)
-    for node in chan._nodes:
+    first = prev = ident(chan)
+    fart(prev, " [shape=ellipse]")
+    for node in nodes:
+
         if isinstance(node, SubChannel):
-            fart("// ", ident(type(node), node))
-            into, curr = graph_channel(node, indent)
-            fart(prev, " -> ", into, ' [label="parallel"]')
+            curr = ident(node)
+            fart(curr, f' [shape=doubleoctagon label="fork"]')
+            fart(prev, " -> ", curr)
+            # XXX: won't `node` (the channel) appear twice?
+            into, _ = _graph_gvdot(node, indent, path)
+            fart(curr, " -> ", into, ' [style=dashed label="ran task"]')
+
         elif isinstance(node, ConditionSubChannel):
-            fart("// ", ident(type(node), node))
-            into, curr = graph_channel(node, indent)
-            fart(prev, " -> ", into, ' [label="condition"]')
+            curr = ident(node)
+            fart(curr, f' [shape=diamond label="when ({condit(node.condition)})"]')
+            fart(prev, " -> ", curr)
+            # XXX: won't `node` (the channel) appear twice?
+            into, _ = _graph_gvdot(node, indent, path)
+            fart(curr, " -> ", into, ' [style=dashed label="if passes"]')
+
         elif isinstance(node, Case):
-            fart(f"{{ // annonymous 'Case' object ({len(node.cases)} branches)")
+            curr = f"top_{id(node)}"
+            join = f"bot_{id(node)}"
+            fart(curr, f' [shape=diamond label="case ({len(node.cases)} branches)"]')
+            fart(join, f' [shape=point label=""]')
+            fart(prev, " -> ", curr)
+            fart("{")
             indent.append("    ")
             for cond, chan in node.cases:
-                into, curr = graph_channel(chan, indent)
-                fart(prev, " -> ", into, f' [label="case {cond.__module__} {cond.__name__}"]')
+                into, butt = _graph_gvdot(chan, indent, path)
+                fart(curr, " -> ", into, f' [style=dashed label="case {condit(cond)}"]')
+                fart(butt, " -> ", join, " [style=dashed]")
             indent.pop()
             fart("}")
-            curr = prev  # yes lol
+            fart(prev, " -> ", join)
+            curr = join
+
         else:
-            curr = ident(type(node), node.name)
+            curr = ident(node)
             fart(prev, " -> ", curr)
+
         prev = curr
     last = prev
+
+    if path and chan.final_nodes:  # TODO: always?
+        assert not "implemented"
 
     indent.pop()
     fart("}")
 
     return first, last
-
-
-# grabbed from graph
-from pypeman import channels
-
-
-def mk_ascii_graph(title=None):
-    """Show pypeman graph as ascii output.
-    Better reuse for debugging or new code
-    """
-    if title:
-        yield title
-    for channel in channels.all_channels:
-        if not channel.parent:
-            yield channel.__class__.__name__
-            for entry in channel.graph():
-                yield entry
-            yield "|-> out"
-            yield ""
-
-
-def mk_graph(dot=False):
-    if dot:
-        yield "digraph testgraph{"
-
-        # Handle channel node shape
-        for channel in channels.all_channels:
-            yield '{node[shape=box]; "%s"; }' % channel.name
-
-        # Draw each graph
-        for channel in channels.all_channels:
-            if not channel.parent:
-                for line in channel.graph_dot():
-                    yield line
-
-        yield "}"
-    else:
-        for line in mk_ascii_graph():
-            yield line

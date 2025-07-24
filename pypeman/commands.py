@@ -1,3 +1,15 @@
+"""The CLI for pypeman.
+
+The script entry point is :func:`pypeman.commands.main`, this is the
+function called directly when invoking `$ pypeman` after `$ pip install`
+-ing it.
+
+:func:`pypeman.command.amain` is the actuall main function, which is
+called when used as a module (eg `$ python -m pypeman.commands`).
+"""
+
+from __future__ import annotations
+
 import asyncio
 from argparse import ArgumentParser
 from argparse import Namespace
@@ -10,7 +22,6 @@ from .graph import load_project
 from .plugin_mgr import manager
 from .plugins.base import CommandPluginMixin
 from .plugins.base import TaskPluginMixin
-
 
 logger = getLogger(__name__)
 
@@ -91,42 +102,4 @@ def main():
 
 
 if "__main__" == __name__:
-    # kept first class:
-    # - start
-    # moved to plugins:
-    # - graph
-    # - printsettings
-    # - shell ('RemoteAdminPlugin' if i cant get it renamed)
     asyncio.run(amain())
-
-"""
-  debug          Used for development purpose
-  # function was completely empty
-
-  graph          Show channel graph
-  # rarely used, but i like it so plugin it is
-
-  printsettings  print the project's settings
-  # fair and should be used more but meh, plugin too
-
-  pyshell        Start ipython shell to send command to remote instance
-  # garbage, use shell from RemoteAdminPlugin if at all
-
-  pytest         start tests with pytest.
-  # garbage, just use pytest bro wth
-
-  shell          Start a custom shell to administrate remote pypeman...
-  # name is annoyingly not "remoteadmin" but that's actualy fair
-
-  start          Start pypeman as daemon (or foreground process)
-  # actually used entry point, most flags are garbled tho
-
-  startproject   Creates a pypeman project from scratch
-  # plugin at best
-
-  stop           stops an already running pypeman instance
-  # meant to be used with "--daemon", ie unused
-
-  test           Launch project's tests with unittest.main().
-  # yeah alright buddy pal, take a break
-"""

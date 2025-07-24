@@ -4,8 +4,8 @@ import logging
 from aiohttp import web
 from jsonrpcserver.response import SuccessResponse
 
-from pypeman import channels
-from pypeman.channels import get_channel
+from ... import channels
+from ...channels import get_channel
 
 logger = logging.getLogger(__name__)
 

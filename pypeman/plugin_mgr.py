@@ -8,7 +8,7 @@ Pypeman's plugin manager has a straightforward use:
     * then :meth:`PluginManager.get_module` to select by mixin.
 
 Every plugins must derive from :class:`BasePlugin`. However by itself
-it will not bring anything (its constructor is called..).
+it will not bring anything (its constructor is called and that's it).
 
 The mixin classes defined in :mod:`pypeman.plugins.base` make it
 possible to hook in at various stages of the application's life cycle.
@@ -20,9 +20,8 @@ from importlib import import_module
 from logging import getLogger
 from typing import TypeVar
 
-from pypeman.plugins.base import BasePlugin
-from pypeman.plugins.base import MixinClasses_
-
+from .plugins.base import BasePlugin
+from .plugins.base import MixinClasses_
 
 logger = getLogger(__name__)
 
@@ -38,7 +37,7 @@ class PluginManager:
     def register_plugins(self, *plugins: str):
         """Register one or more plugins.
 
-        This operation becomes invalid after :meth:`instantiate_plugins`.
+        This operation is invalid after :meth:`instantiate_plugins`.
         """
         assert not self._instances, f"invalid operation: late plugin registery {plugins}"
 
@@ -48,9 +47,6 @@ class PluginManager:
             cls = getattr(module, cls_name)
             # being extra-defensive here as we are importing blind
             assert isinstance(cls, type) and BasePlugin in cls.mro(), f"{cls!r} is not a plugin class"
-            # if cls in self._registered_classes:
-            #     # should it just be 'info', if even anything at all actually
-            #     logger.warning(f"Plugin registed twice: {cls} (now as {plugin_path})")
             self._registered_classes.add(cls)
 
     def instantiate_plugins(self):
@@ -82,19 +78,7 @@ class PluginManager:
         return iter(self._instances)
 
 
-# TODO: me no liky, should at leat be proper singleton (same with settings one day)
-# but this is the mentality of pypeman in many places, and it's making me question everything...
+# TODO: me no liky, should at leat be proper singleton
+# (same with settings one day) but this is the mentality of pypeman
+# in many places, and it's making me question everything...
 manager = PluginManager()
-
-# meh, mostly didn't know where to put it but it makes sense here ig
-# otherwise it would make more sense to have it in base_settings,
-# but that requires that it's used correctly in project settings:
-#   PLUGINS.extend([...])  rather than  PLUGINS = [...]
-# CORE_PLUGINS = {
-#     "pypeman.plugins.plugins.ListPluginsPlugin",
-#     "pypeman.plugins.graph.GraphPlugin",
-#     "pypeman.plugins.settings.PrintSettingsPlugin",
-#     # i dont like the name 'startproject' cause it seems to me like that
-#     # would be an alias for 'start' (or the other way around, you get it)
-#     #"pypeman.plugins.project.StartProjectPlugin",
-# }

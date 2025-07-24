@@ -1,10 +1,14 @@
+"""Provides :class:`ListPluginsPlugin`."""
+
+from __future__ import annotations
+
 from argparse import ArgumentParser
 from argparse import Namespace
 
-from .base import BasePlugin
-from .base import CommandPluginMixin
 from ..conf import settings
 from ..plugin_mgr import manager
+from .base import BasePlugin
+from .base import CommandPluginMixin
 
 
 class ListPluginsPlugin(BasePlugin, CommandPluginMixin):

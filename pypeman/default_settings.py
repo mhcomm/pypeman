@@ -1,7 +1,8 @@
 """Default configuration.
 
 You will want to override/update some of these values in your
-project's setting module. See :mod:`pypeman.conf`.
+project's setting module. See :mod:`pypeman.conf` and
+:obj:`pypeman.conf.settings`.
 """
 
 from os import environ

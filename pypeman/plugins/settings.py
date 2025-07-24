@@ -1,3 +1,7 @@
+"""Provies :class:`PrintSettingsPlugin`."""
+
+from __future__ import annotations
+
 from argparse import ArgumentParser
 from argparse import Namespace
 
@@ -9,7 +13,7 @@ from .base import CommandPluginMixin
 class PrintSettingsPlugin(BasePlugin, CommandPluginMixin):
     """Provides the `printsettings` command."""
 
-    # legacy-ass comment
+    # legacy-ass comment XXX
     # TODO: This command could be enhanced further to be more simniliar to
     #       django_extensions' print_settings
 

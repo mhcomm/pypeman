@@ -1,11 +1,11 @@
+"""Provides :class:`GraphPlugin`."""
+
 from __future__ import annotations
 
 from argparse import ArgumentParser
 from argparse import Namespace
 from typing import Literal
 
-from .base import BasePlugin
-from .base import CommandPluginMixin
 from ..channels import BaseChannel
 from ..channels import Case
 from ..channels import ConditionSubChannel
@@ -14,6 +14,8 @@ from ..channels import all_channels
 from ..channels import get_channel
 from ..graph import load_project
 from ..nodes import BaseNode
+from .base import BasePlugin
+from .base import CommandPluginMixin
 
 
 class GraphPlugin(BasePlugin, CommandPluginMixin):
@@ -143,7 +145,7 @@ def _graph_gvdot(
         print("".join(indent), *a, sep="")
 
     def ident(b: BaseChannel | BaseNode):
-        """make an identifier from thing that has a `.name` (channel or node)"""
+        """make identifier from thing with `.name` (channel or node)"""
         ty = type(b)
         nm = str(b.name)
         return nm if nm.startswith(ty.__name__) else f'"{ty.__name__} {nm}"'
@@ -160,7 +162,7 @@ def _graph_gvdot(
 
         if isinstance(node, SubChannel):
             curr = ident(node)
-            fart(curr, f' [shape=doubleoctagon label="fork"]')
+            fart(curr, ' [shape=doubleoctagon label="fork"]')
             fart(prev, " -> ", curr)
             # XXX: won't `node` (the channel) appear twice?
             into, _ = _graph_gvdot(node, indent, path)
@@ -178,7 +180,7 @@ def _graph_gvdot(
             curr = f"top_{id(node)}"
             join = f"bot_{id(node)}"
             fart(curr, f' [shape=diamond label="case ({len(node.cases)} branches)"]')
-            fart(join, f' [shape=point label=""]')
+            fart(join, ' [shape=point label=""]')
             fart(prev, " -> ", curr)
             fart("{")
             indent.append("    ")

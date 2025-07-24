@@ -1,3 +1,35 @@
+"""Message store interface specification and shipped implementations.
+
+Every instantiated channel (:class:`pypeman.BaseChannel`) may be
+associated a message store :class:`MessageStore`.
+
+A message store provides the ability to store and restore
+a :class:`pypeman.Message` as well as a store-related meta (distinct
+from the message's meta). Once a message is stored, it can be referred
+to through a specific id (also distinct from the message's UUID).
+
+Stores should not be created directly; the factory pattern should be
+used instead. In a pypeman project is usually a unique message store
+factory. The following ones are provided, differing only by there
+backing storage:
+    * :class:`NullMessageStoreFactory`,
+    * :class:`MemoryMessageStoreFactory`,
+    * :class:`FileMessageStoreFactory`.
+
+At channel level, a store is associated at creation by handing it the
+factory. Every new message passing through the channel's
+:meth:`BaseChannel.handle` method will be stored (ie. some time before
+calling any node's :meth:`BaseNode.process`).
+
+The message store is also involved in the :attr:`BaseNode.store_meta`
+mechanism (store declared meta of passing-by messages after processing).
+
+A channel associated with a message store will enable replaying
+a message through :meth:`BaseChannel.replay`. The
+:class:`pypeman.plugins.remoteadmin.RemoteAdminPlugin` plugin provides
+a more hands-on access to it on a running pypeman project.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -18,8 +50,9 @@ from typing import Literal
 from typing import TypedDict
 
 from dateutil import parser as dateutilparser
-from pypeman.errors import PypemanConfigError
-from pypeman.message import Message
+
+from .errors import PypemanConfigError
+from .message import Message
 
 
 class MessageStoreFactory(ABC):
@@ -135,6 +168,7 @@ class MessageStore(ABC):
 
         id: str  # store-dependant id, different from message.uuid
         meta: dict[str, Any]  # store-related meta, different from message.meta
+        # TODO: ideally this `Any` would be replaced with `list[str]` with explicit checks at access points
         message: Message
         state: Message.State_  # TODO: remove in favor of _['meta']['state']
 
@@ -832,6 +866,7 @@ class MemoryMessageStore(MessageStore):
         timestamp: datetime
 
     def __init__(self):
+        super().__init__()
         # this is a list so that it can be sort-inserted by timestamp
         self._sorted: list[MemoryMessageStore.MemoryStoredEntry_] = []
         # accompanying mapping for direct accesses by id
@@ -911,7 +946,7 @@ class FileMessageStoreFactory(MessageStoreFactory):
     The `<timestamp>` part is as :obj:`FileMessageStore.DATE_FORMAT`.
     """
 
-    # TODO: see if both the parameter and the property names can be harmonized
+    # TODO: see if both the parameter and the property names can be harmonized/privatized
     def __init__(self, path: str | PurePath):
         super().__init__()
         # sanity check
@@ -982,12 +1017,13 @@ class FileMessageStore(MessageStore):
 
     def __init__(self, path: PurePath, store_id: str):
         super().__init__()
-        # TODO: see if property name and parameter names can be changed/harmonized
+        # TODO: see if property name and parameter names can be changed/harmonized/privatized
         self.base_path = Path(path, store_id)
-        self.base_path.mkdir(parents=True, exist_ok=True)
+        # reminder: don't touch file system here! wait for `start`
 
     async def _start(self):
-        # in _start rather than __init__ for sematics and potential async rewrite
+        self.base_path.mkdir(parents=True, exist_ok=True)
+
         every = sorted(
             file.name
             for file in self.base_path.glob("*/*/*/*")  # <y>/<m>/<d>/<file>

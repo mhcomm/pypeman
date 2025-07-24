@@ -8,9 +8,9 @@ from typing import Literal
 
 import pytest
 
-from pypeman import msgstore
-from pypeman.message import Message
-from pypeman.msgstore import MessageStoreFactory
+from .. import msgstore
+from ..message import Message
+from ..msgstore import MessageStoreFactory
 
 TESTED_STORE_FACTORIES = [
     # can't be tested generically, breaks too many invariants

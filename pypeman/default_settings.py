@@ -23,7 +23,7 @@ REMOTE_ADMIN_CONFIG = {
     "host": "localhost",
     "port": "8091",
     # "ssl": None, # TODO: ? see what it was meant to be
-    "url": None,  # must be set when behind a reverse proxy
+    "url": "",  # must be set when behind a reverse proxy
 }
 
 # TODO: being deprecated, see RemoteAdminPlugin's constructor
@@ -31,7 +31,7 @@ REMOTE_ADMIN_WEBSOCKET_CONFIG = {
     "host": "localhost",
     "port": "8091",
     "ssl": None,
-    "url": None,  # must be set when behind a reverse proxy
+    "url": "",  # must be set when behind a reverse proxy
 }
 REMOTE_ADMIN_WEB_CONFIG = {
     "host": "localhost",

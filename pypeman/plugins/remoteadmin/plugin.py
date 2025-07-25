@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 from argparse import ArgumentParser
 from argparse import Namespace
 from logging import getLogger
 
+from aiohttp import ClientSession
 from aiohttp import web
 
 from ...conf import settings
@@ -13,6 +15,7 @@ from ..base import BasePlugin
 from ..base import CommandPluginMixin
 from ..base import TaskPluginMixin
 from . import urls
+from .cli import RemoteAdminShell
 
 logger = getLogger(__name__)
 
@@ -24,14 +27,16 @@ class RemoteAdminPlugin(BasePlugin, CommandPluginMixin, TaskPluginMixin):
         if hasattr(settings, "REMOTE_ADMIN_WEBSOCKET_CONFIG"):
             logger.warning(
                 "REMOTE_ADMIN_WEBSOCKET_CONFIG and REMOTE_ADMIN_WEB_CONFIG are deprecated,"
-                + " please use REMOTE_ADMIN_CONFIG"
+                + " please use REMOTE_ADMIN_CONFIG."
             )
             conf = settings.REMOTE_ADMIN_WEBSOCKET_CONFIG
         else:
             conf = settings.REMOTE_ADMIN_CONFIG
-        self.host = str(conf["host"])
-        self.port = int(conf["port"])
-        self.url_prefix = str(conf.get("url", ""))
+        self._host = str(conf["host"])
+        self._port = int(conf["port"])
+        self._url_prefix = str(conf.get("url", ""))
+        if self._url_prefix and not self._url_prefix.startswith("/"):
+            raise ValueError("REMOTE_ADMIN_CONFIG['url'] must start with a '/'!")
 
         """
         # old veryold:
@@ -70,18 +75,21 @@ class RemoteAdminPlugin(BasePlugin, CommandPluginMixin, TaskPluginMixin):
     @classmethod
     def command_parse(cls, parser: ArgumentParser):
         parser.add_argument("host", nargs="?", help="override settings' host")
-        parser.add_argument("port", nargs="?", help="override settings' port")
+        parser.add_argument("port", nargs="?", help="override settings' port", type=int)
 
     async def command(self, options: Namespace):
-        assert not "implemented"
+        settings.raise_for_missing()
+        async with ClientSession() as cs, cs.ws_connect(f"ws://{self._host}:{self._port}") as ws:
+            # no other way to make it work with python's cmd module...
+            await asyncio.get_running_loop().run_in_executor(None, RemoteAdminShell(ws).cmdloop)
 
     async def task_start(self):
         self.app = web.Application()
-        urls.init_urls(self.app, prefix=self.url_prefix)
+        urls.init_urls(self.app, self._url_prefix)
 
         self.runner = web.AppRunner(self.app)
         await self.runner.setup()
-        site = web.TCPSite(self.runner, self.host, self.port)
+        site = web.TCPSite(self.runner, self._host, self._port)
         await site.start()
 
     async def task_stop(self):

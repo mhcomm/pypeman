@@ -1,28 +1,76 @@
+import inspect
+import json
+from logging import getLogger
+
+from aiohttp import WSMsgType
 from aiohttp import web
 
+from . import methods
 from . import views
+
+logger = getLogger(__name__)
+
+
+async def _rpc_url_handler(request: web.Request):
+    """Glue URL handler between websocket request and :mod:`methods`."""
+    ws = web.WebSocketResponse()
+    await ws.prepare(request)
+    logger.info("websocket connection established")
+
+    async def err(code: int, message: str, data: ...):
+        logger.error(f"(in rpc processing) {message} %s", data)
+        await ws.send_json({"error": {"code": code, "message": message, "data": data}})
+
+    async for msg in ws:
+        if WSMsgType.TEXT == msg.type:
+            try:
+                rpc = json.loads(msg.data)
+            except json.JSONDecodeError as e:
+                await err(-32700, "Parse error", {"pos": e.pos, "lineno": e.lineno, "colno": e.colno})
+                continue
+
+            if "method" not in rpc or "params" not in rpc:
+                await err(-32600, "Invalid Request", f"no {'params' if 'method' in rpc else 'method'!r}")
+                continue
+
+            rfn = getattr(methods, rpc["method"], None)
+            if rfn is None or getattr(rfn, "is_remote_proc", False) is not True:
+                await err(-32601, "Method not found", f"no method {rpc['method']!r}")
+                continue
+
+            params = rpc["params"]
+            expects = inspect.getfullargspec(rfn).kwonlyargs
+            if not isinstance(params, dict) or set(expects) < params.keys():
+                await err(-32602, "Invalid params", {"given": params, "expects": expects})
+                continue
+
+            try:
+                res = await rfn(**params)
+            except BaseException as e:
+                await err(-32603, "Internal error", str(e))
+                continue
+            await ws.send_json({"result": res})
+
+        elif WSMsgType.ERROR == msg.type:
+            logger.warning("websocket connection closed with exception %s", ws.exception())
+
+    logger.info("websocket connection closed")
+    return ws
 
 
 def init_urls(app: web.Application, prefix: str):
-    """
-    Create the pypeman remoteadmin routing
-
-    Args:
-        app (aiohttp.web.Application): The aiohttp web app where the
-                                        url routings have to be added
-    """
-    assert not 'cleaned up'
+    """Create the pypeman remoteadmin routing."""
     app.add_routes(
         [
-            # API :
-            web.get(prefix + "/channels", views.list_channels),
-            web.get(prefix + "/channels/{channelname}/start", views.start_channel),
-            web.get(prefix + "/channels/{channelname}/stop", views.stop_channel),
+            # web API:
+            web.get(prefix + "/channels", methods.list_channels),
+            web.get(prefix + "/channels/{channelname}/start", methods.start_channel),
+            web.get(prefix + "/channels/{channelname}/stop", methods.stop_channel),
             web.get(prefix + "/channels/{channelname}/messages", views.list_msgs),
             web.get(prefix + "/channels/{channelname}/messages/{message_id}/replay", views.replay_msg),
             web.get(prefix + "/channels/{channelname}/messages/{message_id}/view", views.view_msg),
             web.get(prefix + "/channels/{channelname}/messages/{message_id}/preview", views.preview_msg),
-            # WEBSOCKETS :
-            web.get(prefix + "/", views.backport_old_client),
+            # websockets:
+            web.get(prefix + "/", _rpc_url_handler),
         ]
     )

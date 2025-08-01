@@ -15,7 +15,7 @@ from ..base import BasePlugin
 from ..base import CommandPluginMixin
 from ..base import TaskPluginMixin
 from . import urls
-from .cli import RemoteAdminShell
+from .shell import RemoteAdminShell
 
 logger = getLogger(__name__)
 
@@ -81,6 +81,7 @@ class RemoteAdminPlugin(BasePlugin, CommandPluginMixin, TaskPluginMixin):
         settings.raise_for_missing()
         async with ClientSession() as cs, cs.ws_connect(f"ws://{self._host}:{self._port}") as ws:
             # no other way to make it work with python's cmd module...
+            # (see :mod:`shell`, it has doc about that)
             await asyncio.get_running_loop().run_in_executor(None, RemoteAdminShell(ws).cmdloop)
 
     async def task_start(self):

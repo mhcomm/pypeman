@@ -1,3 +1,14 @@
+"""URL exposed by the remoteadmin web server plugin task.
+
+:func:`init_urls` adds the request handlers that re-expose the remote
+methods from :mod:`methods` in two ways:
+    * normal direct HTTP(s) (GET only) endpoints;
+    * a websocket-based endpoint which delegates to :mod:`shell`.
+
+The websocket part is handled by the private (but mentionned for doc
+purpose) :func:`_rpc_url_handler` which implements WS JSON RPC server.
+"""
+
 import inspect
 import json
 from logging import getLogger
@@ -12,7 +23,19 @@ logger = getLogger(__name__)
 
 
 async def _rpc_url_handler(request: web.Request):
-    """Glue URL handler between websocket request and :mod:`methods`."""
+    """Glue URL handler / websocket sever.
+
+    This connects between websocket requests (in the form of JSON RPC)
+    from :mod:`shell` and :mod:`methods`.
+
+    To establish a connection, a websocket client must request at the
+    root (or prefix) URL allocated to the remoteadmin.
+
+    Each request **must** present the parameter structure (`'params'`
+    field) which **must** be using the "by-name" passing convention
+    (ie be a JSON object / Python `dict`).
+    See https://www.jsonrpc.org/specification section 4.2 #answer-to-everythin.
+    """
     ws = web.WebSocketResponse()
     await ws.prepare(request)
     logger.info("websocket connection established")
@@ -59,7 +82,10 @@ async def _rpc_url_handler(request: web.Request):
 
 
 def init_urls(app: web.Application, prefix: str):
-    """Create the pypeman remoteadmin routing."""
+    """Create the pypeman remoteadmin routing.
+
+    Please see the module-level documentation for actual detail.
+    """
     app.add_routes(
         [
             # web API:
@@ -70,7 +96,7 @@ def init_urls(app: web.Application, prefix: str):
             web.get(prefix + "/channels/{channelname}/messages/{message_id}/replay", views.replay_msg),
             web.get(prefix + "/channels/{channelname}/messages/{message_id}/view", views.view_msg),
             web.get(prefix + "/channels/{channelname}/messages/{message_id}/preview", views.preview_msg),
-            # websockets:
+            # websocket:
             web.get(prefix + "/", _rpc_url_handler),
         ]
     )

@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+from datetime import datetime
 from functools import wraps
 from typing import TYPE_CHECKING
 from typing import Awaitable
 from typing import Callable
-from typing import TypedDict
 from typing import Literal
+from typing import TypedDict
 
 from aiohttp import ClientWebSocketResponse
 from aiohttp import web
+from dateutil import parser as dateutilparser
 
 from ...channels import BaseChannel
 from ...channels import all_channels
@@ -164,4 +166,87 @@ async def stop_channel(*, channelname: str) -> StartStopChannel_:
     return {
         "name": chan.name,
         "status": BaseChannel.status_id_to_str(chan.status),
+    }
+
+
+# TODO(MR-local): remove once #322
+class MessageStore_StoredEntry_(TypedDict):
+    id: str  # store-dependant id, different from message.uuid
+    meta: dict[str, list[str]]  # store-related meta, different from message.meta
+    message: Message
+    state: Message.State_  # TODO: remove in favor of _['meta']['state']
+
+
+class ListMsgsItem_(TypedDict):
+    id: str
+    meta: dict[str, list[str]]
+    timestamp: str  # "%Y-%m-%dT%H:%M:%S.%fZ" -- could/should be changed to an actual timestamp
+    # TODO(MR-local): use `Message.State_` once #322
+    state: Literal["pending", "processing", "error", "rejected", "processed", "UNKNOWN"]
+
+
+class ListMsgs_(TypedDict):
+    messages: list[ListMsgsItem_] | dict[str, list[ListMsgsItem_]]
+    total: int
+
+
+def _entries_to_listmsg_res(entries: list[MessageStore_StoredEntry_]) -> list[ListMsgsItem_]:
+    "use by list_msgs to transpose search result to JSON-sendable ones"
+    return [
+        {
+            "id": entry["id"],
+            "meta": entry["meta"],
+            "timestamp": entry["message"].timestamp_str(),  # tag: not an actual timestamp...
+            "state": entry["state"],
+        }
+        for entry in entries
+    ]
+
+
+async def list_msgs(*, channelname: str, **search_kwargs: str) -> ListMsgs_:
+    """TODO(wip)
+    [..]
+    arguments are almost the same as for :meth:`MessageStore.search`
+    but as this remote method is called from HTTP API / WS JSON RPC everything is str
+    this first validate and convert the args as needed
+    meta-based search must use meta_
+    [..]
+    """
+    # validate and convert arguments as needed,
+    # at the same time collect the meta-based args
+    kwargs: dict[str, str | int | datetime] = {}
+    metargs: dict[str, str] = {}
+
+    for name, val in search_kwargs.items():
+        if name == "count":
+            val = int(val)
+        elif name == "order_by":
+            if val not in {"timestamp", "state", "-timestamp", "-state"}:
+                raise ValueError(f"`order_by` cannot be {val!r}")
+        elif name == "group_by":
+            if val not in {"state"}:
+                raise ValueError(f"`group_by` cannot be {val!r}")
+        elif name in {"start_dt", "end_dt"}:
+            val = dateutilparser.isoparse(val)
+
+        elif name.startswith("meta_"):
+            metargs[name[5:]] = val
+            continue  # don't add it to kwargs..
+
+        kwargs[name] = val
+
+    chan = get_channel(channelname)
+    assert chan, "channel not found"
+
+    found: ... = await chan.message_store.search(**kwargs, meta=metargs)
+    # TODO(MR-local): annotations above and below unnecessary once #322
+    # (well truthfully, it would also need hinting in `get_channel` and `BaseChannel`)
+    found: list[MessageStore_StoredEntry_] | dict[str, list[MessageStore_StoredEntry_]]
+    return {
+        "messages": (
+            {group: _entries_to_listmsg_res(found[group]) for group in found}
+            if isinstance(found, dict)  # otherwise it's a list
+            else _entries_to_listmsg_res(found)
+        ),
+        "total": await chan.message_store.total(),
     }

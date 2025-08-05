@@ -1239,6 +1239,7 @@ class DatabaseMessageStoreFactory(MessageStoreFactory):
         """
         self._active_stores.remove(store_id)
         if not self._active_stores:
+            await self._conn.commit()
             await self._conn.close()
 
     async def execute(self, sql: str, parameters: tuple[Any, ...]):
@@ -1256,6 +1257,10 @@ class DatabaseMessageStoreFactory(MessageStoreFactory):
     async def execute_fetchall(self, sql: str, parameters: tuple[Any, ...]):
         """Delegate method. Not private because used in MessageStore."""
         return await self._conn.execute_fetchall(sql, parameters)
+
+    async def commit(self):
+        """Delegate method. Not private because used in MessageStore."""
+        return await self._conn.commit()
 
     async def _delete_store(self, store: MessageStore):
         assert isinstance(store, DatabaseMessageStore)  # type narrowing
@@ -1297,7 +1302,6 @@ class DatabaseMessageStore(MessageStore):
      -- ^ json, tho we know it should be dict[str, list[str] | str], anything better we can do? thinkin no..
      store_id             TEXT, -- XXX
      store_chan_name      TEXT, -- XXX
-     -- an inlined "{self._store_id}.entries_ctx" row
      message_payload      TEXT                                                NOT NULL, -- json
      message_meta         TEXT                                                NOT NULL) -- json
  STRICT, WITHOUT ROWID;
@@ -1305,7 +1309,8 @@ class DatabaseMessageStore(MessageStore):
      name                 TEXT                                                NOT NULL,
      payload              TEXT                                                NOT NULL, -- json
      meta                 TEXT                                                NOT NULL, -- json
-     FOREIGN KEY(ctx_of)  REFERENCES "{self._store_id}.stored_entries"(id)    NOT NULL,
+     ctx_of               TEXT                                                NOT NULL,
+     FOREIGN KEY(ctx_of)  REFERENCES "{self._store_id}.stored_entries"(id),
      PRIMARY KEY(ctx_of, name))
  STRICT, WITHOUT ROWID;
  """,
@@ -1329,7 +1334,6 @@ class DatabaseMessageStore(MessageStore):
                     json.dumps(msg.meta),
                 ),
             )
-
             await self._db.executemany(
                 f'INSERT INTO "{self._store_id}.entries_ctx" VALUES (?, ?, ?, ?)',
                 [
@@ -1337,6 +1341,7 @@ class DatabaseMessageStore(MessageStore):
                     for name, thingy in msg.ctx.items()
                 ],
             )
+            await self._db.commit()
 
         except IntegrityError as e:
             raise ValueError(*e.args)
@@ -1367,7 +1372,7 @@ class DatabaseMessageStore(MessageStore):
 
         if not msg_bits:
             raise LookupError(f"no message stored under {id!r}")
-        timestamp, meta, store_id, store_chan_name, message_payload, message_meta = msg_bits[0]
+        timestamp, store_id, store_chan_name, message_payload, message_meta = msg_bits[0]
 
         msg = Message()
         msg.timestamp = datetime.fromtimestamp(timestamp)
@@ -1398,6 +1403,7 @@ class DatabaseMessageStore(MessageStore):
         )
         if not res:
             raise LookupError(f"no message stored under {id!r}")
+        await self._db.commit()
 
     async def _span_select(self, start_dt: datetime | None, end_dt: datetime | None) -> list[str]:
         ids = await self._db.execute_fetchall(

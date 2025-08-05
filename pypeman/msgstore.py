@@ -46,6 +46,7 @@ from datetime import timedelta
 from pathlib import Path
 from pathlib import PurePath
 from sqlite3 import IntegrityError
+from sqlite3 import OperationalError
 from typing import Any
 from typing import Callable
 from typing import Literal
@@ -110,6 +111,10 @@ class MessageStoreFactory(ABC):
     def list_store(self) -> list[str]:
         """List of instanciated stores' `store_id`.
 
+        Remark: this only lists stores instanciated _during this run_
+        of the pypeman project; if other stores where once created but
+        are not currently used, they will not appear.
+
         :return: List.
         """
         return list(self._stores.keys())
@@ -165,6 +170,7 @@ class MessageStore(ABC):
 
     It may also override:
         * :meth:`_start` -- default is no-op
+        * :meth:`_stop` -- default is no-op
         * :meth:`get_many` -- default might be inefficient
 
     :abstract:
@@ -181,6 +187,12 @@ class MessageStore(ABC):
 
     async def _start(self):
         """(implementation) Called at startup to initialize the store.
+
+        This method is not marked as abstract and thus not required.
+        """
+
+    async def _stop(self):
+        """(implementation) Called at teardown to finalize the store.
 
         This method is not marked as abstract and thus not required.
         """
@@ -271,6 +283,11 @@ class MessageStore(ABC):
         await self._start()
         self._cached_total = await self._total()
         logger.debug(f"store started successfully {self!r}: {self._cached_total} message(s)")
+
+    async def stop(self):
+        """Called at teardown to finalize the store."""
+        # TODO: !!! this is not hooked in yet! I need to add it to channel stop
+        await self._stop()
 
     async def store(self, msg: Message) -> str:
         """Store a message in the store.
@@ -1182,11 +1199,11 @@ DATE_FORMAT = FileMessageStore.DATE_FORMAT
 class DatabaseMessageStoreFactory(MessageStoreFactory):
     """A database-backed message store.
 
-    There is a single actual database [file]
-    and each new store is a table within it.
+    There is a single actual database file (if it is a file) and each
+    new store is tables within it.
 
-    The schem is an implementation detail and will change.
-    See :meth:`_start`.
+    The schema is an implementation detail and you must assume it will
+    change. See :meth:`_start` for detail anyway.
     """
 
     def __init__(self, path: str | Path):
@@ -1194,8 +1211,10 @@ class DatabaseMessageStoreFactory(MessageStoreFactory):
         # sanity check (Path inherit from PurePath)
         if not isinstance(path, (str, PurePath)):
             raise PypemanConfigError("database message store requires a path")  # pragma: no cover
-        self._path = Path(path)
-        self._db = None
+        self._path = Path(path)  # XXX: maybe it shouldnt be 'Path', cause it could be other values
+        # set of the active (between _start and _stop) stores: when it's empty, `self._conn` doesn't exist;
+        # this is essentially a reference counter for the connection
+        self._active_stores: set[str] = set()
 
     def _new_store(self, store_id: str) -> MessageStore:
         # there **must not** be any of these char in `store_id`
@@ -1204,50 +1223,73 @@ class DatabaseMessageStoreFactory(MessageStoreFactory):
         # see notes in constructor for the parameters
         return DatabaseMessageStore(self, store_id)
 
-    async def _get_db(self):
-        if self._db is None:
-            self._db = aiosqlite.connect(self._path)
-        return self._db
+    async def _store_started(self, store_id: str):
+        """Called by MessageStore when starting.
 
-    # XXX: uuuh (stores don't have a "stop"...)
-    # https://stackoverflow.com/a/67577364
-    # TODO: add a proper "stop" (and "_stop") to the interface
-    # async def __del__(self):
-    #     await self._db.close()
+        When this is the first store, a connection is established.
+        """
+        if not self._active_stores:
+            self._conn = await aiosqlite.connect(self._path)
+        self._active_stores.add(store_id)
+
+    async def _store_stopped(self, store_id: str):
+        """Called by MessageStore when stopping.
+
+        If this was the last known store, the connection is closed.
+        """
+        self._active_stores.remove(store_id)
+        if not self._active_stores:
+            await self._conn.close()
+
+    async def execute(self, sql: str, parameters: tuple[Any, ...]):
+        """Delegate method. Not private because used in MessageStore."""
+        return await self._conn.execute(sql, parameters)
+
+    async def executescript(self, sql_script: str):
+        """Delegate method. Not private because used in MessageStore."""
+        return await self._conn.executescript(sql_script)
+
+    async def executemany(self, sql: str, parameters: list[tuple[Any, ...]]):
+        """Delegate method. Not private because used in MessageStore."""
+        return await self._conn.executemany(sql, parameters)
+
+    async def execute_fetchall(self, sql: str, parameters: tuple[Any, ...]):
+        """Delegate method. Not private because used in MessageStore."""
+        return await self._conn.execute_fetchall(sql, parameters)
 
     async def _delete_store(self, store: MessageStore):
         assert isinstance(store, DatabaseMessageStore)  # type narrowing
-        if 1:  # async with await self._get_db() as c:
-            # private usage in friend class
-            await (await self._get_db()).executescript(
+        # private usage in friend class
+        store_id = store._store_id
+        if store_id not in self._active_stores:
+            return  # store has not been started
+        try:
+            await self.executescript(
                 f"""
- DROP TABLE "{store._store_id}.entries_ctx";
- DROP TABLE "{store._store_id}.stored_entries";
+ DROP TABLE "{store_id}.entries_ctx";
+ DROP TABLE "{store_id}.stored_entries";
  """,
             )
+        except OperationalError:
+            # because tables are created lazily when stores are started,
+            # there is a world in which the tables do not exist; we accept
+            # this as a normal condition
+            pass
 
 
 class DatabaseMessageStore(MessageStore):
     def __init__(self, factory_handle: DatabaseMessageStoreFactory, store_id: str):
         super().__init__()
-        # note about why take a handle to the whole factory:
-        # all the way up the call chain leading here is :meth:`BaseChannel.__init__`
-        # which of course is not async and not expected to touch any file whatsoever
-        # (as is reminded in :meth:`MessageStoreFactory._new_store` which is also up in the call chain)
-        # so not even the database have been opened yet, let alone adding a table;
-        # the db connection is attached onto the factory (be shared) but will effectively
-        # be opened (lazily) by one of the child message store
-        self._handle = factory_handle
+        # the factory acts as a proxy to the connection (then to the database)
+        self._db = factory_handle
         self._store_id = store_id
 
     async def _start(self):
-        # trade the handle for an actual db (private usage in friend class)
-        self._db = await self._handle._get_db()
-        del self._handle
+        # notify that we are starting; after that only is the connection ensured to exist
+        await self._db._store_started(self._store_id)
 
-        if 1:  # async with self._db:
-            await self._db.executescript(
-                f"""
+        await self._db.executescript(
+            f"""
  CREATE TABLE IF NOT EXISTS "{self._store_id}.stored_entries" (
      id                   TEXT PRIMARY KEY                                    NOT NULL,
      timestamp            REAL                                                NOT NULL,
@@ -1267,31 +1309,34 @@ class DatabaseMessageStore(MessageStore):
      PRIMARY KEY(ctx_of, name))
  STRICT, WITHOUT ROWID;
  """,
-            )
+        )
+
+    async def _stop(self):
+        # notify that we are stopping and will not be using the connection anymore
+        await self._db._store_stopped(self._store_id)
 
     async def _store(self, msg: Message, ini_meta: dict[str, Any]) -> str:
         try:
-            if 1:  # async with self._db:
-                await self._db.execute(
-                    f'INSERT INTO "{self._store_id}.stored_entries" VALUES (?, ?, ?, ?, ?, ?, ?)',
-                    (
-                        msg.uuid,
-                        msg.timestamp.timestamp(),
-                        json.dumps(ini_meta),
-                        msg.store_id,
-                        msg.store_chan_name,
-                        json.dumps(msg.payload),
-                        json.dumps(msg.meta),
-                    ),
-                )
+            await self._db.execute(
+                f'INSERT INTO "{self._store_id}.stored_entries" VALUES (?, ?, ?, ?, ?, ?, ?)',
+                (
+                    msg.uuid,
+                    msg.timestamp.timestamp(),
+                    json.dumps(ini_meta),
+                    msg.store_id,
+                    msg.store_chan_name,
+                    json.dumps(msg.payload),
+                    json.dumps(msg.meta),
+                ),
+            )
 
-                await self._db.executemany(
-                    f'INSERT INTO "{self._store_id}.entries_ctx" VALUES (?, ?, ?, ?)',
-                    [
-                        (name, json.dumps(thingy["payload"]), json.dumps(thingy["meta"]), msg.uuid)
-                        for name, thingy in msg.ctx.items()
-                    ],
-                )
+            await self._db.executemany(
+                f'INSERT INTO "{self._store_id}.entries_ctx" VALUES (?, ?, ?, ?)',
+                [
+                    (name, json.dumps(thingy["payload"]), json.dumps(thingy["meta"]), msg.uuid)
+                    for name, thingy in msg.ctx.items()
+                ],
+            )
 
         except IntegrityError as e:
             raise ValueError(*e.args)
@@ -1299,28 +1344,26 @@ class DatabaseMessageStore(MessageStore):
 
     async def _delete(self, id: str):
         # no error when `id` didn't exist..
-        if 1:  # async with self._db:
-            await self._db.execute(f'DELETE FROM "{self._store_id}.entries_ctx" WHERE ? = ctx_of', (id,))
-            await self._db.execute(f'DELETE FROM "{self._store_id}.stored_entries" WHERE ? = id', (id,))
+        await self._db.execute(f'DELETE FROM "{self._store_id}.entries_ctx" WHERE ? = ctx_of', (id,))
+        await self._db.execute(f'DELETE FROM "{self._store_id}.stored_entries" WHERE ? = id', (id,))
 
     async def _total(self) -> int:
-        res = await self._db.execute_fetchall(f'SELECT count(*) FROM "{self._store_id}.stored_entries"')
+        res = await self._db.execute_fetchall(f'SELECT count(*) FROM "{self._store_id}.stored_entries"', ())
         return res[0][0]
 
     async def _get_message(self, id: str) -> Message:
-        if 1:  # async with self._db:
-            ctx_bits = await self._db.execute_fetchall(
-                f'SELECT name, payload, meta FROM "{self._store_id}.entries_ctx" WHERE ? = ctx_of',
-                (id,),
-            )
+        ctx_bits = await self._db.execute_fetchall(
+            f'SELECT name, payload, meta FROM "{self._store_id}.entries_ctx" WHERE ? = ctx_of',
+            (id,),
+        )
 
-            msg_bits = await self._db.execute_fetchall(
-                f"""
+        msg_bits = await self._db.execute_fetchall(
+            f"""
  SELECT timestamp, store_id, store_chan_name, message_payload, message_meta
  FROM "{self._store_id}.stored_entries" WHERE ? = id
  """,
-                (id,),
-            )
+            (id,),
+        )
 
         if not msg_bits:
             raise LookupError(f"no message stored under {id!r}")
@@ -1340,32 +1383,29 @@ class DatabaseMessageStore(MessageStore):
         return msg
 
     async def _get_storemeta(self, id: str) -> dict[str, Any]:
-        if 1:  # async with self._db:
-            res = await self._db.execute_fetchall(
-                f'SELECT meta FROM "{self._store_id}.stored_entries" WHERE ? = id',
-                (id,),
-            )
+        res = await self._db.execute_fetchall(
+            f'SELECT meta FROM "{self._store_id}.stored_entries" WHERE ? = id',
+            (id,),
+        )
         if not res:
             raise LookupError(f"no message stored under {id!r}")
         return json.loads(res[0][0])
 
     async def _set_storemeta(self, id: str, meta: dict[str, Any]):
-        if 1:  # async with self._db:
-            res = await self._db.execute_fetchall(
-                f'UPDATE "{self._store_id}.stored_entries" SET meta = ? WHERE ? = id RETURNING id',
-                (json.dumps(meta), id),
-            )
+        res = await self._db.execute_fetchall(
+            f'UPDATE "{self._store_id}.stored_entries" SET meta = ? WHERE ? = id RETURNING id',
+            (json.dumps(meta), id),
+        )
         if not res:
             raise LookupError(f"no message stored under {id!r}")
 
     async def _span_select(self, start_dt: datetime | None, end_dt: datetime | None) -> list[str]:
-        if 1:  # async with self._db:
-            ids = await self._db.execute_fetchall(
-                f'SELECT id FROM "{self._store_id}.stored_entries" WHERE ? <= timestamp AND timestamp < ?',
-                (
-                    0 if start_dt is None else start_dt.timestamp(),
-                    # hopefully pypeman burns before 2286!
-                    10**10 if end_dt is None else end_dt.timestamp(),
-                ),
-            )
+        ids = await self._db.execute_fetchall(
+            f'SELECT id FROM "{self._store_id}.stored_entries" WHERE ? <= timestamp AND timestamp < ?',
+            (
+                0 if start_dt is None else start_dt.timestamp(),
+                # hopefully pypeman burns before 2286!
+                10**10 if end_dt is None else end_dt.timestamp(),
+            ),
+        )
         return [id for id, in ids]

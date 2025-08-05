@@ -136,6 +136,20 @@ class MessageStoreFactory(ABC):
         # private usage in friend class
         existing._cached_total = 0
 
+    async def _delete_everything(self):
+        """Used in testing; meant to be overridden traditionally ie with
+        an `await super()._delete_everything()`. Each factory must
+        cleanly remove everything ensuring that a new store factory
+        created with the exact same argument (regardless of interpreter
+        restart) will be exactly from scratch. You surely don't need to
+        use this method.
+        """
+        for store_id in self.list_store():
+            store = self.get_store(store_id)
+            if store._active:
+                await store.stop()
+            await self.delete_store(store_id)
+
 
 class MessageStore(ABC):
     """A :class:`MessageStore` keep an history of processed messages.
@@ -184,6 +198,9 @@ class MessageStore(ABC):
         # TODO: ideally this `Any` would be replaced with `list[str]` with explicit checks at access points
         message: Message
         state: Message.State_  # TODO: remove in favor of _['meta']['state']
+
+    def __init__(self):
+        self._active = False
 
     async def _start(self):
         """(implementation) Called at startup to initialize the store.
@@ -281,13 +298,16 @@ class MessageStore(ABC):
     async def start(self):
         """Called at startup to initialize the store."""
         await self._start()
+        self._active = True
         self._cached_total = await self._total()
         logger.debug(f"store started successfully {self!r}: {self._cached_total} message(s)")
 
     async def stop(self):
         """Called at teardown to finalize the store."""
         # TODO: !!! this is not hooked in yet! I need to add it to channel stop
+        # (otherwise the db one will make it not stop ever)
         await self._stop()
+        self._active = False
 
     async def store(self, msg: Message) -> str:
         """Store a message in the store.
@@ -1010,6 +1030,13 @@ class FileMessageStoreFactory(MessageStoreFactory):
         else:
             logger.warning(f"deleting file message store that was not started: {self.base_path!r}")
 
+    async def _delete_everything(self):
+        await super()._delete_everything()
+        path = Path(self.base_path)
+        # exists and is empty, remove the dir
+        if path.exists() and not list(path.iterdir()):
+            path.rmdir()
+
 
 class FileMessageStore(MessageStore):
     """
@@ -1211,7 +1238,7 @@ class DatabaseMessageStoreFactory(MessageStoreFactory):
         # sanity check (Path inherit from PurePath)
         if not isinstance(path, (str, PurePath)):
             raise PypemanConfigError("database message store requires a path")  # pragma: no cover
-        self._path = Path(path)  # XXX: maybe it shouldnt be 'Path', cause it could be other values
+        self._path = Path(path)  # XXX: maybe it shouldnt be 'Path', cause it could be other than a file
         # set of the active (between _start and _stop) stores: when it's empty, `self._conn` doesn't exist;
         # this is essentially a reference counter for the connection
         self._active_stores: set[str] = set()
@@ -1241,6 +1268,7 @@ class DatabaseMessageStoreFactory(MessageStoreFactory):
         if not self._active_stores:
             await self._conn.commit()
             await self._conn.close()
+            del self._conn
 
     async def execute(self, sql: str, parameters: tuple[Any, ...]):
         """Delegate method. Not private because used in MessageStore."""
@@ -1266,20 +1294,34 @@ class DatabaseMessageStoreFactory(MessageStoreFactory):
         assert isinstance(store, DatabaseMessageStore)  # type narrowing
         # private usage in friend class
         store_id = store._store_id
-        if store_id not in self._active_stores:
-            return  # store has not been started
+        # why this:
+        # stopping a messages store removes it from _active_stores, and if this was the last one
+        # the connection is closed; now it is reasonable to imagine that the store is stopped
+        # before asking for deletion...
+        # if this happend to be the situation we are in, a temporary connection is established
+        conn = getattr(self, "_conn", None) or await aiosqlite.connect(self._path)
         try:
-            await self.executescript(
+            await conn.executescript(
                 f"""
  DROP TABLE "{store_id}.entries_ctx";
  DROP TABLE "{store_id}.stored_entries";
  """,
             )
-        except OperationalError:
-            # because tables are created lazily when stores are started,
-            # there is a world in which the tables do not exist; we accept
-            # this as a normal condition
-            pass
+        except OperationalError as e:
+            # this is upsetting, but it is how it is;
+            # we must accept deleting a store that wasn't even started yet
+            if "no such table" not in str(e):
+                # there should be no reason any other OperationalError happens,
+                # but just in case we re-raise it
+                raise  # pragma: no cover
+        finally:
+            if not hasattr(self, "_conn"):
+                await conn.close()
+
+    async def _delete_everything(self):
+        await super()._delete_everything()
+        if self._path.exists():
+            self._path.unlink()
 
 
 class DatabaseMessageStore(MessageStore):
@@ -1407,7 +1449,11 @@ class DatabaseMessageStore(MessageStore):
 
     async def _span_select(self, start_dt: datetime | None, end_dt: datetime | None) -> list[str]:
         ids = await self._db.execute_fetchall(
-            f'SELECT id FROM "{self._store_id}.stored_entries" WHERE ? <= timestamp AND timestamp < ?',
+            f"""
+ SELECT id FROM "{self._store_id}.stored_entries"
+ WHERE ? <= timestamp AND timestamp < ?
+ ORDER BY timestamp
+ """,
             (
                 0 if start_dt is None else start_dt.timestamp(),
                 # hopefully pypeman burns before 2286!

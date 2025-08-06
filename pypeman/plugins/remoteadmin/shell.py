@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import asyncio
 from cmd import Cmd
+from datetime import datetime
 from functools import wraps
 from shlex import split as arg_split
 from typing import Awaitable
@@ -107,11 +108,41 @@ class RemoteAdminShell(Cmd):
         #   * if you list the channels (do_channels), result is stored
         #   * if you <tab> where a channel name would be expected, they are fetched implicitely
         self._avail_channels: set[str] | None = None
+        # also for completion; gathers any (store specific) id we see at all
+        self._known_msg_ids: set[str] = set()
 
     def do_exit(self, _: str):
         return True
 
     do_EOF = do_exit
+
+    def _arg_extract_kwargs(self, arg: str, positional_names: list[str]):
+        """Extracts named args, use by some commands.
+
+        `arg` would be as passed to one of the `do_..` Cmd method.
+        It is then split mostly like a shell command (eg quotes should
+        work) and items of the form name='val' are gathered into
+        a dict.
+
+        If the command allows for positional arguments, these should
+        be listed in order in `positional_names`.
+        """
+        kwargs: dict[str, str] = {}
+        positional_names = list(positional_names)
+
+        for arg in arg_split(arg):
+            name, found, val = arg.partition("=")
+            # if '=' is found then it's a kwargs pass as name='val'
+            if found and name.isidentifier():
+                kwargs[name] = val
+            # otherwise it's maybe a positional arg; check if we have any of these left
+            elif positional_names:
+                kwargs[positional_names.pop(0)] = arg
+            # no more positional arg; notify and disregard
+            else:
+                self.stdout.write(f"The meaning of {arg!r} is not clear, it will not be use.")
+
+        return kwargs
 
     @_try_except_print
     @_sync
@@ -129,7 +160,8 @@ class RemoteAdminShell(Cmd):
     @_sync
     async def do_start(self, channelname: str):
         """Start a channel by its name, or the current one."""
-        if self._current_channel and not channelname:
+        if not channelname:
+            assert self._current_channel, "no channel given nor selected"
             channelname = self._current_channel
         res = await methods.start_channel(self._ws, channelname=channelname)
         self.stdout.write(f"{res['name']}: {res['status']}\n")
@@ -138,7 +170,8 @@ class RemoteAdminShell(Cmd):
     @_sync
     async def do_stop(self, channelname: str):
         """Stop a channel by its name, or the current one."""
-        if self._current_channel and not channelname:
+        if not channelname:
+            assert self._current_channel, "no channel given nor selected"
             channelname = self._current_channel
         res = await methods.stop_channel(self._ws, channelname=channelname)
         self.stdout.write(f"{res['name']}: {res['status']}\n")
@@ -157,9 +190,8 @@ class RemoteAdminShell(Cmd):
             self.stdout.write(f"Warning: no channel name {channelname} on instance.\n")
         self._current_channel = channelname
 
-    @_try_except_print
     @_sync
-    async def complete_select(self, text: str, *_):
+    async def complete_select(self, text: str, *_: ...):
         if self._avail_channels is None:
             channels = await methods.list_channels(self._ws)
             self._avail_channels = {it["name"] for it in channels}
@@ -173,46 +205,23 @@ class RemoteAdminShell(Cmd):
     async def do_list(self, channelname: str, search: str):
         """List messages of the selected channel.
 
-        [..]
-        [to pass args and what not, syntax accepted]
-
         This is a mostly direct call to the channel's message store's
-        `search` (:meth:`MessageStore.search`) and as such will accept
-        mostly the same arguments. The call is done through the same
-        means as the HTTP API point `"/channels/{channelname}/messages"`
-        (see :func:`methods.list_msgs`), so the only hiccup is the
-        handling of meta-based searches; these need to use `'meta_'`.
+        `search` (:meth:`MessageStore.search`). It will accept mostly
+        the same arguments. 'meta'-based searches must use `'meta_..'`.
 
         Examples:
-            (Cmd) ...
-        [..]
-
-        TODO(wip)
+            (Cmd) select my_channel
+            (Cmd) list start_dt='2025-10-10 15:30' end_dt='2025-10-10 17' order_by=timestamp
+            (Cmd) list start_dt=2024 end_dt=2025 group_by=status
         """
-        kwargs: dict[str, str] = {}
+        kwargs = self._arg_extract_kwargs(search, ["start", "end", "order_by"])
+        # TODO: XXX: (about above)
+        #   `start`/`stop` are no longer valid and as such will be removed
+        #   (I added this part of the code mechanically, but...)
+        #   `order_by` is I guess a valid positional argument;
+        #   what about having `start_dt`/`end_dt` instead of `start`/`stop`?
 
-        for arg in arg_split(search):
-            name, found, val = arg.partition("=")
-            if found:
-                kwargs[name] = val
-                continue
-
-            # otherwise it's a positional arg; these are in order: start, end and order_by
-            if "start" not in kwargs:
-                kwargs["start"] = arg
-            elif "end" not in kwargs:
-                kwargs["end"] = arg
-            elif "order_by" not in kwargs:
-                kwargs["order_by"] = arg
-            else:
-                self.stdout.write(f"The meaning of {arg!r} is not clear, it will not be use.")
-            # TODO: XXX: (about above)
-            #   `start`/`stop` are no longer valid and as such will be removed
-            #   (I added this part of the code mechanically-)
-            #   `order_by` is I guess a valid positional argument;
-            #   what about having `start_dt`/`end_dt` instead of `start`/`stop`?
-
-        result = await methods.list_msgs(channelname=channelname, **kwargs)
+        result = await methods.list_msgs(self._ws, channelname=channelname, **kwargs)
         if not result["total"]:
             self.stdout.write("No message yet.\n")
             return
@@ -221,6 +230,7 @@ class RemoteAdminShell(Cmd):
         if isinstance(messages, list):
             for msg in messages:
                 self.stdout.write(f"{msg['timestamp']} {msg['id']} {msg['state']}\n")
+                self._known_msg_ids.add(msg["id"])
             if not messages:
                 self.stdout.write("No matching message.\n")
             else:
@@ -232,29 +242,41 @@ class RemoteAdminShell(Cmd):
                 self.stdout.write("Group {group!r}:\n")
                 for msg in messages[group]:
                     self.stdout.write(f"\t{msg['timestamp']} {msg['id']} {msg['state']}\n")
+                    self._known_msg_ids.add(msg["id"])
             if not messages:
                 self.stdout.write("No matching message.\n")
             else:
                 self.stdout.write(f"Matched {total} message(s) into {len(messages)} group(s).\n")
 
+    def complete_list(self, text: str, *_: ...):
+        if text in {"start_dt=", "end_dt="}:
+            # life hack: if you <tab> at this point, we'll give you the current time
+            return [datetime.now().strftime("'%Y-%m-%d %H:%M'")]
+
+        flate = {"count=", "start_id=", "start_dt=", "end_dt=", "text=", "rtext=", "meta_"}
+        ordre = {f"order_by={v}" for v in {"timestamp", "state", "-timestamp", "-state"}}
+        grope = {f"group_by={v}" for v in {"state"}}
+        return [w for w in {*flate, *ordre, *grope} if w.startswith(text)]
+
     @_try_except_print
     @_with_current_channel
     @_sync
     async def do_replay(self, channelname: str, ids: str):
-        """Replay a list of messages by their ids."""
+        """Replay a list of messages by their message store ids."""
         msg_ids = str(ids).split()
         failures = 0
 
         for msg_id in msg_ids:
             try:  # catch individual failures
-                msg_dict = await methods.replay_msg(channelname=channelname, message_id=msg_id)
+                msg_dict = await methods.replay_msg(self._ws, channelname=channelname, message_id=msg_id)
             except BaseException as e:
                 self.stdout.write(f"On message {msg_id} - {type(e)}: {str(e) or '(no detail)'}\n")
                 failures += 1
                 continue
 
-            self.stdout.write("Resulting message:\n")
+            self.stdout.write(f"(Store id {msg_id}) - resulting message:\n")
             self.stdout.write(Message.from_dict(msg_dict).to_print())
+            self.stdout.write("\n")
 
         if 1 < len(msg_ids):
             self.stdout.write(f"Summary: {len(msg_ids)-failures}/{len(msg_ids)} ok ({failures} failures)\n")
@@ -263,19 +285,42 @@ class RemoteAdminShell(Cmd):
     @_with_current_channel
     @_sync
     async def do_view(self, channelname: str, ids: str):
-        """View content of a message list by their ids."""
-        assert not "implemented"
+        """View a list of messages by their message store ids."""
+        # don't asyncio.gather here it's useless;
+        # the proper thing to do would be https://www.jsonrpc.org/specification#batch
+        # (+7 lines in .urls when i did) but it's unnecessary trust me sis/bro
+        for msg_id in str(ids).split():
+            msg_dict = await methods.view_msg(self._ws, channelname=channelname, message_id=msg_id)
+            self.stdout.write(f"(Store id {msg_id})\n")
+            self.stdout.write(Message.from_dict(msg_dict).to_print())
+            self.stdout.write("\n")
 
-    @_try_except_print
-    @_with_current_channel
-    @_sync
-    async def do_preview(self, channelname: str, ids: str):
-        """Preview content of a message list by their ids."""
-        assert not "implemented"
+    def complete_replay(self, text: str, *_: ...):
+        return [id for id in self._known_msg_ids if id.startswith(text)]
+
+    complete_view = complete_replay
 
     @_try_except_print
     @_with_current_channel
     @_sync
     async def do_push(self, channelname: str, content: str):
-        """Inject message with text as payload for selected channel."""
-        assert not "implemented"
+        """Inject a message for handling by the selected channel.
+
+        The first positional argument will be the message's payload.
+        To additionally specify meta for the message, add a meta='val'
+        argument; val must be a valid json object (ie python dict).
+
+        Example:
+            (Cmd) select your_channel
+            (Cmd) push meta='{"yey": "ok"}' aaaaaaaaaaaaa
+        """
+        kwargs = self._arg_extract_kwargs(content, ["payload"])
+
+        payload = kwargs["payload"]
+        meta = kwargs.get("meta", "")
+
+        msg_dict = await methods.push_msg(self._ws, channelname=channelname, payload=payload, meta=meta)
+        self.stdout.write(Message.from_dict(msg_dict).to_print())
+
+    def complete_push(self, text: str, *_):
+        return [w for w in {"payload=", "meta="} if w.startswith(text)]

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from functools import wraps
 from typing import TYPE_CHECKING
+from typing import Any
 from typing import Awaitable
 from typing import Callable
 from typing import Literal
@@ -206,13 +208,14 @@ def _entries_to_listmsg_res(entries: list[MessageStore_StoredEntry_]) -> list[Li
 
 @_remote_proc
 async def list_msgs(*, channelname: str, **search_kwargs: str) -> ListMsgs_:
-    """TODO(wip)
-    [..]
-    arguments are almost the same as for :meth:`MessageStore.search`
-    but as this remote method is called from HTTP API / WS JSON RPC everything is str
-    this first validate and convert the args as needed
-    meta-based search must use meta_
-    [..]
+    """List and search through messages in a channel's store.
+
+    This is a direct call to :meth:`MessageStore.search`. The returned
+    object differ in that it does not contain the messages themselves,
+    making it lighter and easier to JSON-serialize.
+
+    Like other remote procedure, all arguments are plain str and thus
+    'meta'-based searches must use `'meta_..'`.
     """
     # validate and convert arguments as needed,
     # at the same time collect the meta-based args
@@ -254,8 +257,12 @@ async def list_msgs(*, channelname: str, **search_kwargs: str) -> ListMsgs_:
     }
 
 
+# guu, proper type for it 's not comming before a while
+Message_AsDict_ = Any
+
+
 @_remote_proc
-async def replay_msg(*, channelname: str, message_id: str) -> ...:
+async def replay_msg(*, channelname: str, message_id: str) -> Message_AsDict_:
     """Replay a message through the given channel.
 
     The message must of course exist in the channel's store.
@@ -267,3 +274,34 @@ async def replay_msg(*, channelname: str, message_id: str) -> ...:
 
     msg_res = await chan.replay(message_id)
     return msg_res.to_dict()
+
+
+@_remote_proc
+async def view_msg(*, channelname: str, message_id: str) -> Message_AsDict_:
+    """Retrieve a message from the given channel.
+
+    The message must of course exist in the channel's store.
+
+    :return: see :meth:`Message.to_dict`
+    """
+    chan = get_channel(channelname)
+    assert chan, "channel not found"
+
+    msg_res = await chan.message_store.get(message_id)["message"]
+    return msg_res.to_dict()
+
+
+@_remote_proc
+async def push_msg(*, channelname: str, payload: str, meta: str) -> Message_AsDict_:
+    """Push a message for the channel to handle.
+
+    `meta`, if not empty, is expected to be a JSON object (ie python
+    dict).
+
+    :return: see :meth:`Message.to_dict`
+    """
+    chan = get_channel(channelname)
+    assert chan, "channel not found"
+
+    result = await chan.handle(Message(payload=payload, meta=json.loads(meta) if meta else None))
+    return result.to_dict()

@@ -34,11 +34,14 @@ async def start(_options: Namespace):
     await asyncio.gather(*(it.start() for it in all_endpoints + all_channels))
     # TODO: check this point, ordering might matter (all endpoints then all channels)
 
-    ...  # signal handling
+    # TODO/FIXME: after the line above, essentially all error within
+    #             this function are inhibited (? wth) wanna investigate
 
+    logger.debug("Everything ready.")
     try:
-        # hold on, can you nest `run_forever`s? (asyncio.run already is within a `run_forever`)
-        asyncio.get_event_loop().run_forever()
+        while ...:
+            await asyncio.sleep(43210)
+            logger.debug("Still live and kicking.")
     except KeyboardInterrupt:
         logger.debug("SIGINT!")
     logger.debug("Loop was stopped.")
@@ -53,12 +56,6 @@ async def amain():
     subpar = parser.add_subparsers(dest="command", required=True)
 
     # `start` isn't moved to a plugin (lucky little one)
-    # "lost" (unused and untested) functionalities:
-    # - "--reload" (at best it could be a plugin, but personally i'd rather
-    #               rely on an external tool like `nodemon` or `watchdog`)
-    # - "--debug-asyncio" just use $PYTHONASYNCIODEBUG like a normal person
-    # - "--daemon" same idea as "--reload", pypeman could benefit with
-    #              actually being what it sais ie 'minimalistic and whatnotic'
     subpar.add_parser("start").set_defaults(_func=start)
 
     manager.register_plugins(*settings.PLUGINS)

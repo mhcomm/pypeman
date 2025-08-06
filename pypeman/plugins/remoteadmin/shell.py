@@ -29,8 +29,8 @@ Eventually the solution is with the two following steps:
 
     await asyncio.get_running_loop().run_in_executor(None, RemoteAdminShell(ws).cmdloop)
 
-When :class:`PypemanShell` is instantiated, it stores a handle to the
-current (main) thread's event loop. Then when comes the need to call
+When :class:`RemoteAdminShell` is instantiated, it stores a handle to
+the current (main) thread's event loop. Then when comes the need to call
 an async function it is sent as a task to said event loop and we block
 here until resolved (see :func:`_sync`).
 

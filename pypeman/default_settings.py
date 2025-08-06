@@ -54,8 +54,7 @@ PLUGINS = [
     # would be an alias for 'start' (or the other way around, you get it)
     # TODO: "pypeman.plugins.project.StartProjectPlugin",
 
-    #"pypeman.plugins.remoteadmin.RemoteAdminPlugin",
-    # REM: deprecation warning, with removal 2025-11-30 in jsonrpcserver (use of pkg_resources)
+    "pypeman.plugins.remoteadmin.RemoteAdminPlugin",
 ]
 
 LOGGING = {

@@ -40,8 +40,13 @@ async def _rpc_url_handler(request: web.Request):
     await ws.prepare(request)
     logger.info("websocket connection established")
 
-    async def err(code: int, message: str, data: ...):
-        logger.error(f"(in rpc processing) {message} %s", data)
+    async def err(code: int, message: str, data: ..., exc: BaseException | None = None):
+        """log + answer with error
+        if exc is given, data must be a dict, cause we'll add ['error']
+        """
+        logger.error(f"(in rpc processing) {message} %s", data, exc_info=exc)
+        if exc is not None:
+            data["error"] = str(exc)
         await ws.send_json({"error": {"code": code, "message": message, "data": data}})
 
     async for msg in ws:
@@ -70,7 +75,7 @@ async def _rpc_url_handler(request: web.Request):
             try:
                 res = await rfn(**params)
             except BaseException as e:
-                await err(-32603, "Internal error", str(e))
+                await err(-32603, f"Internal error in {rpc['method']}", {"params": params}, e)
                 continue
             await ws.send_json({"result": res})
 

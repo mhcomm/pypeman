@@ -49,6 +49,7 @@ from typing import Callable
 
 from aiohttp import ClientWebSocketResponse
 
+from ...message import Message
 from . import methods
 
 
@@ -240,8 +241,23 @@ class RemoteAdminShell(Cmd):
     @_with_current_channel
     @_sync
     async def do_replay(self, channelname: str, ids: str):
-        """Replay a message list by their ids."""
-        assert not "implemented"
+        """Replay a list of messages by their ids."""
+        msg_ids = str(ids).split()
+        failures = 0
+
+        for msg_id in msg_ids:
+            try:  # catch individual failures
+                msg_dict = await methods.replay_msg(channelname=channelname, message_id=msg_id)
+            except BaseException as e:
+                self.stdout.write(f"On message {msg_id} - {type(e)}: {str(e) or '(no detail)'}\n")
+                failures += 1
+                continue
+
+            self.stdout.write("Resulting message:\n")
+            self.stdout.write(Message.from_dict(msg_dict).to_print())
+
+        if 1 < len(msg_ids):
+            self.stdout.write(f"Summary: {len(msg_ids)-failures}/{len(msg_ids)} ok ({failures} failures)\n")
 
     @_try_except_print
     @_with_current_channel

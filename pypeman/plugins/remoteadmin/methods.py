@@ -15,6 +15,7 @@ from dateutil import parser as dateutilparser
 from ...channels import BaseChannel
 from ...channels import all_channels
 from ...channels import get_channel
+from ...message import Message
 
 if TYPE_CHECKING:
     # ParamSpec doesn't exit before 3.10;
@@ -203,6 +204,7 @@ def _entries_to_listmsg_res(entries: list[MessageStore_StoredEntry_]) -> list[Li
     ]
 
 
+@_remote_proc
 async def list_msgs(*, channelname: str, **search_kwargs: str) -> ListMsgs_:
     """TODO(wip)
     [..]
@@ -250,3 +252,18 @@ async def list_msgs(*, channelname: str, **search_kwargs: str) -> ListMsgs_:
         ),
         "total": await chan.message_store.total(),
     }
+
+
+@_remote_proc
+async def replay_msg(*, channelname: str, message_id: str) -> ...:
+    """Replay a message through the given channel.
+
+    The message must of course exist in the channel's store.
+
+    :return: see :meth:`Message.to_dict`
+    """
+    chan = get_channel(channelname)
+    assert chan, "channel not found"
+
+    msg_res = await chan.replay(message_id)
+    return msg_res.to_dict()

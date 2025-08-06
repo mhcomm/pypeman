@@ -83,7 +83,7 @@ else:
             * remoteadmin CLI (both client- and server- side);
             * normal function call.
 
-        For consistency again, ecorated functions must only take
+        For consistency again, decorated functions must only take
         keyword arguments:
 
             @_remote_proc

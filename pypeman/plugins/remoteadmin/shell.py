@@ -1,13 +1,16 @@
 """The REPL for the remoteadmin 'shell' plugin command.
 
 This basically re-exposes the remote methods from :mod:`methods`
-throuh a classical :class:`Cmd`.
+throuh a classical :class:`Cmd`. It is in essence a websocket client
+to the websocket server in :mod:`url`.
+
+---
 
 The :class:`RemoteAdminShell` exported from this module has a gory
 technical detail due to how the standard module :mod:`cmd` does not
 work with async stuff at all.
 
-The various shell command need to call out to async methods from
+The various shell commands need to call out to async methods from
 :mod:`methods`, and from a sync functions there are not that many ways:
     * :meth:`AbstractEventLoop.run_until_complete`,
     * :func:`asyncio.run` (which creates a loop and calls the above),
@@ -16,11 +19,11 @@ The various shell command need to call out to async methods from
 
 This last one is >=3.9 so unavailable (and not desirable in the context
 of mutiple individual small calls).
-`run_until_complete` (and by extension `asyncio.run`) *cannot be
-nested!* However, at least in the main thread, the event loop is already
-in running state (from all the way back in :func:`commands.amain`).
+`run_until_complete` (and by extension `asyncio.run`) **cannot** be
+nested! Moreover, at least in the main thread, the event loop is already
+in the running state (from all the way back in :func:`commands.amain`).
 
-Eventually the solution is in the two following steps:
+Eventually the solution is with the two following steps:
     * use :meth:`AbstractEventLoop.run_in_executor` from main thread,
     * re-delegate through :func:`asyncio.run_coroutine_threadsafe`.
 
@@ -112,6 +115,7 @@ class RemoteAdminShell(Cmd):
         self._known_msg_ids: set[str] = set()
 
     def do_exit(self, _: str):
+        "you know what it does"
         return True
 
     do_EOF = do_exit
@@ -192,6 +196,7 @@ class RemoteAdminShell(Cmd):
 
     @_sync
     async def complete_select(self, text: str, *_: ...):
+        "channel name completion, unconditionally fetches available"
         if self._avail_channels is None:
             channels = await methods.list_channels(self._ws)
             self._avail_channels = {it["name"] for it in channels}
@@ -249,9 +254,14 @@ class RemoteAdminShell(Cmd):
                 self.stdout.write(f"Matched {total} message(s) into {len(messages)} group(s).\n")
 
     def complete_list(self, text: str, *_: ...):
+        "search args completion, only provides ids that were 'list'-ed"
         if text in {"start_dt=", "end_dt="}:
             # life hack: if you <tab> at this point, we'll give you the current time
             return [datetime.now().strftime("'%Y-%m-%d %H:%M'")]
+
+        if "start_id=" == text:
+            # life hack 2: we try to be useful mdr
+            return [id for id in self._known_msg_ids if id.startswith(text)]
 
         flate = {"count=", "start_id=", "start_dt=", "end_dt=", "text=", "rtext=", "meta_"}
         ordre = {f"order_by={v}" for v in {"timestamp", "state", "-timestamp", "-state"}}
@@ -296,6 +306,7 @@ class RemoteAdminShell(Cmd):
             self.stdout.write("\n")
 
     def complete_replay(self, text: str, *_: ...):
+        "message store id completion, can only provides 'list'-ed ones"
         return [id for id in self._known_msg_ids if id.startswith(text)]
 
     complete_view = complete_replay
@@ -323,4 +334,5 @@ class RemoteAdminShell(Cmd):
         self.stdout.write(Message.from_dict(msg_dict).to_print())
 
     def complete_push(self, text: str, *_):
+        "s'more completion"
         return [w for w in {"payload=", "meta="} if w.startswith(text)]

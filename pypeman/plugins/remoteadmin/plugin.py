@@ -14,8 +14,8 @@ from ...conf import settings
 from ..base import BasePlugin
 from ..base import CommandPluginMixin
 from ..base import TaskPluginMixin
-from . import urls
 from .shell import RemoteAdminShell
+from .urls import init_urls
 
 logger = getLogger(__name__)
 
@@ -86,7 +86,7 @@ class RemoteAdminPlugin(BasePlugin, CommandPluginMixin, TaskPluginMixin):
 
     async def task_start(self):
         self.app = web.Application()
-        urls.init_urls(self.app, self._url_prefix)
+        init_urls(self.app, self._url_prefix)
 
         self.runner = web.AppRunner(self.app)
         await self.runner.setup()

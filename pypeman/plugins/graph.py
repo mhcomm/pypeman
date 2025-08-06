@@ -12,7 +12,7 @@ from ..channels import ConditionSubChannel
 from ..channels import SubChannel
 from ..channels import all_channels
 from ..channels import get_channel
-from ..graph import load_project
+from ..commands import load_project
 from ..nodes import BaseNode
 from .base import BasePlugin
 from .base import CommandPluginMixin

@@ -33,12 +33,12 @@ class Message():
     """
     # TODO : add_ctx and delete_ctx
 
+    WAIT_RETRY = "wait_retry"
     PENDING = "pending"
     PROCESSING = "processing"
-    ERROR = "error"
-    REJECTED = "rejected"
     PROCESSED = "processed"
-    WAIT_RETRY = "wait_retry"
+    REJECTED = "rejected"
+    ERROR = "error"
     # Status priority: less important first
     STATES_PRIORITY = [WAIT_RETRY, PENDING, PROCESSING, PROCESSED, REJECTED, ERROR]
 

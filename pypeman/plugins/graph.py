@@ -65,7 +65,6 @@ class GraphPlugin(BasePlugin, CommandPluginMixin):
                 print("")
 
 
-# XXX: format basically untouched for now
 def _graph_ascii(
     chan: BaseChannel,
     indent: list[str],

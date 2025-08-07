@@ -46,24 +46,31 @@ PERSISTENCE_CONFIG = {}
 
 RETRY_STORE_PATH = None
 
-PLUGINS = [
+PLUGINS = {
     "pypeman.plugins.plugins.ListPluginsPlugin",
     "pypeman.plugins.graph.GraphPlugin",
     "pypeman.plugins.settings.PrintSettingsPlugin",
     # i dont like the name 'startproject' cause it seems to me like that
     # would be an alias for 'start' (or the other way around, you get it)
     # TODO: "pypeman.plugins.project.StartProjectPlugin",
-
     "pypeman.plugins.remoteadmin.RemoteAdminPlugin",
-]
+}
 
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
-        "verbose": {"format": "%(levelname)s %(asctime)s %(name)s %(module)s %(message)s"},
+        "verbose": {
+            "format": "%(levelname)s %(asctime)s %(name)s %(module)s %(message)s",
+        },
     },
-    "handlers": {"console": {"level": "DEBUG", "class": "logging.StreamHandler", "formatter": "verbose"}},
+    "handlers": {
+        "console": {
+            "level": "DEBUG",
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
     "loggers": {
         "": {
             "level": "INFO",

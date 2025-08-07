@@ -19,7 +19,6 @@ from logging import getLogger
 from .channels import all_channels
 from .conf import settings
 from .endpoints import all_endpoints
-from .graph import load_project
 from .plugin_mgr import manager
 from .plugins.base import CommandPluginMixin
 from .plugins.base import TaskPluginMixin

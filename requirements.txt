@@ -1,10 +1,5 @@
 # Mandatory
-click
-daemonlite
+aiohttp
 python-dateutil
-websockets<14  # not compatible with py38
-jsonrpcserver<5  # cannot import name 'Protocol' from 'typing' : fixed in py3.8
-jsonrpcclient
-requests # For jsonrpcclient
 ipython
 sqlitedict>=2.1  # Python 3.10 DeprecationWarning: setDaemon() is deprecated

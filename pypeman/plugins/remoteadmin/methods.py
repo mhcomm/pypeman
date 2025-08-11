@@ -1,3 +1,10 @@
+"""Actual RPC methods for remote admin-ing.
+
+This module contains the actual functions that, invoked from either the
+shell or the web API, performed the work. See the private but mentioned
+for documentation :func:`_remote_proc` decorator.
+"""
+
 from __future__ import annotations
 
 import json

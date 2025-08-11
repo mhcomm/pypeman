@@ -76,13 +76,5 @@ LOGGING = {
             "level": "INFO",
             "handlers": ["console"],
         },
-        "jsonrpcclient": {
-            "level": "WARNING",
-            "propagate": False,
-        },
-        "jsonrpcserver": {
-            "level": "WARNING",
-            "propagate": False,
-        },
     },
 }

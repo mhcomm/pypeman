@@ -14,7 +14,8 @@ factory. The following ones are provided, differing only by there
 backing storage:
     * :class:`NullMessageStoreFactory`,
     * :class:`MemoryMessageStoreFactory`,
-    * :class:`FileMessageStoreFactory`.
+    * :class:`FileMessageStoreFactory`,
+    * :class:`DatabaseMessageStoreFactory`.
 
 At channel level, a store is associated at creation by handing it the
 factory. Every new message passing through the channel's
@@ -1034,7 +1035,7 @@ class FileMessageStoreFactory(MessageStoreFactory):
         await super()._delete_everything()
         path = Path(self.base_path)
         # exists and is empty, remove the dir
-        if path.exists() and not list(path.iterdir()):
+        if path.exists() and next(path.iterdir(), None) is None:
             path.rmdir()
 
 

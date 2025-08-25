@@ -27,7 +27,8 @@ from pypeman.tests.common import generate_msg
 from pypeman.tests.common import MllPChannelTestThread
 from pypeman.tests.common import TstException
 from pypeman.tests.common import TstNode
-
+from pypeman.tests.tst_sftp_utils import MockedSFTPConnection
+from pypeman.persistence import MemoryBackend
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,10 @@ def raise_exc(msg):
 def return_text(msg, text):
     msg.payload = text
     return msg
+
+
+# async def mocked_get_backend(loop):
+#     return MemoryBackend(loop=loop)
 
 
 class ChannelsTests(TestCase):
@@ -1640,3 +1645,25 @@ class ChannelsTests(TestCase):
             processed_nodes=processed_nodes,
             not_processed_nodes=not_processed_nodes
         )
+
+    def test_sftpwatcher_channel(self):
+        fake_sftp_config = dict(host="fake", port=22, credentials=("fake", "fake"))
+        ftest_dir = Path(__file__).parent / "data"
+        ok_fpath = ftest_dir / "testfile.ok"
+        now_ts = time.time()
+
+        with mock.patch('pypeman.contrib.sftp.SFTPConnection', new=MockedSFTPConnection):
+            chan = channels.SFTPWatcherChannel(
+                name="sftpchan", regex=r".*\.ok$", loop=self.loop,
+                basedir=str(ftest_dir), backend=MemoryBackend(), real_extensions=[".txt"],
+                **fake_sftp_config)
+            n = nodes.Log(name="test_sftpwatch_chan")
+            chan.add(n)
+            self.start_channels()
+            self.loop.run_until_complete(chan.set_last_read_mtime(now_ts))
+            chan._reset_test()
+            self.loop.run_until_complete(chan.tick())
+            self.assertEqual(n.last_input(), None)
+            ok_fpath.touch()
+            self.loop.run_until_complete(chan.tick())
+            self.assertEqual(n.last_input().payload, "testfilecontent")

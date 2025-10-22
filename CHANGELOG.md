@@ -10,7 +10,6 @@
 * - FIX: Basenode.__str__ not working if no chan
 * - Correcting HTTP channel status return in msg.meta
 
-# [Changelog](https://github.com/mhcomm/pypeman/releases)
 ## [0.6.0](https://github.com/mhcomm/pypeman/compare/0.5.10...0.6.0)
 * Add BaseChannel.inject method
 * Refactorisation of node calls (node calls are on BaseChannel now instead of being in BaseNode)

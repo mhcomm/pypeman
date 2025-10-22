@@ -124,6 +124,7 @@ class MessageStoreFactory(ABC):
         :raise KeyError: When the `store_id` does not exist.
         """
         existing = self._stores.pop(store_id)
+        logger.debug(f"deleting store {store_id} ({existing!r}))")
         await self._delete_store(existing)
         # private usage in friend class
         existing._cached_total = 0
@@ -267,6 +268,7 @@ class MessageStore(ABC):
         """Called at startup to initialize the store."""
         await self._start()
         self._cached_total = await self._total()
+        logger.debug(f"store started successfully {self!r}: {self._cached_total} message(s)")
 
     async def store(self, msg: Message) -> str:
         """Store a message in the store.
@@ -295,6 +297,7 @@ class MessageStore(ABC):
         """
         # TODO: don't, unnecessary
         entry = await self.get(id)
+        logger.debug(f"deleting message {id} {self!r}")
         await self._delete(id)
         self._cached_total -= 1
         return entry
@@ -560,6 +563,8 @@ class MessageStore(ABC):
         :return: List of fitting message entries or, if `group_by` is
             given, dict of group to list of fitting message entries.
         """
+        logger.debug(f"searching {self!r} for {count} messages, start at {start_id}")
+
         # early dum check (as per contract, don't call _span_select in this case)
         if 0 == await self.total():
             return [] if group_by is None else {}
@@ -636,6 +641,7 @@ class MessageStore(ABC):
         order = meta_filt.order if order_by_meta else payload_filt.order
         filtered.sort(key=order, reverse=reverse)
         if not group_by:
+            logger.debug(f"found {len(filtered)} message(s)")
             return filtered
 
         group = meta_filt.group if group_by_meta else payload_filt.group
@@ -643,6 +649,7 @@ class MessageStore(ABC):
         for it in filtered:
             # at this point filtered is also sorted, so each individual group will be too
             grouped.setdefault(group(it), []).append(it)
+        logger.debug(f"found {len(filtered)} message(s), in {len(grouped)} group(s)")
         return grouped
 
 
@@ -1106,6 +1113,8 @@ class FileMessageStore(MessageStore):
         msg_path.with_suffix(".meta").unlink(missing_ok=True)
 
     async def _total(self) -> int:
+        if not self.base_path.exists():
+            return 0
         return sum(
             file.is_file() and FileMessageStore._PARSE_ID.match(file.name) is not None
             for file in self.base_path.glob("*/*/*/*")  # <y>/<m>/<d>/<file>

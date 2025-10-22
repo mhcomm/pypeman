@@ -505,7 +505,12 @@ class BaseChannel:
                     retry_exc_catched = retry_exc
             raise
         finally:
-            if set_state and not retry_exc_catched and self.has_message_store:
+            if set_state and not retry_exc_catched and self.has_message_store and not self._has_callback():
+                # Message's state have to be set only if:
+                # - the chan have a message store
+                # - the chan is not a forked subchannel (the subchan have it's own way to set state)
+                # - the set_state flag is set to True
+                # - No retry exception was raise during the process
                 await self.message_store.set_state_to_worst_sub_state(msg.store_id)
             if not retry_exc_catched:
                 if not self._has_callback() and call_endnodes:
@@ -1067,6 +1072,16 @@ def reset_pypeman_channels():
 class SubChannel(BaseChannel):
     """ Subchannel used for forking channel processing. """
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # TODO: check if we can now instanciate locks in init with newer
+        # python versions
+        self.subchan_lock = None
+
+    async def start(self, *args, **kwargs):
+        self.subchan_lock = asyncio.Lock()
+        return await super().start(*args, **kwargs)
+
     def _callback(self, fut):
         """
         """
@@ -1124,6 +1139,10 @@ class SubChannel(BaseChannel):
                 "Error while processing msg %s in subchannel %s", str(entrymsg), str(self))
             raise
         finally:
+            if self.message_store:
+                changestate_task = asyncio.create_task(
+                    self.message_store.set_state_to_worst_sub_state(entrymsg.store_id))
+                endnodes_tasks.append(changestate_task)
             if self.final_nodes and not retry_exc:
                 endnode_task = asyncio.create_task(
                     self._call_special_nodes(entrymsg.copy(), node_type="final"))
@@ -1147,6 +1166,11 @@ class SubChannel(BaseChannel):
         self.parent.sub_chan_tasks.append(fut)
         MSG_CTXVAR.reset(msgctxvartoken)
         return msg
+
+    async def process(self, msg, start_nodename=None):
+        # https://github.com/mhcomm/pypeman/pull/319
+        async with self.subchan_lock:  # avoid having multiples message in parallel
+            return await super().process(msg=msg, start_nodename=start_nodename)
 
 
 class ConditionSubChannel(BaseChannel):

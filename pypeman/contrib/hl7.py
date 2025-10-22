@@ -145,6 +145,27 @@ class MLLPChannel(channels.BaseChannel):
             encoding = sys.getdefaultencoding()
         self.encoding = encoding
 
+    def _create_ack_from_hl7(self, hl7_str, ack_status):
+        """
+        Create a HL7 ACK str message to return to the sender
+
+        Args:
+            hl7_str (str): The hl7 received in input
+            ack_status (str): The ACK status (one of: AA, AE, AR)
+        """
+        accepted_status = ["AA", "AE", "AR"]
+        if ack_status not in accepted_status:
+            raise ValueError(f"ACK status not correct, must be in {accepted_status}, is {ack_status}")
+        hl7_data = hl7.parse(hl7_str, encoding=self.encoding)
+        ack = hl7_data.create_ack(ack_status)
+        country_code = hl7_data.extract_field("MSH", 1, 17)
+        hl7_encoding = hl7_data.extract_field("MSH", 1, 18)
+        if country_code:
+            ack["MSH.17"] = country_code
+        if hl7_encoding:
+            ack["MSH.18"] = hl7_encoding
+        return str(ack)
+
     async def start(self):
         await super().start()
         self.mllp_endpoint.set_handler(handler=self.handle_hl7_message)
@@ -154,19 +175,15 @@ class MLLPChannel(channels.BaseChannel):
         msg = message.Message(content_type='text/hl7', payload=content, meta={})
         try:
             await self.handle(msg)
-            ack = hl7.parse(content, encoding=self.encoding)
-            return str(ack.create_ack('AA')).encode(self.encoding)
+            return self._create_ack_from_hl7(hl7_str=content, ack_status="AA").encode(self.encoding)
         except Dropped:
-            ack = hl7.parse(content, encoding=self.encoding)
-            return str(ack.create_ack('AA')).encode(self.encoding)
+            return self._create_ack_from_hl7(hl7_str=content, ack_status="AA").encode(self.encoding)
         except Rejected:
-            ack = hl7.parse(content, encoding=self.encoding)
-            return str(ack.create_ack('AR')).encode(self.encoding)
+            return self._create_ack_from_hl7(hl7_str=content, ack_status="AR").encode(self.encoding)
         except Exception:
             logger.exception(
                 "MLLPChannel %s raise an error, will send AE speed response", str(self))
-            ack = hl7.parse(content, encoding=self.encoding)
-            return str(ack.create_ack('AE')).encode(self.encoding)
+            return self._create_ack_from_hl7(hl7_str=content, ack_status="AE").encode(self.encoding)
 
 
 class HL7ToPython(nodes.BaseNode):

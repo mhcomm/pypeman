@@ -819,7 +819,7 @@ class FileMessageStore(MessageStore):
                         found = self.msg_re.match(msg_id)
                         if found or old_found:
                             if old_found:
-                                msg_str_time = found.groupdict()["msg_time"]
+                                msg_str_time = old_found.groupdict()["msg_time"]
                                 hour = int(msg_str_time[:2])
                                 minute = int(msg_str_time[2:4])
                                 second = 0

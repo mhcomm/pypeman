@@ -3,6 +3,6 @@ hl7
 xmltodict
 aiohttp
 aiocron
-pytest-asyncio
+pytest-asyncio<1.0
 pytest-aiohttp
 pytest-cov

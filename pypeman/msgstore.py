@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
 import time
 from abc import ABC
@@ -53,6 +54,9 @@ from dateutil import parser as dateutilparser
 
 from .errors import PypemanConfigError
 from .message import Message
+
+
+logger = logging.getLogger(__name__)
 
 
 class MessageStoreFactory(ABC):
@@ -975,7 +979,10 @@ class FileMessageStoreFactory(MessageStoreFactory):
                     child.unlink()
             path.rmdir()
 
-        rmrf(store.base_path)
+        if store.base_path.exists():
+            rmrf(store.base_path)
+        else:
+            logger.warning(f"deleting file message store that was not started: {self.base_path!r}")
 
 
 class FileMessageStore(MessageStore):

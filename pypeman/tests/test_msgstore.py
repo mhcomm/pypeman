@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from contextlib import ExitStack
 from datetime import datetime
 from datetime import timedelta
 from re import error as ReError
+from tempfile import TemporaryDirectory
 from typing import Any
 from typing import Literal
 
@@ -12,30 +14,37 @@ from .. import msgstore
 from ..message import Message
 from ..msgstore import MessageStoreFactory
 
+_NEEDS_TMPDIR = object()
+
 TESTED_STORE_FACTORIES = [
     # can't be tested generically, breaks too many invariants
     # (msgstore.NullMessageStoreFactory, ()),
     (msgstore.MemoryMessageStoreFactory, ()),
-    (msgstore.FileMessageStoreFactory, ("/tmp/test/this/out",)),
+    (msgstore.FileMessageStoreFactory, (_NEEDS_TMPDIR,)),
 ]
 
 TESTED_PERSISTENT_STORE_FACTORIES = [
-    (msgstore.FileMessageStoreFactory, ("/tmp/test/this/out",)),
+    (msgstore.FileMessageStoreFactory, (_NEEDS_TMPDIR,)),
 ]
 
 
 @pytest.fixture(scope="function", params=TESTED_STORE_FACTORIES, ids=lambda p: p[0])
-async def factory(request):
+async def factory(request: pytest.FixtureRequest):
     "Fixture that, when used in a test function, will test every store."
-    current: ... = request.param
-    current: tuple[type[MessageStoreFactory], tuple[object, ...]]
-
+    current: tuple[type[MessageStoreFactory], tuple[object, ...]] = request.param
     cls, args = current
-    factory = cls(*args)
-    yield factory
 
-    for store_id in factory.list_store():
-        await factory.delete_store(store_id)
+    exst = ExitStack()
+    args = tuple(exst.enter_context(TemporaryDirectory()) if a is _NEEDS_TMPDIR else a for a in args)
+
+    factory = cls(*args)
+    # this makes it possible to re-create a factory with the same arguments from within the test
+    setattr(factory, "_re_init_new_tg__testtest", lambda: cls(*args))
+    with exst:
+        yield factory
+
+        for store_id in factory.list_store():
+            await factory.delete_store(store_id)
 
 
 async def test_store_identity(factory: MessageStoreFactory):
@@ -156,31 +165,25 @@ async def test_double_store_message(factory: MessageStoreFactory):
     assert isinstance(rose, ValueError), rose
 
 
-@pytest.mark.parametrize("cls,params", TESTED_PERSISTENT_STORE_FACTORIES)
-async def test_store_persistence(cls: type[MessageStoreFactory], params: ...):
+@pytest.mark.parametrize("factory", TESTED_PERSISTENT_STORE_FACTORIES, indirect=True)
+async def test_store_persistence(factory: MessageStoreFactory):
     "Store, shutdown, reboot, expect messages to still be there."
-    factory = cls(*params)
     store = factory.get_store("a")
     await store.start()
 
     ids = [await store.store(Message(payload=k)) for k in range(3)]
 
     # pypeman shutdown (only thing that matter is to re-new 'factory' with same params)
-    del store, factory
+    del store
 
-    factory = cls(*params)
+    # re-create a factory with the exact same argument
+    factory = getattr(factory, "_re_init_new_tg__testtest")()
     store = factory.get_store("a")
     await store.start()
 
-    # try/finally to ensure cleanup
-    try:
-        assert await store.total() == 3
-        for k, entry in enumerate(await store.get_many(ids)):
-            assert entry["message"].payload == k
-
-    finally:
-        for store_id in factory.list_store():
-            await factory.delete_store(store_id)
+    assert await store.total() == 3
+    for k, entry in enumerate(await store.get_many(ids)):
+        assert entry["message"].payload == k
 
 
 async def test_get_aliases_fake_coverage():

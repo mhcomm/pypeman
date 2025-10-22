@@ -263,14 +263,14 @@ class MessageStore():
             # .. it must pass all filters.
             if all(
                 # The meta must exists, else message is filtered out.
-                meta_name in item['message'].meta
+                meta_name in item['meta']
                 and (
                     # Any info in the list may pass, one is enough.
-                    any(filt(info) for info in item['message'].meta[meta_name])
+                    any(filt(info) for info in item['meta'][meta_name])
                     # Info stored through `BaseNode.store_meta` are list[str] ..
-                    if isinstance(item['message'].meta[meta_name], list)
+                    if isinstance(item['meta'][meta_name], list)
                     # .. but they might not be if added through an other mean.
-                    else filt(str(item['message'].meta[meta_name]))
+                    else filt(str(item['meta'][meta_name]))
                 )
                 for meta_name, filt in filters
             )
@@ -280,7 +280,7 @@ class MessageStore():
             return list(filtered)
 
         def key(item):
-            info = item['message'].meta.get(meta_name)
+            info = item['meta'].get(meta_name)
             if not info:  # None, empty list, missing, ..
                 return ""
             return str(info[0] if isinstance(info, list) else info)
@@ -447,6 +447,10 @@ class MemoryMessageStore(MessageStore):
     async def get(self, id):
         resp = dict(self.messages[id])
         resp['message'] = Message.from_dict(resp['message'])
+        # MemoryMessageStore puts store-related meta in `resp` itself;
+        # to harmonize at least this much with the FileMessageStore these
+        # are aliased one level below in resp['meta'] as expected
+        resp['meta'] = {k: v for k, v in resp.items() if k not in {'message', 'id', 'meta'}}
         return resp
 
     async def get_preview_str(self, id):

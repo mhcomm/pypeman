@@ -21,10 +21,12 @@ TESTED_STORE_FACTORIES = [
     # (msgstore.NullMessageStoreFactory, ()),
     (msgstore.MemoryMessageStoreFactory, ()),
     (msgstore.FileMessageStoreFactory, (_NEEDS_TMPDIR,)),
+    (msgstore.DatabaseMessageStoreFactory, (_NEEDS_TMPDIR,)),
 ]
 
 TESTED_PERSISTENT_STORE_FACTORIES = [
     (msgstore.FileMessageStoreFactory, (_NEEDS_TMPDIR,)),
+    (msgstore.DatabaseMessageStoreFactory, (_NEEDS_TMPDIR,)),
 ]
 
 
@@ -42,9 +44,7 @@ async def factory(request: pytest.FixtureRequest):
     setattr(factory, "_re_init_new_tg__testtest", lambda: cls(*args))
     with exst:
         yield factory
-
-        for store_id in factory.list_store():
-            await factory.delete_store(store_id)
+        await factory._delete_everything()
 
 
 async def test_store_identity(factory: MessageStoreFactory):
@@ -174,6 +174,7 @@ async def test_store_persistence(factory: MessageStoreFactory):
     ids = [await store.store(Message(payload=k)) for k in range(3)]
 
     # pypeman shutdown (only thing that matter is to re-new 'factory' with same params)
+    await store.stop()
     del store
 
     # re-create a factory with the exact same argument

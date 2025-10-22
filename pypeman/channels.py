@@ -1074,6 +1074,8 @@ class SubChannel(BaseChannel):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # TODO: check if we can now instanciate locks in init with newer
+        # python versions
         self.subchan_lock = None
 
     async def start(self, *args, **kwargs):

@@ -5,7 +5,6 @@ import sys
 import warnings
 
 import hl7
-from mytb import minibelt
 
 from pypeman import endpoints, channels, nodes, message
 from pypeman.exceptions import Dropped
@@ -156,11 +155,11 @@ class MLLPChannel(channels.BaseChannel):
         """
         accepted_status = ["AA", "AE", "AR"]
         if ack_status not in accepted_status:
-            raise ValueError("ACK status not correct, must be in %r, is %r", accepted_status, ack_status)
+            raise ValueError(f"ACK status not correct, must be in {accepted_status}, is {ack_status}")
         hl7_data = hl7.parse(hl7_str, encoding=self.encoding)
         ack = hl7_data.create_ack(ack_status)
-        country_code = minibelt.get(hl7_data.segment("MSH"), 17, 0)
-        hl7_encoding = minibelt.get(hl7_data.segment("MSH"), 18, 0)
+        country_code = hl7_data.extract_field("MSH", 1, 17)
+        hl7_encoding = hl7_data.extract_field("MSH", 1, 18)
         if country_code:
             ack["MSH.17"] = country_code
         if hl7_encoding:

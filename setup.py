@@ -64,7 +64,6 @@ setup(
         "click",
         "daemonlite",
         "python-dateutil",
-        "mytb",
         "websockets<14",  # loop problem in py 3.8+
         "aiohttp",
         "jsonrpcclient",

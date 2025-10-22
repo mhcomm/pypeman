@@ -1,4 +1,16 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
+## [0.6.1](https://github.com/mhcomm/pypeman/compare/0.6.0...0.6.1)
+* Add country codes and encoding in hl7 ack
+* Use store-related meta, not message meta to create msgstore's message meta key
+* Add cookies in Http Request out meta if add_meta param is set
+* FIXS:
+* - Fix search in filemessagestore that sometimes crash for old messages
+* - fix bug : Subchannels always set message state to processed even if it have to be in other state
+* - fix bug: If multiples messages are passed to a same subchannel, the subchannel doesn't wait the end of firsts messages before processing the others, it run them all in prallel (as the subchannel doesn't await its process(), but create an asyncio task)
+* - FIX: Basenode.__str__ not working if no chan
+* - Correcting HTTP channel status return in msg.meta
+
+# [Changelog](https://github.com/mhcomm/pypeman/releases)
 ## [0.6.0](https://github.com/mhcomm/pypeman/compare/0.5.10...0.6.0)
 * Add BaseChannel.inject method
 * Refactorisation of node calls (node calls are on BaseChannel now instead of being in BaseNode)

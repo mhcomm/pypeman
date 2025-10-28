@@ -5,6 +5,7 @@ from datetime import datetime
 from datetime import timedelta
 from re import error as ReError
 from tempfile import TemporaryDirectory
+from tempfile import NamedTemporaryFile
 from typing import Any
 from typing import Literal
 
@@ -14,6 +15,7 @@ from .. import msgstore
 from ..message import Message
 from ..msgstore import MessageStoreFactory
 
+_NEEDS_TMPFILE = object()
 _NEEDS_TMPDIR = object()
 
 TESTED_STORE_FACTORIES = [
@@ -21,12 +23,12 @@ TESTED_STORE_FACTORIES = [
     # (msgstore.NullMessageStoreFactory, ()),
     (msgstore.MemoryMessageStoreFactory, ()),
     (msgstore.FileMessageStoreFactory, (_NEEDS_TMPDIR,)),
-    (msgstore.DatabaseMessageStoreFactory, (_NEEDS_TMPDIR,)),
+    (msgstore.DatabaseMessageStoreFactory, (_NEEDS_TMPFILE,)),
 ]
 
 TESTED_PERSISTENT_STORE_FACTORIES = [
     (msgstore.FileMessageStoreFactory, (_NEEDS_TMPDIR,)),
-    (msgstore.DatabaseMessageStoreFactory, (_NEEDS_TMPDIR,)),
+    (msgstore.DatabaseMessageStoreFactory, (_NEEDS_TMPFILE,)),
 ]
 
 
@@ -37,7 +39,16 @@ async def factory(request: pytest.FixtureRequest):
     cls, args = current
 
     exst = ExitStack()
-    args = tuple(exst.enter_context(TemporaryDirectory()) if a is _NEEDS_TMPDIR else a for a in args)
+    args = tuple(
+        (
+            # no `delete_on_close=False` until 3.12 makes this p much usless
+            # TODO: swap it for this when that
+            exst.enter_context(NamedTemporaryFile(delete=False)).name
+            if a is _NEEDS_TMPFILE
+            else (exst.enter_context(TemporaryDirectory()) if a is _NEEDS_TMPDIR else a)
+        )
+        for a in args
+    )
 
     factory = cls(*args)
     # this makes it possible to re-create a factory with the same arguments from within the test
@@ -165,7 +176,7 @@ async def test_double_store_message(factory: MessageStoreFactory):
     assert isinstance(rose, ValueError), rose
 
 
-@pytest.mark.parametrize("factory", TESTED_PERSISTENT_STORE_FACTORIES, indirect=True)
+@pytest.mark.parametrize("factory", TESTED_PERSISTENT_STORE_FACTORIES, indirect=True, ids=lambda p: p[0])
 async def test_store_persistence(factory: MessageStoreFactory):
     "Store, shutdown, reboot, expect messages to still be there."
     store = factory.get_store("a")

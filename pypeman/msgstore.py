@@ -305,10 +305,9 @@ class MessageStore(ABC):
 
     async def stop(self):
         """Called at teardown to finalize the store."""
-        # TODO: !!! this is not hooked in yet! I need to add it to channel stop
-        # (otherwise the db one will make it not stop ever)
         await self._stop()
         self._active = False
+        logger.debug(f"store stopped {self!r}")
 
     async def store(self, msg: Message) -> str:
         """Store a message in the store.
@@ -1522,5 +1521,5 @@ class DatabaseMessageStore(MessageStore):
         for name, payload, meta, ctx_of in many_ctx_bits:
             by_id[ctx_of]["message"].ctx[name] = {"payload": json.loads(payload), "meta": json.loads(meta)}
 
-        # restore ordering (SELECT may not, so you cant just .append to a list!)
+        # restore ordering (SELECT may not, so you cant just .append to a list..)
         return [by_id[id] for id in ids]

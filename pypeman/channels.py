@@ -243,6 +243,7 @@ class BaseChannel:
         # stop all pending sleeps
         await self.interruptable_sleeper.cancel_all()
         self.logger.info("Channel %s stopped", str(self))
+        await self.message_store.stop()
         if self.retry_store:
             await self.retry_store.stop()
 

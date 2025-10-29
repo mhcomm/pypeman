@@ -1309,7 +1309,7 @@ class FileWatcherChannel(BaseChannel):
     NEW, UNCHANGED, MODIFIED, DELETED = range(4)
 
     def __init__(self, *args, basedir='', regex='.*', interval=1, binary_file=False, path='',
-                 real_extensions=None, **kwargs):
+                 real_extensions=None, encoding=None, **kwargs):
         super().__init__(*args, **kwargs)
         if path:
             self.basedir = path
@@ -1324,6 +1324,7 @@ class FileWatcherChannel(BaseChannel):
         self.re = re.compile(self.regex)
         self.binary_file = binary_file
         self.real_extensions = real_extensions  # list of extensions for exemple: [".csv", ".CSV"]
+        self.encoding = encoding
         # Set mtime for all existing matching files
         if self.basedir.exists():
             for filepath in self.basedir.iterdir():
@@ -1403,7 +1404,7 @@ class FileWatcherChannel(BaseChannel):
 
                             msg = message.Message()
 
-                            with filepath.open(mode) as f:
+                            with filepath.open(mode, encoding=self.encoding) as f:
                                 msg.payload = f.read()
                             msg.meta['filename'] = filename
                             msg.meta['filepath'] = str(filepath)

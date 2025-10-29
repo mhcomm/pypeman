@@ -91,6 +91,7 @@ async def test_store_retrieve(factory: MessageStoreFactory):
             "queneni": None,
         },
     )
+    msg.add_context("submsg", Message(payload="sulidae", meta={"boo": "by"}))
     id = await store.store(msg)
     assert type(id) is str
 
@@ -187,7 +188,14 @@ async def test_store_persistence(factory: MessageStoreFactory):
     store = factory.get_store("a")
     await store.start()
 
-    ids = [await store.store(Message(payload=k)) for k in range(3)]
+    MSGS = [Message(payload=k, meta={"k": k}) for k in range(3)]
+    META = "ABCD"
+    # let's also make sure context and there meta are saved
+    for msg in MSGS:
+        for l in META:
+            msg.add_context(l, Message(payload=l, meta={"l": l}))
+
+    ids = [await store.store(msg) for msg in MSGS]
 
     # pypeman shutdown (only thing that matter is to re-new 'factory' with same params)
     await store.stop()
@@ -198,9 +206,16 @@ async def test_store_persistence(factory: MessageStoreFactory):
     store = factory.get_store("a")
     await store.start()
 
-    assert await store.total() == 3
+    assert await store.total() == len(MSGS)
     for k, entry in enumerate(await store.get_many(ids)):
-        assert entry["message"].payload == k
+        msg = entry["message"]
+        assert msg.payload == k
+        assert msg.meta["k"] == k
+
+        assert len(msg.ctx) == len(META)
+        for l in META:
+            assert msg.ctx[l]["payload"] == l
+            assert msg.ctx[l]["meta"]["l"] == l
 
 
 async def test_get_aliases_fake_coverage():

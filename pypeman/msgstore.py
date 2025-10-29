@@ -371,6 +371,8 @@ class MessageStore(ABC):
     async def get_many(self, ids: list[str]) -> list[StoredEntry_]:
         """Retrieve multiple store entries at once.
 
+        Order is preserved.
+
         This method does not expect being used to retrieve a single
         entry; see :meth:`get` instead.
 
@@ -1475,3 +1477,50 @@ class DatabaseMessageStore(MessageStore):
             ),
         )
         return [id for id, in ids]
+
+    # overrides base method with a more efficient approach (way fewer queries)
+    async def get_many(self, ids: list[str]):
+        by_id: dict[str, MessageStore.StoredEntry_] = {}
+
+        many_msg_bits = await self._db.execute_fetchall(
+            f"""
+ SELECT id, timestamp, meta, store_id, store_chan_name, message_payload, message_meta
+ FROM "{self._store_id}.stored_entries" WHERE id in ({','.join('?' for _ in ids)})
+ """,
+            tuple(ids),
+        )
+
+        missing = set(ids).difference(p[0] for p in many_msg_bits)
+        if missing:
+            raise LookupError(f"no message stored under these: {missing!r}")
+
+        for id, timestamp, meta, store_id, store_chan_name, message_payload, message_meta in many_msg_bits:
+            store_meta = json.loads(meta)
+            msg = Message()
+            msg.timestamp = datetime.fromtimestamp(timestamp)
+            msg.uuid = id
+            msg.payload = json.loads(message_payload)
+            msg.meta = json.loads(message_meta)
+            msg.store_id = store_id
+            msg.store_chan_name = store_chan_name
+            msg.ctx = {}
+            by_id[id] = {
+                "id": id,
+                "meta": store_meta,
+                "message": msg,
+                "state": store_meta["state"],  # TODO: phase out/remove
+            }
+
+        many_ctx_bits = await self._db.execute_fetchall(
+            f"""
+ SELECT name, payload, meta, ctx_of
+ FROM "{self._store_id}.entries_ctx" WHERE ctx_of in ({','.join('?' for _ in ids)})
+ """,
+            tuple(ids),
+        )
+
+        for name, payload, meta, ctx_of in many_ctx_bits:
+            by_id[ctx_of]["message"].ctx[name] = {"payload": json.loads(payload), "meta": json.loads(meta)}
+
+        # restore ordering (SELECT may not, so you cant just .append to a list!)
+        return [by_id[id] for id in ids]

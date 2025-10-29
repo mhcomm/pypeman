@@ -5,6 +5,7 @@ from datetime import datetime
 from datetime import timedelta
 from re import error as ReError
 from tempfile import TemporaryDirectory
+from tempfile import NamedTemporaryFile
 from typing import Any
 from typing import Literal
 
@@ -14,6 +15,7 @@ from .. import msgstore
 from ..message import Message
 from ..msgstore import MessageStoreFactory
 
+_NEEDS_TMPFILE = object()
 _NEEDS_TMPDIR = object()
 
 TESTED_STORE_FACTORIES = [
@@ -21,10 +23,12 @@ TESTED_STORE_FACTORIES = [
     # (msgstore.NullMessageStoreFactory, ()),
     (msgstore.MemoryMessageStoreFactory, ()),
     (msgstore.FileMessageStoreFactory, (_NEEDS_TMPDIR,)),
+    (msgstore.DatabaseMessageStoreFactory, (_NEEDS_TMPFILE,)),
 ]
 
 TESTED_PERSISTENT_STORE_FACTORIES = [
     (msgstore.FileMessageStoreFactory, (_NEEDS_TMPDIR,)),
+    (msgstore.DatabaseMessageStoreFactory, (_NEEDS_TMPFILE,)),
 ]
 
 
@@ -35,16 +39,28 @@ async def factory(request: pytest.FixtureRequest):
     cls, args = current
 
     exst = ExitStack()
-    args = tuple(exst.enter_context(TemporaryDirectory()) if a is _NEEDS_TMPDIR else a for a in args)
+    args = tuple(
+        (
+            # no `delete_on_close=False` until 3.12 makes this p much usless
+            # TODO: swap it for this when that
+            exst.enter_context(NamedTemporaryFile(delete=False)).name
+            if a is _NEEDS_TMPFILE
+            else (exst.enter_context(TemporaryDirectory()) if a is _NEEDS_TMPDIR else a)
+        )
+        for a in args
+    )
+
+    # this makes it possible to re-create a factory with the same arguments from within the test
+    def re():
+        nonlocal factory
+        factory = cls(*args)
+        return factory
 
     factory = cls(*args)
-    # this makes it possible to re-create a factory with the same arguments from within the test
-    setattr(factory, "_re_init_new_tg__testtest", lambda: cls(*args))
+    setattr(factory, "_re_init_new_tg__testtest", re)
     with exst:
         yield factory
-
-        for store_id in factory.list_store():
-            await factory.delete_store(store_id)
+        await factory._delete_everything()
 
 
 async def test_store_identity(factory: MessageStoreFactory):
@@ -75,6 +91,7 @@ async def test_store_retrieve(factory: MessageStoreFactory):
             "queneni": None,
         },
     )
+    msg.add_context("submsg", Message(payload="sulidae", meta={"boo": "by"}))
     id = await store.store(msg)
     assert type(id) is str
 
@@ -135,7 +152,7 @@ async def test_get_invalid(factory: MessageStoreFactory):
 
 
 async def test_store_state_management(factory: MessageStoreFactory):
-    "Updates to the state"
+    "Updates to the state."
     store = factory.get_store("a")
     await store.start()
 
@@ -165,25 +182,40 @@ async def test_double_store_message(factory: MessageStoreFactory):
     assert isinstance(rose, ValueError), rose
 
 
-@pytest.mark.parametrize("factory", TESTED_PERSISTENT_STORE_FACTORIES, indirect=True)
+@pytest.mark.parametrize("factory", TESTED_PERSISTENT_STORE_FACTORIES, indirect=True, ids=lambda p: p[0])
 async def test_store_persistence(factory: MessageStoreFactory):
     "Store, shutdown, reboot, expect messages to still be there."
     store = factory.get_store("a")
     await store.start()
 
-    ids = [await store.store(Message(payload=k)) for k in range(3)]
+    MSGS = [Message(payload=k, meta={"k": k}) for k in range(3)]
+    META = "ABCD"
+    # let's also make sure context and there meta are saved
+    for msg in MSGS:
+        for l in META:
+            msg.add_context(l, Message(payload=l, meta={"l": l}))
+
+    ids = [await store.store(msg) for msg in MSGS]
 
     # pypeman shutdown (only thing that matter is to re-new 'factory' with same params)
+    await store.stop()
     del store
 
-    # re-create a factory with the exact same argument
+    # re-create a factory with the exact same arguments
     factory = getattr(factory, "_re_init_new_tg__testtest")()
     store = factory.get_store("a")
     await store.start()
 
-    assert await store.total() == 3
+    assert await store.total() == len(MSGS)
     for k, entry in enumerate(await store.get_many(ids)):
-        assert entry["message"].payload == k
+        msg = entry["message"]
+        assert msg.payload == k
+        assert msg.meta["k"] == k
+
+        assert len(msg.ctx) == len(META)
+        for l in META:
+            assert msg.ctx[l]["payload"] == l
+            assert msg.ctx[l]["meta"]["l"] == l
 
 
 async def test_get_aliases_fake_coverage():

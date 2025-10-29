@@ -66,6 +66,7 @@ setup(
         "python-dateutil",
         "websockets<14",  # loop problem in py 3.8+
         "aiohttp",
+        "aiosqlite",
         "jsonrpcclient",
         "jsonrpcserver<5",  # cannot import name 'Protocol' from 'typing' : fixed in py3.8
         "sqlitedict",

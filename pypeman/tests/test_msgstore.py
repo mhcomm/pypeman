@@ -50,9 +50,14 @@ async def factory(request: pytest.FixtureRequest):
         for a in args
     )
 
-    factory = cls(*args)
     # this makes it possible to re-create a factory with the same arguments from within the test
-    setattr(factory, "_re_init_new_tg__testtest", lambda: cls(*args))
+    def re():
+        nonlocal factory
+        factory = cls(*args)
+        return factory
+
+    factory = cls(*args)
+    setattr(factory, "_re_init_new_tg__testtest", re)
     with exst:
         yield factory
         await factory._delete_everything()
@@ -146,7 +151,7 @@ async def test_get_invalid(factory: MessageStoreFactory):
 
 
 async def test_store_state_management(factory: MessageStoreFactory):
-    "Updates to the state"
+    "Updates to the state."
     store = factory.get_store("a")
     await store.start()
 
@@ -188,7 +193,7 @@ async def test_store_persistence(factory: MessageStoreFactory):
     await store.stop()
     del store
 
-    # re-create a factory with the exact same argument
+    # re-create a factory with the exact same arguments
     factory = getattr(factory, "_re_init_new_tg__testtest")()
     store = factory.get_store("a")
     await store.start()

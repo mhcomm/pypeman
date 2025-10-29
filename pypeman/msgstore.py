@@ -1243,6 +1243,11 @@ class DatabaseMessageStoreFactory(MessageStoreFactory):
         # set of the active (between _start and _stop) stores: when it's empty, `self._conn` doesn't exist;
         # this is essentially a reference counter for the connection
         self._active_stores: set[str] = set()
+        # aiosqlite works by offloading the connection to its own thread and sending
+        # commands via a queue; this lock is necessary to ensure two groups of writing
+        # operations are not mingled (eg saving a message uses 2~3 writing operations)
+        # and that a stop is not sent during a such group
+        self._conn_write_lock = asyncio.Lock()
 
     def _new_store(self, store_id: str) -> MessageStore:
         # there **must not** be any of these char in `store_id`
@@ -1267,9 +1272,14 @@ class DatabaseMessageStoreFactory(MessageStoreFactory):
         """
         self._active_stores.remove(store_id)
         if not self._active_stores:
-            await self._conn.commit()
-            await self._conn.close()
+            # ensure no group of writing operations is in-flight
+            async with self._conn_write_lock:
+                await self._conn.close()
             del self._conn
+
+    def write_lock(self):
+        """Delegate method. Not private because used in MessageStore."""
+        return self._conn_write_lock
 
     async def execute(self, sql: str, parameters: tuple[Any, ...]):
         """Delegate method. Not private because used in MessageStore."""
@@ -1365,26 +1375,27 @@ class DatabaseMessageStore(MessageStore):
 
     async def _store(self, msg: Message, ini_meta: dict[str, Any]) -> str:
         try:
-            await self._db.execute(
-                f'INSERT INTO "{self._store_id}.stored_entries" VALUES (?, ?, ?, ?, ?, ?, ?)',
-                (
-                    msg.uuid,
-                    msg.timestamp.timestamp(),
-                    json.dumps(ini_meta),
-                    msg.store_id,
-                    msg.store_chan_name,
-                    json.dumps(msg.payload),
-                    json.dumps(msg.meta),
-                ),
-            )
-            await self._db.executemany(
-                f'INSERT INTO "{self._store_id}.entries_ctx" VALUES (?, ?, ?, ?)',
-                [
-                    (name, json.dumps(thingy["payload"]), json.dumps(thingy["meta"]), msg.uuid)
-                    for name, thingy in msg.ctx.items()
-                ],
-            )
-            await self._db.commit()
+            async with self._db.write_lock():
+                await self._db.execute(
+                    f'INSERT INTO "{self._store_id}.stored_entries" VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    (
+                        msg.uuid,
+                        msg.timestamp.timestamp(),
+                        json.dumps(ini_meta),
+                        msg.store_id,
+                        msg.store_chan_name,
+                        json.dumps(msg.payload),
+                        json.dumps(msg.meta),
+                    ),
+                )
+                await self._db.executemany(
+                    f'INSERT INTO "{self._store_id}.entries_ctx" VALUES (?, ?, ?, ?)',
+                    [
+                        (name, json.dumps(thingy["payload"]), json.dumps(thingy["meta"]), msg.uuid)
+                        for name, thingy in msg.ctx.items()
+                    ],
+                )
+                await self._db.commit()
 
         except IntegrityError as e:
             raise ValueError(*e.args)
@@ -1440,13 +1451,15 @@ class DatabaseMessageStore(MessageStore):
         return json.loads(res[0][0])
 
     async def _set_storemeta(self, id: str, meta: dict[str, Any]):
-        res = await self._db.execute_fetchall(
-            f'UPDATE "{self._store_id}.stored_entries" SET meta = ? WHERE ? = id RETURNING id',
-            (json.dumps(meta), id),
-        )
-        if not res:
-            raise LookupError(f"no message stored under {id!r}")
-        await self._db.commit()
+        async with self._db.write_lock():
+            res = await self._db.execute_fetchall(
+                f'UPDATE "{self._store_id}.stored_entries" SET meta = ? WHERE ? = id RETURNING id',
+                (json.dumps(meta), id),
+            )
+            # raise is before commit: nothing happened if the RETURNING claused didn't return anything
+            if not res:
+                raise LookupError(f"no message stored under {id!r}")
+            await self._db.commit()
 
     async def _span_select(self, start_dt: datetime | None, end_dt: datetime | None) -> list[str]:
         ids = await self._db.execute_fetchall(

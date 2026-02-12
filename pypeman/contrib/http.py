@@ -202,7 +202,7 @@ class HttpRequest(nodes.BaseNode):
         # TODO maybe add an auto parser if for example Content-Type header is application/json
     """
 
-    def __init__(self, url, *args, method=None, headers=None, auth=None,
+    def __init__(self, *args, url=None, method=None, headers=None, auth=None,
                  verify=True, params=None, client_cert=None, cookies=None,
                  binary=False, json=False, send_as_json=False, old_url_parsing=True, add_meta=False,
                  **kwargs):
@@ -217,9 +217,6 @@ class HttpRequest(nodes.BaseNode):
         self.verify = verify
         self.params = params
         self.client_cert = client_cert
-        self.url = self.url.replace('%(meta.', '%(')  # TODO: why ???
-        self.payload_in_url_dict = 'payload.' in self.url  # TODO: should I remove ?
-        self.params_in_url = str_named_param_regex.findall(self.url)
         self.binary = binary
         self.json = json
         self.send_as_json = send_as_json
@@ -228,10 +225,13 @@ class HttpRequest(nodes.BaseNode):
         # TODO: create used payload keys for better perf of generate_request_url()
 
     def generate_request_url(self, msg):
-        request_url = self.url
+        url = nodes.choose_first_not_none(self.url, msg.meta.get("url"))
+        request_url = url.replace('%(meta.', '%(')  # TODO: should I  ???
+        payload_in_url_dict = 'payload.' in request_url  # TODO: should I remove ?
+        params_in_url = str_named_param_regex.findall(request_url)
         if self.old_url_parsing:
             url_dict = msg.meta
-            if self.payload_in_url_dict:
+            if payload_in_url_dict:
                 url_dict = dict(url_dict)
                 try:
                     for key, val in msg.payload.items():
@@ -243,15 +243,15 @@ class HttpRequest(nodes.BaseNode):
                         "RequestNode")
                     raise
             try:
-                request_url = self.url % url_dict
+                request_url = request_url % url_dict
             except Exception as exc:
-                logger.error("cannot create url %r with args %r", self.url, repr(url_dict))
+                logger.error("cannot create url %r with args %r", request_url, repr(url_dict))
                 raise exc
         else:
             # New recursive params parsing
-            if self.params_in_url:
+            if params_in_url:
                 params = {}
-                for param in self.params_in_url:
+                for param in params_in_url:
                     subparams = not_escaped_dot_regex.split(param)
                     if subparams[0] == "payload":
                         data = msg.payload
@@ -266,9 +266,9 @@ class HttpRequest(nodes.BaseNode):
                         data = data[subparam]
                     params[param] = data
                 try:
-                    request_url = self.url % params
+                    request_url = request_url % params
                 except Exception as exc:
-                    logger.error("cannot create url %r with args %r", self.url, repr(params))
+                    logger.error("cannot create url %r with args %r", request_url, repr(params))
                     raise exc
         return request_url
 

@@ -1,4 +1,8 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
+## [0.6.2](https://github.com/mhcomm/pypeman/compare/0.6.1...0.6.2)
+* Add encoding param to Filewatcher
+* HttpRequest: Add possibility to get the url from msg.meta
+
 ## [0.6.1](https://github.com/mhcomm/pypeman/compare/0.6.0...0.6.1)
 * Add country codes and encoding in hl7 ack
 * Use store-related meta, not message meta to create msgstore's message meta key

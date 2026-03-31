@@ -1309,7 +1309,7 @@ class FileWatcherChannel(BaseChannel):
     NEW, UNCHANGED, MODIFIED, DELETED = range(4)
 
     def __init__(self, *args, basedir='', regex='.*', interval=1, binary_file=False, path='',
-                 real_extensions=None, encoding='utf-8', **kwargs):
+                 real_extensions=None, encoding=None, **kwargs):
         super().__init__(*args, **kwargs)
         if path:
             self.basedir = path

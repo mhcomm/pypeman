@@ -228,8 +228,14 @@ class HttpRequest(nodes.BaseNode):
         url = nodes.choose_first_not_none(self.url, msg.meta.get("url"))
         if url is None:
             raise nodes.NodeException("HttpRequest requires `url` or msg.meta['url']")
-        request_url = url.replace('%(meta.', '%(')  # TODO: should I  ???
-        payload_in_url_dict = 'payload.' in request_url  # TODO: should I remove ?
+        if '%(meta.' in url:
+            request_url = url.replace('%(meta.', '%(')
+            logger.warning(
+                "Url param doesn't need 'meta.' : %s (have to be written) => %s",
+                url, request_url)
+        else:
+            request_url = url
+        payload_in_url_dict = 'payload.' in request_url
         params_in_url = str_named_param_regex.findall(request_url)
         if self.old_url_parsing:
             url_dict = msg.meta

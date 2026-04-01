@@ -31,10 +31,8 @@ setup(
     ],
     keywords="esb etl eai pipeline data processing asyncio http ftp hl7",
     url=URL,
-
     author="Jeremie Pardou",
     author_email="jeremie@jeremiez.net",
-
     license="Apache Software License",
     packages=[
         "pypeman",
@@ -48,39 +46,27 @@ setup(
         "pypeman.tests.settings",
         "pypeman.tools",
     ],
-
     package_data={
         "pypeman.tests": ["data/*"],
     },
     entry_points={
         "console_scripts": [
-            "pypeman = pypeman.commands:cli",
-            "pypeman_tool = pypeman.tool_commands:main",
+            "pypeman = pypeman.commands:main",
         ]
     },
-
     test_suite="nose.collector",
     install_requires=[
-        "click",
-        "daemonlite",
         "python-dateutil",
-        "websockets<14",  # loop problem in py 3.8+
         "aiohttp",
-        "jsonrpcclient",
-        "jsonrpcserver<5",  # cannot import name 'Protocol' from 'typing' : fixed in py3.8
         "sqlitedict",
-        # TODO Remove next dependency as soon as jsonrpcclient is removed
-        "requests"
     ],
     extras_require={
         "hl7": ["hl7"],
         "xml": ["xmltodict"],
         "time": ["aiocron"],
-        "all": ["hl7", "xmltodict", "aiocron"]
+        "all": ["hl7", "xmltodict", "aiocron"],
     },
     setup_requires=["pytest-runner"],
-    tests_require=[
-        "pytest", "pytest-cov", "pytest-asyncio"
-        ],
+    tests_require=["pytest", "pytest-cov", "pytest-asyncio"],
     include_package_data=True,
 )

@@ -3,7 +3,7 @@ import argparse
 from functools import partial
 from pathlib import Path
 
-import requests
+import requests  # XXX: me thinke this is the last use of requests
 
 from pypeman.tools.view_store import Filter
 from pypeman.tools.view_store import process_file_store

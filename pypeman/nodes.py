@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import collections
+import grp
 import json
 import logging
 import os
@@ -664,12 +665,14 @@ class FileWriter(BaseNode):
         base name with different extension (for example .ok)
     """
     def __init__(self, filepath=None, binary_mode=False, safe_file=True, create_valid_file=False,
-                 validation_extension=".ok", *args, **kwargs):
+                 validation_extension=".ok", group_name=None, encoding=None, *args, **kwargs):
         self.filepath = filepath
         self.binary_mode = binary_mode
         self.safe_file = safe_file
         self.create_valid_file = create_valid_file
         self.validation_extension = validation_extension
+        self.group_name = group_name
+        self.encoding = encoding
         self.first_filename = True
         self.counter = 0
         super().__init__(*args, **kwargs)
@@ -691,8 +694,21 @@ class FileWriter(BaseNode):
         old_file = dest
         if self.safe_file:
             dest = old_file + '.tmp'
-        with open(dest, 'w' + ('b' if self.binary_mode else '')) as file_:
+        with open(dest, 'w' + ('b' if self.binary_mode else ''), encoding=self.encoding) as file_:
             file_.write(msg.payload)
+        if self.group_name is not None:
+            # Change file to group
+            try:
+                gid = grp.getgrnam(self.group_name).gr_gid
+                user_groups = os.getgroups()
+                if gid not in user_groups:
+                    raise ValueError(
+                        "The current user is not a member of the group %s",
+                        self.group_name
+                    )
+            except KeyError:
+                raise ValueError(f"Group '{self.group_name}' does not exist on the system.")
+            os.chown(dest, -1, gid)
         if self.safe_file:
             os.rename(dest, old_file)
         if self.create_valid_file:

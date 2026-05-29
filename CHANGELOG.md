@@ -1,4 +1,8 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
+
+## [0.6.3](https://github.com/mhcomm/pypeman/compare/0.6.2...0.6.3)
+* FIX replay and inject in subchannels + lil tests cleanup
+
 ## [0.6.2](https://github.com/mhcomm/pypeman/compare/0.6.1...0.6.2)
 * Add encoding param to Filewatcher
 * HttpRequest: Add possibility to get the url from msg.meta

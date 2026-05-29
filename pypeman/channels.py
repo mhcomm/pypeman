@@ -472,7 +472,7 @@ class BaseChannel:
                 except exceptions.RetryException as retry_exc:
                     self.logger.info("%s CATCH RETRY in drop nodes for msg %s", str(self), str(msg))
                     retry_exc_catched = retry_exc
-            if self.raise_dropped:
+            if self.raise_dropped or self._has_callback():
                 raise
             return msg
         except Rejected as exc:
@@ -1152,7 +1152,7 @@ class SubChannel(BaseChannel):
             self.logger.info(
                 "subchan %s end process msg %s", str(self), str(entrymsg))
 
-    async def subhandle(self, msg, start_nodename=None):
+    async def handle(self, msg):
         msgctxvartoken = MSG_CTXVAR.set(msg.copy())
         ctx = contextvars.copy_context()
         copied_msg = msg.copy()
@@ -1161,7 +1161,7 @@ class SubChannel(BaseChannel):
             # of subchannel to the first message
             copied_msg.store_id = None
             copied_msg.store_chan_name = None
-        fut = asyncio.create_task(self.process(copied_msg, start_nodename=start_nodename))
+        fut = asyncio.create_task(super().handle(copied_msg))
         fut.add_done_callback(self._callback, context=ctx)
         self.parent.sub_chan_tasks.append(fut)
         MSG_CTXVAR.reset(msgctxvartoken)
@@ -1169,6 +1169,8 @@ class SubChannel(BaseChannel):
 
     async def process(self, msg, start_nodename=None):
         # https://github.com/mhcomm/pypeman/pull/319
+        # TODO: maybe the subchan_lock is no more useful since
+        # https://github.com/mhcomm/pypeman/pull/334
         async with self.subchan_lock:  # avoid having multiples message in parallel
             return await super().process(msg=msg, start_nodename=start_nodename)
 

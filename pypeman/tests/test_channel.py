@@ -40,8 +40,12 @@ def raise_rejected(msg):
     raise Rejected()
 
 
+class MyException(Exception):
+    pass
+
+
 def raise_exc(msg):
-    raise Exception()
+    raise MyException()
 
 
 def return_text(msg, text):
@@ -205,7 +209,7 @@ class ChannelsTests(TestCase):
         n1.mock(output=raise_exc)
         self.start_channels()
         endnode._reset_test()
-        with self.assertRaises(Exception):
+        with self.assertRaises(MyException):
             self.loop.run_until_complete(chan1.handle(msg1))
 
         self.assertTrue(endnode.processed, "Channel fail_endnodes not working")
@@ -230,7 +234,7 @@ class ChannelsTests(TestCase):
         n1.mock(output=raise_exc)
         self.start_channels()
         endnode._reset_test()
-        with self.assertRaises(Exception):
+        with self.assertRaises(MyException):
             self.loop.run_until_complete(chan1.handle(msg1))
 
         self.assertTrue(endnode.processed, "Channel final_endnodes not working")
@@ -309,7 +313,7 @@ class ChannelsTests(TestCase):
         chan1._reset_test()
         n1.mock(output=raise_exc)
         self.start_channels()
-        with self.assertRaises(Exception):
+        with self.assertRaises(MyException):
             self.loop.run_until_complete(chan1.handle(msg1))
         self.assertTrue(
             n_endfail.processed,
@@ -421,7 +425,7 @@ class ChannelsTests(TestCase):
         chan1._reset_test()
         n3exc.mock(output=raise_exc)
         excmsg = generate_msg(message_content="exc")
-        with self.assertRaises(Exception):
+        with self.assertRaises(MyException):
             self.loop.run_until_complete(chan1.handle(excmsg))
         self.assertEqual(
             chan1_endfail.processed, 1,
@@ -574,7 +578,7 @@ class ChannelsTests(TestCase):
         chan1_endok._reset_test()
         chan1_endfinal._reset_test()
         startmsg = generate_msg(message_content="exc")
-        with self.assertRaises(Exception):
+        with self.assertRaises(MyException):
             self.loop.run_until_complete(chan1.handle(startmsg))
         self.assertTrue(
             chan1_endfail.processed,
@@ -683,7 +687,7 @@ class ChannelsTests(TestCase):
 
         startmsg = generate_msg(message_content="startmsg")
         self.start_channels()
-        with self.assertRaises(Exception) and self.assertRaises(Dropped):
+        with self.assertRaises((MyException, Dropped)):
             self.loop.run_until_complete(chan1.handle(startmsg))
 
         # chan1 : only ok and final end nodes have to be called
@@ -766,11 +770,11 @@ class ChannelsTests(TestCase):
             sub4_endok.processed,
             "subchan4 ok_endnodes called when nobody ask to him")
         self.assertFalse(
-            sub4_endok.processed,
+            sub4_endfail.processed,
             "subchan4 fail_endnodes called when nobody ask to him")
         self.assertTrue(
             sub4_enddrop.processed,
-            "subchan4 fail_endnodes not called")
+            "subchan4 drop_endnodes not called")
         sub4_enddrop_input = sub4_enddrop.last_input()
         self.assertFalse(sub4_enddrop_input.chan_rslt,
                          "subchan4 drop_nodes have rslt attr when it doesn't have to")

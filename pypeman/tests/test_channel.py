@@ -1644,3 +1644,171 @@ class ChannelsTests(TestCase):
             processed_nodes=processed_nodes,
             not_processed_nodes=not_processed_nodes
         )
+
+    def test_chan_merge_submessage_states_nok(self):
+
+        def _check_status(msg):
+            if msg.payload == "ok":
+                return msg
+            elif msg.payload == "nok":
+                raise MyException()
+            else:
+                raise ValueError(f"{msg.payload} status not accepted")
+        chan_name = "tst_merge_submessage_states_nok"
+        chan = BaseChannel(
+            name=chan_name,
+            message_store_factory=msgstore.MemoryMessageStoreFactory(),
+            wait_subchans=True,
+            loop=self.loop,
+        )
+        forked_chan = chan.fork(
+            name=f"{chan_name}_fork",
+            message_store_factory=chan.message_store_factory,
+        )
+        condition_chan = chan.when(
+            lambda msg: True,
+            name=f"{chan_name}_condition",
+            message_store_factory=chan.message_store_factory,
+        )
+        fnode = nodes.BaseNode(name=f"{forked_chan.short_name}_node")
+        forked_chan.add(
+            nodes.YielderNode(name=f"{forked_chan.short_name}_yielder"),
+            fnode)
+        cnode = nodes.BaseNode(name=f"{condition_chan.short_name}_node")
+        condition_chan.add(
+            nodes.YielderNode(name=f"{condition_chan.short_name}_yielder"),
+            cnode)
+
+        fnode.mock(output=_check_status)
+        cnode.mock(output=_check_status)
+
+        self.start_channels()
+
+        # Test OK
+        # chan._reset_test()
+        msg1 = generate_msg(message_content=["ok", "nok", "ok"])
+
+        with self.assertRaises(MyException):
+            self.loop.run_until_complete(chan.handle_and_wait(
+                msg=msg1,
+            ))
+        # assert base chan result
+        total_msg = self.loop.run_until_complete(chan.message_store.total())
+        assert total_msg == 1
+        msgs = self.loop.run_until_complete(chan.message_store.search())
+        stored_msg = msgs[0]
+        self.loop.run_until_complete(chan.message_store.delete(stored_msg["id"]))
+        assert stored_msg["state"] == "error"
+        submsgs = stored_msg["submessages_state_history"]
+        substates = [msg["state"] for msg in submsgs]
+        assert len(submsgs) == 2
+        substates = [msg["state"] for msg in submsgs]
+        # assert fork chan result
+        total_msg = self.loop.run_until_complete(forked_chan.message_store.total())
+        assert total_msg == 1
+        msgs = self.loop.run_until_complete(forked_chan.message_store.search())
+        stored_msg = msgs[0]
+        self.loop.run_until_complete(forked_chan.message_store.delete(stored_msg["id"]))
+        assert stored_msg["state"] == "error"
+        submsgs = stored_msg["submessages_state_history"]
+        assert len(submsgs) == 4
+        substates = [msg["state"] for msg in submsgs]
+        self.assertListEqual(sorted(
+            ["processing", "processed", "error", "processed"]
+        ), sorted(substates))
+        # assert cond chan result
+        total_msg = self.loop.run_until_complete(condition_chan.message_store.total())
+        assert total_msg == 1
+        msgs = self.loop.run_until_complete(condition_chan.message_store.search())
+        stored_msg = msgs[0]
+        self.loop.run_until_complete(condition_chan.message_store.delete(stored_msg["id"]))
+        assert stored_msg["state"] == "error"
+        submsgs = stored_msg["submessages_state_history"]
+        assert len(submsgs) == 4
+        substates = [msg["state"] for msg in submsgs]
+        self.assertListEqual(sorted(
+            ["processing", "processed", "error", "processed"]
+        ), sorted(substates))
+
+    def test_chan_merge_submessage_states_ok(self):
+
+        def _check_status(msg):
+            if msg.payload == "ok":
+                return msg
+            elif msg.payload == "nok":
+                raise MyException()
+            else:
+                raise ValueError(f"{msg.payload} status not accepted")
+        chan_name = "tst_merge_submessage_states_ok"
+        chan = BaseChannel(
+            name=chan_name,
+            message_store_factory=msgstore.MemoryMessageStoreFactory(),
+            wait_subchans=True,
+            loop=self.loop,
+        )
+        forked_chan = chan.fork(
+            name=f"{chan_name}_fork",
+            message_store_factory=chan.message_store_factory,
+        )
+        condition_chan = chan.when(
+            lambda msg: True,
+            name=f"{chan_name}_condition",
+            message_store_factory=chan.message_store_factory,
+        )
+        fnode = nodes.BaseNode(name=f"{forked_chan.short_name}_node")
+        forked_chan.add(
+            nodes.YielderNode(name=f"{forked_chan.short_name}_yielder"),
+            fnode)
+        cnode = nodes.BaseNode(name=f"{condition_chan.short_name}_node")
+        condition_chan.add(
+            nodes.YielderNode(name=f"{condition_chan.short_name}_yielder"),
+            cnode)
+
+        fnode.mock(output=_check_status)
+        cnode.mock(output=_check_status)
+
+        self.start_channels()
+
+        # Test OK
+        # chan._reset_test()
+        msg1 = generate_msg(message_content=["ok"]*3)
+        self.loop.run_until_complete(chan.handle(
+            msg=msg1,
+        ))
+        # assert base chan result
+        total_msg = self.loop.run_until_complete(chan.message_store.total())
+        assert total_msg == 1
+        msgs = self.loop.run_until_complete(chan.message_store.search())
+        stored_msg = msgs[0]
+        self.loop.run_until_complete(chan.message_store.delete(stored_msg["id"]))
+        assert stored_msg["state"] == "processed"
+        submsgs = stored_msg["submessages_state_history"]
+        substates = [msg["state"] for msg in submsgs]
+        assert len(submsgs) == 2
+        substates = [msg["state"] for msg in submsgs]
+        # assert fork chan result
+        total_msg = self.loop.run_until_complete(forked_chan.message_store.total())
+        assert total_msg == 1
+        msgs = self.loop.run_until_complete(forked_chan.message_store.search())
+        stored_msg = msgs[0]
+        self.loop.run_until_complete(forked_chan.message_store.delete(stored_msg["id"]))
+        assert stored_msg["state"] == "processed"
+        submsgs = stored_msg["submessages_state_history"]
+        assert len(submsgs) == 4
+        substates = [msg["state"] for msg in submsgs]
+        self.assertListEqual(sorted(
+            ["processing", "processed", "processed", "processed"]
+        ), sorted(substates))
+        # assert cond chan result
+        total_msg = self.loop.run_until_complete(condition_chan.message_store.total())
+        assert total_msg == 1
+        msgs = self.loop.run_until_complete(condition_chan.message_store.search())
+        stored_msg = msgs[0]
+        self.loop.run_until_complete(condition_chan.message_store.delete(stored_msg["id"]))
+        assert stored_msg["state"] == "processed"
+        submsgs = stored_msg["submessages_state_history"]
+        assert len(submsgs) == 4
+        substates = [msg["state"] for msg in submsgs]
+        self.assertListEqual(sorted(
+            ["processing", "processed", "processed", "processed"]
+        ), sorted(substates))

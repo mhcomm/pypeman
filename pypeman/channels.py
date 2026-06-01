@@ -672,10 +672,11 @@ class BaseChannel:
         # Store message before any processing
         # TODO If store fails, do we stop processing ?
         # TODO Do we store message even if channel is stopped ?
-        msg_store_id = await self.message_store.store(msg)
-        if msg_store_id is not None:
-            msg.store_id = msg_store_id
-            msg.store_chan_name = self.short_name
+        if not self._has_callback():  # Subchans have it's own message_store.store call
+            msg_store_id = await self.message_store.store(msg)
+            if msg_store_id is not None:
+                msg.store_id = msg_store_id
+                msg.store_chan_name = self.short_name
         # TODO: Maybe think to add PENDING status to incoming message, this status is never set and
         # is currently unuseful. Uncomment next line if it's a good idea
         # await self.message_store.change_message_state(msg.store_id, message.Message.PENDING)
@@ -1153,6 +1154,10 @@ class SubChannel(BaseChannel):
                 "subchan %s end process msg %s", str(self), str(entrymsg))
 
     async def handle(self, msg):
+        msg_store_id = await self.message_store.store(msg)
+        if msg_store_id is not None:
+            msg.store_id = msg_store_id
+            msg.store_chan_name = self.short_name
         msgctxvartoken = MSG_CTXVAR.set(msg.copy())
         ctx = contextvars.copy_context()
         copied_msg = msg.copy()

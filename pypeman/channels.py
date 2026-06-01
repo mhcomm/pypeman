@@ -672,7 +672,7 @@ class BaseChannel:
         # Store message before any processing
         # TODO If store fails, do we stop processing ?
         # TODO Do we store message even if channel is stopped ?
-        if not self._has_callback():
+        if not self._has_callback():  # Subchans have it's own message_store.store call
             msg_store_id = await self.message_store.store(msg)
             if msg_store_id is not None:
                 msg.store_id = msg_store_id

@@ -360,8 +360,8 @@ class HttpRequest(nodes.BaseNode):
         msg.meta["status_code"] = resp.status
         msg.meta["url"] = str(resp.url)
         if self.add_meta:
-            msg.meta["headers"] = resp.headers
-            msg.meta["cookies"] = resp.cookies
+            msg.meta["headers"] = dict(resp.headers or {})
+            msg.meta["cookies"] = dict(resp.cookies or {})
         resp_content = resp.content
         if self.json:
             try:

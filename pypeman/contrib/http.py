@@ -320,6 +320,13 @@ class HttpRequest(nodes.BaseNode):
                 else:
                     get_params.append((key, param))
 
+        headers_to_send = None
+        if headers:
+            headers_to_send = headers.copy()
+            for key, val in headers.items():
+                if callable(val):
+                    headers_to_send[key] = val(msg)
+
         basic_auth = self.auth
 
         data = None
@@ -335,7 +342,7 @@ class HttpRequest(nodes.BaseNode):
                         method=method,
                         url=url,
                         auth=basic_auth,
-                        headers=headers,
+                        headers=headers_to_send,
                         params=get_params,
                         json=data
                         )
@@ -344,7 +351,7 @@ class HttpRequest(nodes.BaseNode):
                         method=method,
                         url=url,
                         auth=basic_auth,
-                        headers=headers,
+                        headers=headers_to_send,
                         params=get_params,
                         data=data
                         )

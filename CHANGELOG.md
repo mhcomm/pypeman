@@ -1,4 +1,8 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
+## [0.6.5](https://github.com/mhcomm/pypeman/compare/0.6.4...0.6.5)
+* HttpRequest node: Add callable headers + FIX add_meta param
+* FileWriter node: add grp change + encoding
+
 ## [0.6.4](https://github.com/mhcomm/pypeman/compare/0.6.3...0.6.4)
 * FIX suchan message store exception
 

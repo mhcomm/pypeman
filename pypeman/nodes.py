@@ -676,18 +676,6 @@ class FileWriter(BaseNode):
         self.first_filename = True
         self.counter = 0
         super().__init__(*args, **kwargs)
-        # Check that configured group exists and current user is member of
-        if self.group_name is not None:
-            try:
-                gid = grp.getgrnam(self.group_name).gr_gid
-                user_groups = os.getgroups()
-                if gid not in user_groups:
-                    raise ValueError(
-                        "The current user is not a member of the group %s",
-                        self.group_name
-                    )
-            except KeyError:
-                raise ValueError(f"Group '{self.group_name}' does not exist on the system.")
 
     def process(self, msg):
         self.counter += 1

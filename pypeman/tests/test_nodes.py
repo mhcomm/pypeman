@@ -756,18 +756,18 @@ class NodesTests(TestCase):
         with mock.patch("builtins.open", mock.mock_open()) as mock_file:
             self.loop.run_until_complete(writer.handle(msg1))
 
-        mock_file.assert_called_once_with('/filepath', 'w')
+        mock_file.assert_called_once_with('/filepath', 'w', encoding=None)
         handle = mock_file()
         handle.write.assert_called_once_with('message_content')
 
-        writer2 = nodes.FileWriter(safe_file=False)
+        writer2 = nodes.FileWriter(safe_file=False, encoding="ISO-8859-1")
         writer2.channel = channel
         msg2 = generate_msg(message_content="message_content2")
         msg2.meta['filepath'] = '/filepath2'
         with mock.patch("builtins.open", mock.mock_open()) as mock_file:
             self.loop.run_until_complete(writer2.handle(msg2))
 
-        mock_file.assert_called_once_with('/filepath2', 'w')
+        mock_file.assert_called_once_with('/filepath2', 'w', encoding="ISO-8859-1")
         handle = mock_file()
         handle.write.assert_called_once_with('message_content2')
 

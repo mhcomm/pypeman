@@ -1140,7 +1140,7 @@ class SubChannel(BaseChannel):
                 "Error while processing msg %s in subchannel %s", str(entrymsg), str(self))
             raise
         finally:
-            if self.message_store:
+            if self.has_message_store:
                 changestate_task = asyncio.create_task(
                     self.message_store.set_state_to_worst_sub_state(entrymsg.store_id))
                 endnodes_tasks.append(changestate_task)

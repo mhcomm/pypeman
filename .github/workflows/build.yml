@@ -6,11 +6,10 @@ on:
 
 jobs:
   build:
-    # github python 3.7 doesn't work on ubuntu 24.04 (set ubuntu-latest when we drop 3.7)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.7", "3.8", "3.9", "3.10"]
+        python-version: ["3.8", "3.9", "3.10"]
         # python-version: ["3.6", "3.7", "3.8", "pypy-3.6", "pypy-3.7"]
     permissions:
       pull-requests: write

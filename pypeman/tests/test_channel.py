@@ -1699,7 +1699,7 @@ class ChannelsTests(TestCase):
         stored_msg = msgs[0]
         self.loop.run_until_complete(chan.message_store.delete(stored_msg["id"]))
         assert stored_msg["state"] == "error"
-        submsgs = stored_msg["submessages_state_history"]
+        submsgs = stored_msg["meta"]["submessages_state_history"]
         substates = [msg["state"] for msg in submsgs]
         assert len(submsgs) == 2
         substates = [msg["state"] for msg in submsgs]
@@ -1710,7 +1710,7 @@ class ChannelsTests(TestCase):
         stored_msg = msgs[0]
         self.loop.run_until_complete(forked_chan.message_store.delete(stored_msg["id"]))
         assert stored_msg["state"] == "error"
-        submsgs = stored_msg["submessages_state_history"]
+        submsgs = stored_msg["meta"]["submessages_state_history"]
         assert len(submsgs) == 4
         substates = [msg["state"] for msg in submsgs]
         self.assertListEqual(sorted(
@@ -1723,7 +1723,7 @@ class ChannelsTests(TestCase):
         stored_msg = msgs[0]
         self.loop.run_until_complete(condition_chan.message_store.delete(stored_msg["id"]))
         assert stored_msg["state"] == "error"
-        submsgs = stored_msg["submessages_state_history"]
+        submsgs = stored_msg["meta"]["submessages_state_history"]
         assert len(submsgs) == 4
         substates = [msg["state"] for msg in submsgs]
         self.assertListEqual(sorted(
@@ -1782,7 +1782,7 @@ class ChannelsTests(TestCase):
         stored_msg = msgs[0]
         self.loop.run_until_complete(chan.message_store.delete(stored_msg["id"]))
         assert stored_msg["state"] == "processed"
-        submsgs = stored_msg["submessages_state_history"]
+        submsgs = stored_msg["meta"]["submessages_state_history"]
         substates = [msg["state"] for msg in submsgs]
         assert len(submsgs) == 2
         substates = [msg["state"] for msg in submsgs]
@@ -1793,7 +1793,7 @@ class ChannelsTests(TestCase):
         stored_msg = msgs[0]
         self.loop.run_until_complete(forked_chan.message_store.delete(stored_msg["id"]))
         assert stored_msg["state"] == "processed"
-        submsgs = stored_msg["submessages_state_history"]
+        submsgs = stored_msg["meta"]["submessages_state_history"]
         assert len(submsgs) == 4
         substates = [msg["state"] for msg in submsgs]
         self.assertListEqual(sorted(
@@ -1806,7 +1806,7 @@ class ChannelsTests(TestCase):
         stored_msg = msgs[0]
         self.loop.run_until_complete(condition_chan.message_store.delete(stored_msg["id"]))
         assert stored_msg["state"] == "processed"
-        submsgs = stored_msg["submessages_state_history"]
+        submsgs = stored_msg["meta"]["submessages_state_history"]
         assert len(submsgs) == 4
         substates = [msg["state"] for msg in submsgs]
         self.assertListEqual(sorted(

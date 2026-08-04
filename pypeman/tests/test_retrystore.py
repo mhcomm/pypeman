@@ -228,7 +228,7 @@ class RetryStoreTests(TestCase):
         with self.assertRaises(exceptions.PausedChanException):
             self.loop.run_until_complete(chan.handle(msg))
         stored_msg = self.loop.run_until_complete(msgstore.get(id=msg.uuid))
-        cnt_msgs_retrystore = self.loop.run_until_complete(retry_store.count_msgs())
+        cnt_msgs_retrystore = self.loop.run_until_complete(retry_store.total())
         msgs_retry_store = self.loop.run_until_complete(retry_store.search(order_by="timestamp"))
         assert cnt_msgs_retrystore == 1
         assert stored_msg["state"] == message.Message.WAIT_RETRY
@@ -246,7 +246,7 @@ class RetryStoreTests(TestCase):
         print("RETRY")
         # Retry without modifying nodes (same comportment as above, no modification)
         self.loop.run_until_complete(retry_store.retry())
-        cnt_msgs_retrystore = self.loop.run_until_complete(retry_store.count_msgs())
+        cnt_msgs_retrystore = self.loop.run_until_complete(retry_store.total())
         msgs_retry_store = self.loop.run_until_complete(retry_store.search(order_by="timestamp"))
         assert cnt_msgs_retrystore == 1
         assert msgs_retry_store[0]["message"].payload == stored_msg["message"].payload
@@ -271,7 +271,7 @@ class RetryStoreTests(TestCase):
         # - Their payloads corresponds to element in input message's payload list
         init_node.raise_exc = False
         self.loop.run_until_complete(retry_store.retry())
-        cnt_msgs_retrystore = self.loop.run_until_complete(retry_store.count_msgs())
+        cnt_msgs_retrystore = self.loop.run_until_complete(retry_store.total())
         msgs_retry_store = self.loop.run_until_complete(retry_store.search(order_by="timestamp"))
         assert cnt_msgs_retrystore == 3
         copied_msg_payload = copy.deepcopy(msg_payload)
@@ -307,7 +307,7 @@ class RetryStoreTests(TestCase):
 
         first_node.raise_exc = False
         self.loop.run_until_complete(retry_store.retry())
-        cnt_msgs_retrystore = self.loop.run_until_complete(retry_store.count_msgs())
+        cnt_msgs_retrystore = self.loop.run_until_complete(retry_store.total())
         msgs_retry_store = self.loop.run_until_complete(retry_store.search(order_by="timestamp"))
         assert cnt_msgs_retrystore == 3
         copied_msg_payload = copy.deepcopy(msg_payload)
@@ -329,7 +329,7 @@ class RetryStoreTests(TestCase):
         assert forked_chan.status == BaseChannel.PAUSED
         assert forked_chan_retry_store.state == RetryFileMsgStore.RETRY_MODE
         assert conditional_chan.status == BaseChannel.WAITING
-        cnt_msgs_retrystore = self.loop.run_until_complete(forked_chan_retry_store.count_msgs())
+        cnt_msgs_retrystore = self.loop.run_until_complete(forked_chan_retry_store.total())
         msgs_retry_store = self.loop.run_until_complete(forked_chan_retry_store.search(order_by="timestamp"))
         assert len(msgs_retry_store) == 1
         msg_retry_store = msgs_retry_store[0]
@@ -356,7 +356,7 @@ class RetryStoreTests(TestCase):
         self.loop.run_until_complete(forked_chan_retry_store.retry())
         # Then relaunch other messages
         self.loop.run_until_complete(retry_store.retry())
-        cnt_msgs_retrystore = self.loop.run_until_complete(retry_store.count_msgs())
+        cnt_msgs_retrystore = self.loop.run_until_complete(retry_store.total())
         msgs_retry_store = self.loop.run_until_complete(retry_store.search(order_by="timestamp"))
         assert cnt_msgs_retrystore == 3
         copied_msg_payload = copy.deepcopy(msg_payload)
@@ -378,7 +378,7 @@ class RetryStoreTests(TestCase):
         assert forked_chan.status == BaseChannel.WAITING
         assert forked_chan_retry_store.state == RetryFileMsgStore.STOPPED
         assert conditional_chan.status == BaseChannel.WAITING
-        cnt_msgs_retrystore = self.loop.run_until_complete(forked_chan_retry_store.count_msgs())
+        cnt_msgs_retrystore = self.loop.run_until_complete(forked_chan_retry_store.total())
         msgs_retry_store = self.loop.run_until_complete(forked_chan_retry_store.search(order_by="timestamp"))
         assert len(msgs_retry_store) == 0
         stored_msg = self.loop.run_until_complete(msgstore.get(id=msg.uuid))
@@ -393,7 +393,7 @@ class RetryStoreTests(TestCase):
         # - The message have to be inject in join_node
         last_node.raise_exc = False
         self.loop.run_until_complete(retry_store.retry())
-        cnt_msgs_retrystore = self.loop.run_until_complete(retry_store.count_msgs())
+        cnt_msgs_retrystore = self.loop.run_until_complete(retry_store.total())
         msgs_retry_store = self.loop.run_until_complete(retry_store.search(order_by="timestamp"))
         assert cnt_msgs_retrystore == 0
         assert chan.status == BaseChannel.WAITING
@@ -461,7 +461,7 @@ class RetryStoreTests(TestCase):
         with self.assertRaises(exceptions.PausedChanException):
             self.loop.run_until_complete(chan.handle(msg2))
         stored_msg2 = self.loop.run_until_complete(msgstore.get(id=msg2.uuid))
-        cnt_msgs_retrystore = self.loop.run_until_complete(retry_store.count_msgs())
+        cnt_msgs_retrystore = self.loop.run_until_complete(retry_store.total())
         msgs_retry_store = self.loop.run_until_complete(retry_store.search(order_by="timestamp"))
         assert cnt_msgs_retrystore == 4
         assert stored_msg1["state"] == message.Message.WAIT_RETRY
@@ -495,7 +495,7 @@ class RetryStoreTests(TestCase):
         first_node.raise_exc = False
         msgs_retry_store = self.loop.run_until_complete(retry_store.search(order_by="timestamp"))
         self.loop.run_until_complete(retry_store.retry())
-        cnt_msgs_retrystore = self.loop.run_until_complete(retry_store.count_msgs())
+        cnt_msgs_retrystore = self.loop.run_until_complete(retry_store.total())
         msgs_retry_store = self.loop.run_until_complete(retry_store.search(order_by="timestamp"))
         assert cnt_msgs_retrystore == 1
         assert msgs_retry_store[0]["message"].payload == msg_payload[-1]
@@ -523,7 +523,7 @@ class RetryStoreTests(TestCase):
         #   is in wait_retry state and must be inject in final_node
         join_node.raise_exc = False
         self.loop.run_until_complete(retry_store.retry())
-        cnt_msgs_retrystore = self.loop.run_until_complete(retry_store.count_msgs())
+        cnt_msgs_retrystore = self.loop.run_until_complete(retry_store.total())
         msgs_retry_store = self.loop.run_until_complete(retry_store.search(order_by="timestamp"))
         assert cnt_msgs_retrystore == 1
         assert msgs_retry_store[0]["message"].payload == msg_payload
@@ -551,7 +551,7 @@ class RetryStoreTests(TestCase):
         # - The second message is processed, and state is set
         final_node.raise_exc = False
         self.loop.run_until_complete(retry_store.retry())
-        cnt_msgs_retrystore = self.loop.run_until_complete(retry_store.count_msgs())
+        cnt_msgs_retrystore = self.loop.run_until_complete(retry_store.total())
         msgs_retry_store = self.loop.run_until_complete(retry_store.search(order_by="timestamp"))
         assert cnt_msgs_retrystore == 0
         assert chan.status == BaseChannel.WAITING
@@ -621,7 +621,7 @@ class RetryStoreTests(TestCase):
             self.loop.run_until_complete(chan.handle(msg))
         stored_msg = self.loop.run_until_complete(msgstore.get(id=msg.uuid))
         assert stored_msg["state"] == message.Message.WAIT_RETRY
-        cnt_msgs_cond_retrystore = self.loop.run_until_complete(cond_chan_retry_store.count_msgs())
+        cnt_msgs_cond_retrystore = self.loop.run_until_complete(cond_chan_retry_store.total())
         assert cnt_msgs_cond_retrystore == 1
         msg_cond_retry_store = self.loop.run_until_complete(
             cond_chan_retry_store.search(order_by="timestamp"))[0]
@@ -645,7 +645,7 @@ class RetryStoreTests(TestCase):
         # - The retry store of the conditional subchan is stopped
         conditional_node.exc = Rejected
         self.loop.run_until_complete(cond_chan_retry_store.retry())
-        cnt_msgs_retrystore = self.loop.run_until_complete(cond_chan_retry_store.count_msgs())
+        cnt_msgs_retrystore = self.loop.run_until_complete(cond_chan_retry_store.total())
         assert cnt_msgs_retrystore == 0
         assert chan.status == BaseChannel.WAITING
         assert retry_store.state == RetryFileMsgStore.STOPPED
@@ -709,7 +709,7 @@ class RetryStoreTests(TestCase):
         with self.assertRaises(exceptions.PausedChanException):
             self.loop.run_until_complete(chan.handle(msg))
         stored_msg = self.loop.run_until_complete(msgstore.get(id=msg.uuid))
-        cnt_msgs_retrystore = self.loop.run_until_complete(retry_store.count_msgs())
+        cnt_msgs_retrystore = self.loop.run_until_complete(retry_store.total())
         msgs_retry_store = self.loop.run_until_complete(retry_store.search(order_by="timestamp"))
         assert cnt_msgs_retrystore == 3
         copied_msg_payload = copy.deepcopy(msg_payload)
@@ -737,7 +737,7 @@ class RetryStoreTests(TestCase):
         # - The message state is ERROR
         first_node.raise_exc = False
         self.loop.run_until_complete(retry_store.retry())
-        cnt_msgs_retrystore = self.loop.run_until_complete(retry_store.count_msgs())
+        cnt_msgs_retrystore = self.loop.run_until_complete(retry_store.total())
         assert cnt_msgs_retrystore == 0
         assert chan.status == BaseChannel.WAITING
         assert retry_store.state == RetryFileMsgStore.STOPPED

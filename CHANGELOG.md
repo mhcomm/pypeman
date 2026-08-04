@@ -1,4 +1,7 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
+## [0.6.6](https://github.com/mhcomm/pypeman/compare/0.6.5...0.6.6)
+* FileWriter node: Don't raise "group not exist" error at startup
+
 ## [0.6.5](https://github.com/mhcomm/pypeman/compare/0.6.4...0.6.5)
 * HttpRequest node: Add callable headers + FIX add_meta param
 * FileWriter node: add grp change + encoding

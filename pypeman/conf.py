@@ -78,7 +78,7 @@ class Settings:
             conf.settings.raise_for_missing()
         """
         # save this before clearing; we'd want to clear so as to now muddy things up
-        settings_impat = str(self.SETTINGS_MODULE)
+        settings_impat = str(self.__dict__["SETTINGS_MODULE"])
         self.__dict__.clear()
         self.__dict__.update(p for p in vars(default_settings).items() if "A" <= p[0][0] <= "Z")
 

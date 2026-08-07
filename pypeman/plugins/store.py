@@ -1,2 +1,1 @@
-# idk, try n mop up ths `pypeman.tools` grabage
-# |:lf|
+# TODO: things like search, print total msg count, idk

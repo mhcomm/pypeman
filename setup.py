@@ -43,7 +43,6 @@ setup(
         "pypeman.tests.test_app",
         "pypeman.tests.test_app_testing",
         "pypeman.tests.settings",
-        "pypeman.tools",
     ],
     package_data={
         "pypeman.tests": ["data/*"],

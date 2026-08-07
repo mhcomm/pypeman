@@ -138,7 +138,7 @@ class BaseChannel:
         self.message_store = self.message_store_factory.get_store(self.name)
         try:
             retry_store_path = settings.RETRY_STORE_PATH
-        except:
+        except BaseException:
             logger.warning(
                 "Caution, settings not imported before chan init, or no RETRY_STORE_PATH"
             )

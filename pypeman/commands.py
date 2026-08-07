@@ -16,12 +16,12 @@ from argparse import ArgumentParser
 from argparse import Namespace
 from logging import getLogger
 
-from .channels import all_channels
-from .conf import settings
-from .endpoints import all_endpoints
-from .plugin_mgr import manager
-from .plugins.base import CommandPluginMixin
-from .plugins.base import TaskPluginMixin
+from pypeman.channels import all_channels
+from pypeman.conf import settings
+from pypeman.endpoints import all_endpoints
+from pypeman.plugin_mgr import manager
+from pypeman.plugins.base import CommandPluginMixin
+from pypeman.plugins.base import TaskPluginMixin
 
 logger = getLogger(__name__)
 
@@ -74,11 +74,11 @@ async def amain():
     subpar.add_parser("start").set_defaults(_func=start)
 
     manager.register_plugins(*settings.PLUGINS)
-    # side-note: the 'discovery' of plugins relies solely on
-    #            "settings.py" and i dont like "settings.py"
+    # side-note: the 'discovery' of plugins relies solely on "settings.py"
+    #            and i dont like "settings.py"
     # also there is a world in which we `parser.parse_known_args` early
     # to collect a list of "--plugin <badibooda>" for example, or even
-    # "--no-plugin", etc..
+    # "--no-plugin" to disable some, etc..
     manager.instantiate_plugins()
 
     for com in manager.get_plugins(CommandPluginMixin):

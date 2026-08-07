@@ -23,10 +23,8 @@ import logging.config
 from importlib import import_module
 from logging import getLogger
 
-from . import default_settings
+from pypeman import default_settings
 
-# XXX: @rem channels
-SETTINGS_IMPORTED = False
 
 logger = getLogger(__name__)
 
@@ -61,27 +59,45 @@ class Settings:
             * not present at all.
         """
         if self:  # already loaded: this is the 'not present at all' case
-            raise AttributeError(f"type object '{type(self).__name__}' has no attribute '{name}'")
+            raise AttributeError(f"object '{type(self).__name__}' has no attribute '{name}'")
+        self.init_settings()
+        return super().__getattribute__(name)
 
-        global SETTINGS_IMPORTED  # XXX(wip)
+    def init_settings(self):
+        """Actually performs the import.
+
+        You do not need to do this manually in normal operation,
+        settings can just be accessed.
+
+        This **can** be used to force-update the settings from the
+        ``SETTINGS_MODULE`` (typ. for testing). This will not raise
+        on failure; use `raise_for_missing` for this:
+
+            SETTINGS_MODULE = 'tests.prout'
+            conf.settings.init_settings()
+            conf.settings.raise_for_missing()
+        """
+        # save this before clearing; we'd want to clear so as to now muddy things up
+        settings_impat = str(self.SETTINGS_MODULE)
+        self.__dict__.clear()
         self.__dict__.update(p for p in vars(default_settings).items() if "A" <= p[0][0] <= "Z")
 
         try:
-            settings_mod = self.__dict__["_settings_mod"] = import_module(self.SETTINGS_MODULE)
+            settings_mod = self.__dict__["_settings_mod"] = import_module(settings_impat)
             self.__dict__.update(p for p in vars(settings_mod).items() if "A" <= p[0][0] <= "Z")
             if self.__dict__.get("RETRY_STORE_PATH") is None:
                 logger.warning(
                     "No RETRY_STORE_PATH in settings, retry store unavailable."
                     + " (You may want to change this.)"
                 )
-
-            SETTINGS_IMPORTED = True  # XXX(wip)
+                # make it at least be present, even if none;
+                # some code migh rely on this i haven't checked
+                self.RETRY_STORE_PATH = None
 
         except BaseException as e:
             self.__dict__["_loading_exc"] = e
 
         logging.config.dictConfig(self.LOGGING)
-        return super().__getattribute__(name)
 
     def raise_for_missing(self):
         """Raise :exc:`ConfigError` if the user settings module

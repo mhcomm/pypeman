@@ -10,12 +10,12 @@ import warnings
 from pathlib import Path
 
 from pypeman import exceptions
-from pypeman import conf
 from pypeman import message, msgstore, events
-from pypeman.exceptions import EndChanProcess
-from pypeman.exceptions import Dropped
-from pypeman.exceptions import Rejected
+from pypeman.conf import settings
 from pypeman.exceptions import ChannelStopped
+from pypeman.exceptions import Dropped
+from pypeman.exceptions import EndChanProcess
+from pypeman.exceptions import Rejected
 from pypeman.helpers.itertools import flatten
 from pypeman.helpers.sleeper import Sleeper
 from pypeman.retry import RetryFileMsgStore
@@ -136,11 +136,11 @@ class BaseChannel:
             msgstore.NullMessageStoreFactory,
         )
         self.message_store = self.message_store_factory.get_store(self.name)
-        if conf.SETTINGS_IMPORTED:
-            retry_store_path = conf.settings.RETRY_STORE_PATH
-        else:
+        try:
+            retry_store_path = settings.RETRY_STORE_PATH
+        except:
             logger.warning(
-                "Caution, settings not imported before chan init"
+                "Caution, settings not imported before chan init, or no RETRY_STORE_PATH"
             )
             retry_store_path = None
         if retry_store_path is not None:

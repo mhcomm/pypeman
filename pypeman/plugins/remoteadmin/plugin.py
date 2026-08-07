@@ -10,12 +10,12 @@ from logging import getLogger
 from aiohttp import ClientSession
 from aiohttp import web
 
-from ...conf import settings
-from ..base import BasePlugin
-from ..base import CommandPluginMixin
-from ..base import TaskPluginMixin
-from .shell import RemoteAdminShell
-from .urls import init_urls
+from pypeman.conf import settings
+from pypeman.plugins.base import BasePlugin
+from pypeman.plugins.base import CommandPluginMixin
+from pypeman.plugins.base import TaskPluginMixin
+from pypeman.plugins.remoteadmin.shell import RemoteAdminShell
+from pypeman.plugins.remoteadmin.urls import init_urls
 
 logger = getLogger(__name__)
 

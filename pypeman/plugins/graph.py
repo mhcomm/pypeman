@@ -6,16 +6,16 @@ from argparse import ArgumentParser
 from argparse import Namespace
 from typing import Literal
 
-from ..channels import BaseChannel
-from ..channels import Case
-from ..channels import ConditionSubChannel
-from ..channels import SubChannel
-from ..channels import all_channels
-from ..channels import get_channel
-from ..commands import load_project
-from ..nodes import BaseNode
-from .base import BasePlugin
-from .base import CommandPluginMixin
+from pypeman.channels import BaseChannel
+from pypeman.channels import Case
+from pypeman.channels import ConditionSubChannel
+from pypeman.channels import SubChannel
+from pypeman.channels import all_channels
+from pypeman.channels import get_channel
+from pypeman.commands import load_project
+from pypeman.nodes import BaseNode
+from pypeman.plugins.base import BasePlugin
+from pypeman.plugins.base import CommandPluginMixin
 
 
 class GraphPlugin(BasePlugin, CommandPluginMixin):

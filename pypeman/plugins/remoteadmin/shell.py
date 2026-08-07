@@ -53,8 +53,8 @@ from typing import Callable
 
 from aiohttp import ClientWebSocketResponse
 
-from ...message import Message
-from . import methods
+from pypeman.message import Message
+from pypeman.plugins.remoteadmin import methods
 
 
 def _sync(afn: Callable[..., Awaitable[object]]):

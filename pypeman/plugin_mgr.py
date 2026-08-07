@@ -20,26 +20,23 @@ from importlib import import_module
 from logging import getLogger
 from typing import TypeVar
 
-from .plugins.base import BasePlugin
-from .plugins.base import MixinClasses_
+from pypeman.plugins.base import BasePlugin
+from pypeman.plugins.base import MixinClasses_
 
 logger = getLogger(__name__)
 
 
 class PluginManager:
-    _registered_classes: set[type[BasePlugin]]
-    _instances: list[BasePlugin]
-
     def __init__(self):
-        self._registered_classes = set()
-        self._instances = []
+        self._registered_classes: set[type[BasePlugin]] = set()
+        self._instances: list[BasePlugin] | None = None
 
     def register_plugins(self, *plugins: str):
         """Register one or more plugins.
 
         This operation is invalid after :meth:`instantiate_plugins`.
         """
-        assert not self._instances, f"invalid operation: late plugin registery {plugins}"
+        assert self._instances is None, f"invalid operation: late plugin registery {plugins}"
 
         for plugin_path in plugins:
             module_name, _, cls_name = plugin_path.rpartition(".")
@@ -57,8 +54,7 @@ class PluginManager:
 
         This operation becomes invalid after it has been performed once.
         """
-        assert not self._instances, "invalid operation: instantiate called again"
-
+        assert self._instances is None, "invalid operation: instantiate called again"
         self._instances = [cls() for cls in self._registered_classes]
 
     _MixinTypeVar_ = TypeVar("_MixinTypeVar_", bound=MixinClasses_)
@@ -68,6 +64,7 @@ class PluginManager:
 
         This is of course incorrect until :meth:`instantiate_plugins`.
         """
+        assert self._instances is not None, "invalid operation: instantiate not called"
         return (it for it in self._instances if isinstance(it, of_type))
 
     def get_all_plugins(self):
@@ -75,10 +72,8 @@ class PluginManager:
 
         This is of course incorrect until :meth:`instantiate_plugins`.
         """
+        assert self._instances is not None, "invalid operation: instantiate not called"
         return iter(self._instances)
 
 
-# TODO: me no liky, should at leat be proper singleton
-# (same with settings one day) but this is the mentality of pypeman
-# in many places, and it's making me question everything...
 manager = PluginManager()

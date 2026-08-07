@@ -16,7 +16,7 @@ from logging import getLogger
 from aiohttp import WSMsgType
 from aiohttp import web
 
-from . import methods
+from pypeman.plugins.remoteadmin import methods
 
 logger = getLogger(__name__)
 
@@ -102,5 +102,12 @@ def init_urls(app: web.Application, prefix: str):
             web.get(prefix + "/channels/{channelname}/messages/{message_id}/preview", methods.view_msg),
             # websocket:
             web.get(prefix + "/", _rpc_url_handler),
+            # openmetrics/prometheus:
+            web.get(prefix + "/metrics", slkdfjlskdfj),
+            # XXX: no, no no like no;
+            # i want metrics to be its own plugin because i want it to be possible to
+            # have metrics without implying/involving remoteadmin; yes i can add also
+            # a 'readonly' setting to remoteadmin, but that is i also will, it doesnt
+            # change the first fact as still sensible but maybe one want metrics.....
         ]
     )

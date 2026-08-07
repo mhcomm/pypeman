@@ -15,7 +15,7 @@ from typing import Union
 
 from aiohttp import web
 
-from ..conf import settings
+from pypeman.conf import settings
 
 
 class BasePlugin(ABC):
@@ -109,11 +109,11 @@ class TaskPluginMixin(ABC):
 
 
 class BundledWebappPluginMixin(TaskPluginMixin, ABC):
-    """i don like it, but theres my proposal for it anyways
+    """Mixin to integrate with the common webapp.
 
     This mixin extends on :class:`TaskPluginMixin` (so if your plugin
     is implementing it, there is no need to include both in the base
-    mixins).
+    mixins, and you will need to follow cooperative inheritance).
 
     The idea is to bundle together every plugins which may want to
     expose web API endpoints. By using this mixin, the implementing
@@ -122,16 +122,14 @@ class BundledWebappPluginMixin(TaskPluginMixin, ABC):
     `settings.WEBAPP_PLUGINS_CONFIG`).
 
     This is of cours an optional approach as no plugin is prevented
-    from spinning up its own web app.
-
-    Side note: an implementing plugin that wants to also use
-    :meth:`task_start`/:meth:`task_stop` **must** use `super()`.
+    from spinning up its own web app. Furthermore, only enabled plugins
+    will actually be bundled within the common webapp.
 
     ;
 
     WIP: this is not hooked in, not use yet;
     RemoteAdminPlugin would inherit from this mixin rather than
-    TaskPluginMixin directly (making it shorted by, like, 5 lines)
+    TaskPluginMixin directly (making it shorted)
     HOWEVER this will be done under the condition that we make
     prefix **non optional**
     mhclient/app/interface-interop/interface-interop-service.js
@@ -140,30 +138,35 @@ class BundledWebappPluginMixin(TaskPluginMixin, ABC):
     @classmethod
     @abstractmethod
     def webapp_prefix(cls) -> str:
-        "..."
+        ...
 
     @abstractmethod
     def webapp_urls(self) -> web.Application:
-        "..."
+        ...
 
-    __bundle: web.Application
+    __bundle: 'web.Application | None' = None
     __runner: web.AppRunner
 
     async def task_start(self):
-        __class__.__bundle = web.Application()
-        __class__.__bundle.add_subapp(self.webapp_prefix(), self.webapp_urls())
+        # the first child class to be started will trigger this;
+        # the attributes are class static attributes, meaning any other
+        # child class with this mixin will not start another webapp
+        if __class__.__bundle is None:
+            __class__.__bundle = web.Application()
+            __class__.__bundle.add_subapp(self.webapp_prefix(), self.webapp_urls())
 
-        conf = settings.WEBAPP_PLUGINS_CONFIG
-        host = str(conf["host"])
-        port = int(conf["port"])
+            conf = settings.WEBAPP_PLUGINS_CONFIG
+            host = str(conf["host"])
+            port = int(conf["port"])
 
-        __class__.__runner = web.AppRunner(__class__.__bundle)
-        await __class__.__runner.setup()
-        site = web.TCPSite(__class__.__runner, host, port)
-        await site.start()
+            __class__.__runner = web.AppRunner(__class__.__bundle)
+            await __class__.__runner.setup()
+            site = web.TCPSite(__class__.__runner, host, port)
+            await site.start()
 
     async def task_stop(self):
-        await __class__.__runner.cleanup()
+        if __class__.__bundle is not None:
+            await __class__.__runner.cleanup()
 
 
 # class ChannelEventPluginMixin(ABC):
@@ -175,9 +178,20 @@ class BundledWebappPluginMixin(TaskPluginMixin, ABC):
 #     @abstractmethod
 #     async def _channel_stopped(self, chan: BaseChannel):
 #         """"""
+#
+#     @abstractmethod
+#     async def _channel_incoming(self, msg: Message):
+#         """note that msg is a pale copy (not affected by changes)""" # should it? idk
+#
+#     @abstractmethod
+#     async def _channel_outgoing(self, msg: Message):
+#         """note that msg is a pale copy (not affected by changes)""" # should it? idk
+#
 
 
 MixinClasses_ = Union[
     CommandPluginMixin,
     TaskPluginMixin,
+    BundledWebappPluginMixin,
+    # ChannelEventPluginMixin,
 ]

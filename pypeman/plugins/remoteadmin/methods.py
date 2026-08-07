@@ -21,10 +21,10 @@ from aiohttp import ClientWebSocketResponse
 from aiohttp import web
 from dateutil import parser as dateutilparser
 
-from ...channels import BaseChannel
-from ...channels import all_channels
-from ...channels import get_channel
-from ...message import Message
+from pypeman.channels import BaseChannel
+from pypeman.channels import all_channels
+from pypeman.channels import get_channel
+from pypeman.message import Message
 
 if TYPE_CHECKING:
     # ParamSpec doesn't exit before 3.10;

@@ -5,9 +5,9 @@ from __future__ import annotations
 from argparse import ArgumentParser
 from argparse import Namespace
 
-from ..conf import settings
-from .base import BasePlugin
-from .base import CommandPluginMixin
+from pypeman.conf import settings
+from pypeman.plugins.base import BasePlugin
+from pypeman.plugins.base import CommandPluginMixin
 
 
 class PrintSettingsPlugin(BasePlugin, CommandPluginMixin):

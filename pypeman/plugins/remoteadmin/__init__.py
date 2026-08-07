@@ -10,6 +10,6 @@ The 'shell' basically forwards commands to the web server. The web
 server provides remote administrative procedures.
 """
 
-from .plugin import RemoteAdminPlugin
+from pypeman.plugins.remoteadmin.plugin import RemoteAdminPlugin
 
 __all__ = ("RemoteAdminPlugin",)

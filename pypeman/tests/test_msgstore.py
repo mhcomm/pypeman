@@ -11,9 +11,9 @@ from typing import Literal
 
 import pytest
 
-from .. import msgstore
-from ..message import Message
-from ..msgstore import MessageStoreFactory
+from pypeman import msgstore
+from pypeman.message import Message
+from pypeman.msgstore import MessageStoreFactory
 
 _NEEDS_TMPFILE = object()
 _NEEDS_TMPDIR = object()

@@ -19,9 +19,10 @@ are eventually required.
 
 from __future__ import annotations
 
-import logging.config
 from importlib import import_module
 from logging import getLogger
+from os import environ
+import logging.config
 
 from pypeman import default_settings
 
@@ -42,8 +43,10 @@ class Settings:
     Only names with an uppercase letter in A-Z will ever be considered.
     """
 
-    def __init__(self):
-        pass
+    def __init__(self, module_name: str | None = None):
+        self.__dict__["SETTINGS_MODULE"] = environ.get("PYPEMAN_SETTINGS_MODULE", "settings")
+        if module_name is not None:
+            self.__dict__["SETTINGS_MODULE"] = module_name
 
     def __getattr__(self, name: str):
         """Get a setting value.

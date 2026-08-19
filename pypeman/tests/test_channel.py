@@ -88,7 +88,7 @@ class ChannelsTests(TestCase):
         asyncio.set_event_loop(None)
 
         # Avoid calling already tested channels
-        channels.all_channels.clear()
+        channels.reset_pypeman_channels()
 
     def tearDown(self):
         super().tearDown()

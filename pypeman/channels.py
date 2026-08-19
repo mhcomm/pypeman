@@ -108,10 +108,10 @@ class BaseChannel:
         else:
             self.parent_uids = None
 
-        if self.name in _channel_names:
+        if self.short_name in _channel_names:
             raise NameError(
                 "Duplicate channel name %r . "
-                "Channel names must be unique !" % self.name
+                "Channel short names must be unique !" % self.short_name
             )
         if verbose_name:
             self.verbose_name = verbose_name
@@ -125,7 +125,7 @@ class BaseChannel:
         else:
             self.loop = loop
 
-        self.logger = logging.getLogger('pypeman.channels.%s' % self.name)
+        self.logger = logging.getLogger('pypeman.channels.%s' % self.short_name)
 
         self.next_node = None
 

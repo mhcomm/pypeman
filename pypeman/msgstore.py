@@ -132,7 +132,7 @@ class MessageStoreFactory(ABC):
         :raise KeyError: When the `store_id` does not exist.
         """
         existing = self._stores.pop(store_id)
-        logger.debug(f"deleting store {store_id} ({existing!r}))")
+        logger.debug("deleting store %s (%r))", store_id, existing)
         await self._delete_store(existing)
         # private usage in friend class
         existing._cached_total = 0
@@ -301,13 +301,13 @@ class MessageStore(ABC):
         await self._start()
         self._active = True
         self._cached_total = await self._total()
-        logger.debug(f"store started successfully {self!r}: {self._cached_total} message(s)")
+        logger.debug("store started successfully %r: %s message(s)", self, self._cached_total)
 
     async def stop(self):
         """Called at teardown to finalize the store."""
         await self._stop()
         self._active = False
-        logger.debug(f"store stopped {self!r}")
+        logger.debug("store stopped %r", self)
 
     async def store(self, msg: Message) -> str:
         """Store a message in the store.
@@ -336,7 +336,7 @@ class MessageStore(ABC):
         """
         # TODO: don't, unnecessary
         entry = await self.get(id)
-        logger.debug(f"deleting message {id} {self!r}")
+        logger.debug("deleting message %s %r", id, self)
         await self._delete(id)
         self._cached_total -= 1
         return entry
@@ -638,7 +638,7 @@ class MessageStore(ABC):
         :return: List of fitting message entries or, if `group_by` is
             given, dict of group to list of fitting message entries.
         """
-        logger.debug(f"searching {self!r} for {count} messages, start at {start_id}")
+        logger.debug("searching %r for %s messages, start at %s", self, count, start_id)
 
         # early dum check (as per contract, don't call _span_select in this case)
         if 0 == await self.total():
@@ -716,7 +716,7 @@ class MessageStore(ABC):
         order = meta_filt.order if order_by_meta else payload_filt.order
         filtered.sort(key=order, reverse=reverse)
         if not group_by:
-            logger.debug(f"found {len(filtered)} message(s)")
+            logger.debug("found %d message(s)", len(filtered))
             return filtered
 
         group = meta_filt.group if group_by_meta else payload_filt.group
@@ -724,7 +724,7 @@ class MessageStore(ABC):
         for it in filtered:
             # at this point filtered is also sorted, so each individual group will be too
             grouped.setdefault(group(it), []).append(it)
-        logger.debug(f"found {len(filtered)} message(s), in {len(grouped)} group(s)")
+        logger.debug("found %d message(s), in %d group(s)", len(filtered), len(grouped))
         return grouped
 
 
@@ -1064,7 +1064,7 @@ class FileMessageStoreFactory(MessageStoreFactory):
         if store.base_path.exists():
             rmrf(store.base_path)
         else:
-            logger.warning(f"deleting file message store that was not started: {self.base_path!r}")
+            logger.warning("deleting file message store that was not started: %r", self.base_path)
 
     async def _delete_everything(self):
         await super()._delete_everything()

@@ -67,7 +67,7 @@ class RetryFileMsgStore(FileMessageStore):
             msg (message.Message): Message to Retry later
             nodename (str|None): The nodename where to inject
         """
-        logger.debug(f"Retrystore of {self.channel.short_name} Store msg {msg}")
+        logger.debug("Retrystore of %s store msg", self.channel.short_name)
         store_id = msg.store_id
         store_chan_name = msg.store_chan_name
         id = await self.store(msg=msg)
@@ -129,8 +129,8 @@ class RetryFileMsgStore(FileMessageStore):
             msg_ids = await self.search_by_store_id(store_id=msg_store_id, count=1)
 
         logger.debug(
-            f"Retrystore of {self.channel.short_name} try to retry "
-            f"store_id={msg_store_id} ({len(msg_ids)} messages)"
+            "Retrystore of %s try to retry store_id=%s (%d messages)",
+            self.channel.short_name, msg_store_id, len(msg_ids)
         )
         # TODO: at moment, the retry store doesn't handle order of yielded sub messages
         # as they don't provide their order
@@ -190,12 +190,14 @@ class RetryFileMsgStore(FileMessageStore):
         first RetryException catch
         """
         from pypeman.channels import BaseChannel
-        logger.debug(f"Retrystore of {self.channel.short_name} try to retry")
+        logger.debug("Retrystore of %s try to retry", self.channel.short_name)
         while self.state == self.RETRY_MODE and not self.exit_event.is_set():
             async with self.channel.lock:
                 msgs_data = await self.search(count=1, order_by="timestamp")
                 if len(msgs_data) == 0:
-                    logger.debug("No more messages to reply, chan will be un-paused")
+                    logger.info(
+                        "Retrystore of %s: no more messages to retry, chan will be un-paused",
+                        self.channel.short_name)
                     self.channel.status = BaseChannel.WAITING
                     self.state = self.STOPPED
                     self.retry_mode_since = None
@@ -208,22 +210,22 @@ class RetryFileMsgStore(FileMessageStore):
             try:
                 await self.retry_one_store_id(msg_store_id=message_store_id)
                 logger.debug(
-                    f"Retrystore Retry {self.channel.short_name}: Retry of "
-                    f"store_id={message_store_id} Done"
+                    "Retrystore Retry %s: Retry of store_id=%s Done",
+                    self.channel.short_name, message_store_id
                 )
                 continue
             except exceptions.RetryException:
-                logger.debug(
-                    f"Retrystore Retry {self.channel.short_name}: Retry of "
-                    f"store_id={message_store_id} not good: RetryExc catched,"
-                    " will retry later"
+                logger.warning(
+                    "Retrystore Retry %s: Retry of store_id=%s not good: "
+                    "RetryExc catched, will retry later",
+                    self.channel.short_name, message_store_id
                 )
                 retry_exc_catched = True
                 return
             except Exception:
-                logger.debug(
-                    f"Retrystore Retry {self.channel.short_name}: Retry of "
-                    f"store_id={message_store_id} Done (with err)"
+                logger.warning(
+                    "Retrystore Retry %s: Retry of store_id=%s Done (with err)",
+                    self.channel.short_name, message_store_id
                 )
                 continue
             finally:
@@ -235,7 +237,7 @@ class RetryFileMsgStore(FileMessageStore):
         Start the Retr loop and Pause the channel
         """
         from pypeman.channels import BaseChannel
-        logger.debug(f"Retrystore of {self.channel.short_name} start retry mode")
+        logger.warning("Retrystore of %s: entering retry mode", self.channel.short_name)
         self.state = self.RETRY_MODE
         self.retry_attempts = 0
         self.retry_mode_since = time.time()

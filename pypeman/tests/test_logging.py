@@ -188,8 +188,10 @@ def test_level_policy(loop):
         "msg %s processed" % msg.short_uuid,
     ]
     debugs = [rec.getMessage() for rec in records if rec.levelno == logging.DEBUG]
-    assert "node tst_node: enter, msg %s" % msg.short_uuid in debugs
-    assert any(text.startswith("node tst_node: exit") for text in debugs)
+    assert any(text.startswith("msg %s infos:" % msg.short_uuid) for text in debugs)
+    assert "node tst_node: enter, msg %s (payload %s)" % (
+        msg.short_uuid, type(msg.payload).__name__) in debugs
+    assert any(text.startswith("node tst_node: exit after") for text in debugs)
 
     # Drop: INFO outcome
     drop_chan = BaseChannel(name="drop_chan", loop=loop)
@@ -199,7 +201,7 @@ def test_level_policy(loop):
     with capture_records(drop_chan) as records:
         loop.run_until_complete(drop_chan.handle(msg))
     dropped = [rec for rec in records
-               if rec.getMessage() == "msg %s dropped" % msg.short_uuid]
+               if rec.getMessage().startswith("msg %s dropped" % msg.short_uuid)]
     assert dropped and dropped[0].levelno == logging.INFO
 
     # Reject: WARNING outcome
@@ -211,7 +213,7 @@ def test_level_policy(loop):
         with pytest.raises(Rejected):
             loop.run_until_complete(reject_chan.handle(msg))
     rejected = [rec for rec in records
-                if rec.getMessage() == "msg %s rejected" % msg.short_uuid]
+                if rec.getMessage().startswith("msg %s rejected" % msg.short_uuid)]
     assert rejected and rejected[0].levelno == logging.WARNING
 
     # Failure: single ERROR without traceback text

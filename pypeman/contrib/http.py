@@ -140,6 +140,9 @@ class HttpChannel(channels.BaseChannel):
 
     async def handle_request(self, request):
         content = await request.text()
+        self.logger.info(
+            "http request %s %s received (%d bytes)",
+            request.method, request.path, len(content))
 
         # extract match info from iohttp request
         meta = dict(request.match_info)
@@ -167,6 +170,9 @@ class HttpChannel(channels.BaseChannel):
                 logger.warning("'status_code' should be used instead of 'status'")
             # TODO: To be switched to result.meta.get('status_code', result.meta.get('status', 200))
             status = result.meta.get('status', result.meta.get('status_code', 200))
+            self.logger.debug(
+                "sending http response for msg %s: status %s (%d bytes)",
+                msg.short_uuid, status, len(body_to_send))
             return web.Response(
                 body=body_to_send,
                 content_type=getattr(result, "content_type", self.response_content_type),
@@ -332,6 +338,7 @@ class HttpRequest(nodes.BaseNode):
         data = None
         if method.lower() in ['put', 'post', 'patch']:
             data = msg.payload
+        self.logger.debug("node %s: sending %s request to %s", self.name, method, url)
         async with aiohttp.ClientSession(
             connector=conn,
             cookies=cookies,
@@ -364,6 +371,15 @@ class HttpRequest(nodes.BaseNode):
     async def process(self, msg):
         """ handles request """
         resp = await self.handle_request(msg)
+        resp_len = len(resp.content) if resp.content else 0
+        if resp.status >= 400:
+            self.logger.warning(
+                "node %s: request to %s returned status %s (%d bytes)",
+                self.name, resp.url, resp.status, resp_len)
+        else:
+            self.logger.debug(
+                "node %s: request to %s returned status %s (%d bytes)",
+                self.name, resp.url, resp.status, resp_len)
         msg.meta["status_code"] = resp.status
         msg.meta["url"] = str(resp.url)
         if self.add_meta:

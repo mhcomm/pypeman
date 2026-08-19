@@ -517,6 +517,7 @@ class NodesTests(TestCase):
             mock_ctx_mgr = mock_client_session.return_value
             mock_session = mock_ctx_mgr.__aenter__.return_value
             mg = mock.MagicMock()
+            mg.status = 200
             mg.text = get_mock_coro(mock.MagicMock())
             mock_session.request = get_mock_coro(mg)
             mock_load_cert_chain = mock_ssl_context.return_value.load_cert_chain
@@ -565,6 +566,7 @@ class NodesTests(TestCase):
             """
             byte_msg = bytes("coucou", "utf-8")
             mg = mock.MagicMock()
+            mg.status = 200
             mg.read = get_mock_coro(byte_msg)
             mock_session.request = get_mock_coro(mg)
             outmsg = self.loop.run_until_complete(http_node3.handle(msg4))
@@ -585,6 +587,7 @@ class NodesTests(TestCase):
             jsondata = json.dumps(data)
             emptymsg = message.Message()
             mg = mock.MagicMock()
+            mg.status = 200
             mg.text = get_mock_coro(jsondata)
             mock_session.request = get_mock_coro(mg)
             outdata = self.loop.run_until_complete(http_jsonnode.process(emptymsg))
@@ -668,6 +671,7 @@ class NodesTests(TestCase):
             mock_ctx_mgr = mock_client_session.return_value
             mock_session = mock_ctx_mgr.__aenter__.return_value
             mg = mock.MagicMock()
+            mg.status = 200
             mg.text = get_mock_coro(mock.MagicMock())
             mock_session.request = get_mock_coro(mg)
             mock_load_cert_chain = mock_ssl_context.return_value.load_cert_chain

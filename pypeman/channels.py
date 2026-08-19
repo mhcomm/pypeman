@@ -427,6 +427,7 @@ class BaseChannel:
         }
         nodelist = node_type_to_nodelist[node_type]
         if nodelist:
+            self.logger.debug("msg %s enters %s nodes", msg.short_uuid, node_type)
             if start_nodename:
                 start_node = self.get_node(start_nodename)
                 if start_node not in nodelist:
@@ -465,7 +466,7 @@ class BaseChannel:
             self.logger.info("msg %s processed", msg.short_uuid)
             return result
         except Dropped as exc:
-            self.logger.info("msg %s dropped", msg.short_uuid)
+            self.logger.info("msg %s dropped: %r", msg.short_uuid, exc)
             msg.chan_exc = exc
             msg.chan_exc_traceback = traceback.format_exc()
             if not self._has_callback() and call_endnodes:
@@ -478,7 +479,7 @@ class BaseChannel:
                 raise
             return msg
         except Rejected as exc:
-            self.logger.warning("msg %s rejected", msg.short_uuid)
+            self.logger.warning("msg %s rejected: %r", msg.short_uuid, exc)
             msg.chan_exc = exc
             msg.chan_exc_traceback = traceback.format_exc()
             await self.message_store.add_message_meta_infos(msg.store_id, "err_msg", str(exc))
@@ -710,6 +711,7 @@ class BaseChannel:
             if msg_store_id is not None:
                 msg.store_id = msg_store_id
                 msg.store_chan_name = self.short_name
+                self.logger.debug("msg %s stored with id %r", msg.short_uuid, msg_store_id)
         # TODO: Maybe think to add PENDING status to incoming message, this status is never set and
         # is currently unuseful. Uncomment next line if it's a good idea
         # await self.message_store.change_message_state(msg.store_id, message.Message.PENDING)
@@ -717,6 +719,13 @@ class BaseChannel:
         if self.status in [BaseChannel.STOPPED, BaseChannel.STOPPING]:
             raise ChannelStopped("Channel is stopped so you can't send message.")
         self.logger.info("channel %s handling new msg %s", self.short_name, msg.short_uuid)
+        try:
+            payload_len = len(msg.payload)
+        except TypeError:
+            payload_len = "-"
+        self.logger.debug(
+            "msg %s infos: timestamp=%s, payload type=%s, payload len=%s, meta=%r",
+            msg.short_uuid, msg.timestamp_str(), type(msg.payload).__name__, payload_len, msg.meta)
         setattr(msg, "chan_rslt", None)
         setattr(msg, "chan_exc", None)
         setattr(msg, "chan_exc_traceback", None)
@@ -793,6 +802,7 @@ class BaseChannel:
                 raised_retry_exc = None
                 for gen_msg in gene:
                     try:
+                        self.logger.debug("processing yielded submsg %s", gen_msg.short_uuid)
                         result = await self._process_nodes(nodes=nodes[cur_node_idx:], msg=gen_msg)
                     except exceptions.RetryException as exc:
                         raised_retry_exc = exc
@@ -1130,6 +1140,9 @@ class SubChannel(BaseChannel):
             # of subchannel to the first message
             copied_msg.store_id = None
             copied_msg.store_chan_name = None
+        self.logger.debug(
+            "msg %s forked from channel %s to subchan %s",
+            msg.short_uuid, self.parent.short_name, self.short_name)
         fut = asyncio.create_task(super().handle(copied_msg))
         fut.add_done_callback(self._callback, context=ctx)
         self.parent.sub_chan_tasks.append(fut)
@@ -1163,9 +1176,15 @@ class ConditionSubChannel(BaseChannel):
 
     async def handle(self, msg):
         if self.test_condition(msg):
+            self.logger.debug(
+                "msg %s matched condition, taking path %s and ending parent processing",
+                msg.short_uuid, self.short_name)
             await super().handle(msg)
             raise EndChanProcess(f"cond subchan {self.short_name} ask to end parent")
         else:
+            self.logger.debug(
+                "msg %s didn't match condition of %s, staying on parent path",
+                msg.short_uuid, self.short_name)
             return msg
 
 
@@ -1202,8 +1221,13 @@ class Case():
         result = msg
         for cond, channel in self.cases:
             if self.test_condition(cond, msg):
+                channel.logger.debug(
+                    "msg %s matched case condition, routing to case channel %s",
+                    msg.short_uuid, channel.short_name)
                 result = await channel.handle(msg)
                 break
+        else:
+            logger.debug("msg %s matched no case condition", msg.short_uuid)
 
         if self.next_node:
             result = await self.next_node.handle(result)
@@ -1349,6 +1373,11 @@ class FileWatcherChannel(BaseChannel):
                         status = self.file_status(filename)
 
                         if status in [FileWatcherChannel.MODIFIED, FileWatcherChannel.NEW]:
+                            self.logger.info(
+                                "watcher %s: %s file %s (%d bytes)",
+                                self.short_name,
+                                "new" if status == FileWatcherChannel.NEW else "modified",
+                                filepath, filepath.stat().st_size)
                             self.data[filename] = filepath.stat().st_mtime
                             if self.real_extensions:
                                 for extension in self.real_extensions:

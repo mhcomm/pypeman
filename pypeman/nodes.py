@@ -8,6 +8,7 @@ import logging
 import os
 import shutil
 import smtplib
+import time
 import types
 import warnings
 
@@ -203,10 +204,16 @@ class BaseNode:
         :param msg: incoming message
         :return: modified message after a process call and some treatment
         """
-        self.logger.debug("node %s: enter, msg %s", self.name, msg.short_uuid)
+        self.logger.debug(
+            "node %s: enter, msg %s (payload %s)",
+            self.name, msg.short_uuid, type(msg.payload).__name__)
+        start_time = time.monotonic()
         # TODO : Make sure exceptions are well raised (does not happen if i.e 1/0 here atm)
         if self.store_input_as:
             msg.add_context(self.store_input_as, msg)
+            self.logger.debug(
+                "node %s: msg %s stored in ctx as %r",
+                self.name, msg.short_uuid, self.store_input_as)
         if self.passthrough or self.auto_retry_exceptions:
             old_msg = msg.copy()
         # Allow process as coroutine function
@@ -231,8 +238,10 @@ class BaseNode:
             result = await result
 
         self.logger.debug(
-            "node %s: exit, result is msg %s",
-            self.name, getattr(result, "short_uuid", result))
+            "node %s: exit after %.3fs, result is msg %s (payload %s)",
+            self.name, time.monotonic() - start_time,
+            getattr(result, "short_uuid", result),
+            type(getattr(result, "payload", result)).__name__)
 
         if not isinstance(result, types.GeneratorType) and getattr(result, 'store_id', None) is not None:
             store = self.channel.message_store
@@ -244,6 +253,9 @@ class BaseNode:
 
         if self.store_output_as:
             result.add_context(self.store_output_as, result)
+            self.logger.debug(
+                "node %s: result msg %s stored in ctx as %r",
+                self.name, result.short_uuid, self.store_output_as)
 
         if self.passthrough:
             result.payload = old_msg.payload
@@ -673,6 +685,8 @@ class FileReader(BaseNode):
             msg.meta['filename'] = name
             msg.meta['filepath'] = filepath
 
+        self.logger.debug(
+            "node %s: read file %s (%d bytes)", self.name, filepath, len(msg.payload))
         return msg
 
 
@@ -729,9 +743,12 @@ class FileWriter(BaseNode):
             os.chown(dest, -1, gid)
         if self.safe_file:
             os.rename(dest, old_file)
+        self.logger.info(
+            "node %s: wrote file %s (%d bytes)", self.name, old_file, len(msg.payload))
         if self.create_valid_file:
             validation_path = Path(old_file).with_suffix(self.validation_extension)
             validation_path.touch()
+            self.logger.debug("node %s: created validation file %s", self.name, validation_path)
         return msg
 
 
@@ -751,8 +768,8 @@ class FileMover(BaseNode):
 
     def process(self, msg):
         dest_fpath = os.path.join(self.dest_path, msg.meta["filename"])
-        self.logger.debug("node %s: move file %s to dest %s",
-                          self.name, msg.meta["filepath"], dest_fpath)
+        self.logger.info("node %s: move file %s to dest %s",
+                         self.name, msg.meta["filepath"], dest_fpath)
         shutil.move(msg.meta["filepath"], dest_fpath)
         msg.meta["filepath"] = dest_fpath
         return msg
@@ -774,13 +791,13 @@ class FileCleaner(BaseNode):
     def process(self, msg):
         fpath = Path(msg.meta['filepath'])
         if fpath.is_file():
-            self.logger.debug("node %s: delete %s ...", self.name, msg.meta["filepath"])
+            self.logger.info("node %s: delete %s ...", self.name, msg.meta["filepath"])
             fpath.unlink()
         if self.extensions_to_rm:
             for extension in self.extensions_to_rm:
                 meta_path = fpath.with_suffix(extension)
                 if meta_path.is_file():
-                    self.logger.debug("node %s: delete %s ...", self.name, meta_path)
+                    self.logger.info("node %s: delete %s ...", self.name, meta_path)
                     meta_path.unlink()
 
 
@@ -942,6 +959,8 @@ class Email(ThreadNode):
             recipients = [recipients]
 
         self.send_email(subject, sender, recipients, content)
+        self.logger.info(
+            "node %s: email %r sent to %s", self.name, subject, ", ".join(recipients))
 
         return msg
 

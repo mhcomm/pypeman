@@ -160,6 +160,9 @@ class FTPWatcherChannel(channels.BaseChannel):
         """
 
         payload = await self.loop.run_in_executor(self.executor, self.download_file, filename)
+        if payload is not None:
+            self.logger.info(
+                "downloaded ftp file %s/%s (%d bytes)", self.basedir, filename, len(payload))
 
         msg = message.Message()
         msg.payload = payload
@@ -169,6 +172,8 @@ class FTPWatcherChannel(channels.BaseChannel):
             result = await self.handle(msg)
 
             if self.delete_after:
+                self.logger.debug(
+                    "deleting ftp file %s/%s after processing", self.basedir, filename)
                 await self.loop.run_in_executor(
                                 self.executor,
                                 self.ftphelper.delete,
@@ -236,6 +241,8 @@ class FTPFileReader(nodes.ThreadNode):
             msg.meta.get('filepath'))
 
         content = self.ftphelper.download_file(filepath)
+        self.logger.debug(
+            "node %s: read ftp file %s (%d bytes)", self.name, filepath, len(content))
 
         msg.payload = content
         msg.meta['filepath'] = filepath
@@ -262,6 +269,7 @@ class FTPFileDeleter(nodes.ThreadNode):
             msg.meta.get('filepath'))
 
         self.ftphelper.delete(filepath)
+        self.logger.info("node %s: deleted ftp file %s", self.name, filepath)
 
         return msg
 
@@ -287,5 +295,7 @@ class FTPFileWriter(nodes.ThreadNode):
 
         self.ftphelper.upload_file(filepath + '.part', msg.payload)
         self.ftphelper.rename(filepath + '.part', filepath)
+        self.logger.info(
+            "node %s: wrote ftp file %s (%d bytes)", self.name, filepath, len(msg.payload))
 
         return msg

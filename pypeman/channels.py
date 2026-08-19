@@ -17,6 +17,7 @@ from pypeman.exceptions import Dropped
 from pypeman.exceptions import EndChanProcess
 from pypeman.exceptions import Rejected
 from pypeman.helpers.itertools import flatten
+from pypeman.helpers.logging import MSG_CTXVAR
 from pypeman.helpers.sleeper import Sleeper
 from pypeman.retry import RetryFileMsgStore
 
@@ -27,8 +28,6 @@ logger = logging.getLogger(__name__)
 all_channels = []
 
 _channel_names = set()
-
-MSG_CTXVAR = contextvars.ContextVar("msg")
 
 
 def get_channel(name):

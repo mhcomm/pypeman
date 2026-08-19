@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import collections
+import contextvars
 import grp
 import json
 import logging
@@ -423,7 +424,9 @@ class ThreadNode(BaseNode):
             self.executor = thread_pool
 
     def run(self, msg):
-        result = self.channel.loop.run_in_executor(self.executor, self.process, msg)
+        # Copy the context so logs from the executor thread keep the msg id contextvar
+        ctx = contextvars.copy_context()
+        result = self.channel.loop.run_in_executor(self.executor, ctx.run, self.process, msg)
 
         return result
 

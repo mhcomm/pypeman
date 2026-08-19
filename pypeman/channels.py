@@ -17,6 +17,7 @@ from pypeman.exceptions import Dropped
 from pypeman.exceptions import EndChanProcess
 from pypeman.exceptions import Rejected
 from pypeman.helpers.itertools import flatten
+from pypeman.helpers.logging import CHANNEL_CTXVAR
 from pypeman.helpers.logging import MSG_CTXVAR
 from pypeman.helpers.sleeper import Sleeper
 from pypeman.retry import RetryFileMsgStore
@@ -559,7 +560,18 @@ class BaseChannel:
                 or not
             set_state (bool, default=True): Flag to indicate if the final message state have to be set or not
         """
-        logger.debug(f"{self.short_name} Inject {msg} in {start_nodename}")
+        msgctxvartoken = MSG_CTXVAR.set(msg)
+        chanctxvartoken = CHANNEL_CTXVAR.set(self)
+        try:
+            return await self._inject(
+                msg=msg, start_nodename=start_nodename, call_endnodes=call_endnodes,
+                set_state=set_state)
+        finally:
+            MSG_CTXVAR.reset(msgctxvartoken)
+            CHANNEL_CTXVAR.reset(chanctxvartoken)
+
+    async def _inject(self, msg, start_nodename, call_endnodes=True, set_state=True):
+        self.logger.debug("inject msg in node %r", start_nodename)
 
         async with self.lock:
             if not start_nodename or start_nodename == "_initial":
@@ -669,6 +681,8 @@ class BaseChannel:
 
         :return: Processed message
         """
+        msgctxvartoken = MSG_CTXVAR.set(msg)
+        chanctxvartoken = CHANNEL_CTXVAR.set(self)
         result = None
         handle_exc = None
         # fired before _handle stores the message so that a handler
@@ -683,6 +697,8 @@ class BaseChannel:
         finally:
             await events.msg_processing_end.fire_safely(
                 channel=self, msg=msg, result=result, exc=handle_exc)
+            MSG_CTXVAR.reset(msgctxvartoken)
+            CHANNEL_CTXVAR.reset(chanctxvartoken)
 
     async def _handle(self, msg):
         # Store message before any processing
@@ -1106,6 +1122,7 @@ class SubChannel(BaseChannel):
             msg.store_id = msg_store_id
             msg.store_chan_name = self.short_name
         msgctxvartoken = MSG_CTXVAR.set(msg.copy())
+        chanctxvartoken = CHANNEL_CTXVAR.set(self)
         ctx = contextvars.copy_context()
         copied_msg = msg.copy()
         if not self.has_message_store:
@@ -1117,6 +1134,7 @@ class SubChannel(BaseChannel):
         fut.add_done_callback(self._callback, context=ctx)
         self.parent.sub_chan_tasks.append(fut)
         MSG_CTXVAR.reset(msgctxvartoken)
+        CHANNEL_CTXVAR.reset(chanctxvartoken)
         return msg
 
     async def process(self, msg, start_nodename=None):

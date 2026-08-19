@@ -208,7 +208,7 @@ class BaseChannel:
         Start the channel. Called before starting processus. Can be overloaded to specify specific
         start procedure.
         """
-        self.logger.debug("Channel %s starting ...", str(self))
+        self.logger.debug("channel %s starting ...", self.short_name)
         self.lock = asyncio.Lock()
         self.status = BaseChannel.STARTING
         if self._first_start:
@@ -216,7 +216,7 @@ class BaseChannel:
             self._first_start = False
         await self.message_store.start()
         self.status = BaseChannel.WAITING
-        self.logger.info("Channel %s started", str(self))
+        self.logger.info("channel %s started", self.short_name)
         if self.retry_store:
             await self.retry_store.start()
 
@@ -235,14 +235,14 @@ class BaseChannel:
         - pypeman shuts down.
         - a channel is stopped (e.g. via the admin interface)
         """
-        self.logger.debug("Channel %s stopping ...", str(self))
+        self.logger.debug("channel %s stopping ...", self.short_name)
         self.status = BaseChannel.STOPPING
         # Verify that all messages are processed
         async with self.lock:
             self.status = BaseChannel.STOPPED
         # stop all pending sleeps
         await self.interruptable_sleeper.cancel_all()
-        self.logger.info("Channel %s stopped", str(self))
+        self.logger.info("channel %s stopped", self.short_name)
         await self.message_store.stop()
         if self.retry_store:
             await self.retry_store.stop()
@@ -462,22 +462,23 @@ class BaseChannel:
             msg.chan_rslt = result
             if not self._has_callback() and call_endnodes:
                 await self._call_special_nodes(msg=result, node_type="join")
+            self.logger.info("msg %s processed", msg.short_uuid)
             return result
         except Dropped as exc:
-            self.logger.info("%s DROP msg %s", str(self), str(msg))
+            self.logger.info("msg %s dropped", msg.short_uuid)
             msg.chan_exc = exc
             msg.chan_exc_traceback = traceback.format_exc()
             if not self._has_callback() and call_endnodes:
                 try:
                     await self._call_special_nodes(msg=msg, node_type="drop")
                 except exceptions.RetryException as retry_exc:
-                    self.logger.info("%s CATCH RETRY in drop nodes for msg %s", str(self), str(msg))
+                    self.logger.warning("retry exception caught in drop nodes for msg %s", msg.short_uuid)
                     retry_exc_catched = retry_exc
             if self.raise_dropped or self._has_callback():
                 raise
             return msg
         except Rejected as exc:
-            self.logger.info("%s REJECT msg %s", str(self), str(msg))
+            self.logger.warning("msg %s rejected", msg.short_uuid)
             msg.chan_exc = exc
             msg.chan_exc_traceback = traceback.format_exc()
             await self.message_store.add_message_meta_infos(msg.store_id, "err_msg", str(exc))
@@ -485,24 +486,24 @@ class BaseChannel:
                 try:
                     await self._call_special_nodes(msg=msg, node_type="reject")
                 except exceptions.RetryException as retry_exc:
-                    self.logger.info("%s CATCH RETRY in reject nodes for msg %s", str(self), str(msg))
+                    self.logger.warning("retry exception caught in reject nodes for msg %s", msg.short_uuid)
                     retry_exc_catched = retry_exc
             raise
         except (exceptions.RetryException, exceptions.PausedChanException) as exc:
-            self.logger.info("%s CATCH RETRY for msg %s", str(self), str(msg))
+            self.logger.warning("retry exception caught for msg %s", msg.short_uuid)
             retry_exc_catched = exc
             await self.message_store.change_message_state(msg.store_id, message.Message.WAIT_RETRY)
             raise exc
         except Exception as exc:
             msg.chan_exc = exc
             msg.chan_exc_traceback = traceback.format_exc()
-            self.logger.error('Error while processing message %s (chan %s)', str(msg), str(self))
+            self.logger.error("error while processing msg %s: %r", msg.short_uuid, exc)
             await self.message_store.add_message_meta_infos(msg.store_id, "err_msg", str(exc))
             if not self._has_callback() and call_endnodes:
                 try:
                     await self._call_special_nodes(msg=msg, node_type="fail")
                 except exceptions.RetryException as retry_exc:
-                    self.logger.info("%s CATCH RETRY in fail nodes for msg %s", str(self), str(msg))
+                    self.logger.warning("retry exception caught in fail nodes for msg %s", msg.short_uuid)
                     retry_exc_catched = retry_exc
             raise
         finally:
@@ -529,7 +530,7 @@ class BaseChannel:
                     subchan_endnodes_fut.add_done_callback(self._reset_sub_chan_endnodes)
                     if self.wait_subchans:
                         await subchan_endnodes_fut
-                self.logger.info("%s end handle %s", str(self), str(msg))
+                self.logger.debug("end handle of msg %s", msg.short_uuid)
             if retry_exc_catched:
                 raise retry_exc_catched
 
@@ -571,7 +572,7 @@ class BaseChannel:
             CHANNEL_CTXVAR.reset(chanctxvartoken)
 
     async def _inject(self, msg, start_nodename, call_endnodes=True, set_state=True):
-        self.logger.debug("inject msg in node %r", start_nodename)
+        self.logger.debug("inject msg %s in node %r", msg.short_uuid, start_nodename)
 
         async with self.lock:
             if not start_nodename or start_nodename == "_initial":
@@ -586,7 +587,7 @@ class BaseChannel:
             start_node = self.get_node(name=start_nodename)
             if not start_node:
                 raise ValueError("Node %s not found", start_nodename)
-            logger.debug("Will inject msg %r in node %r", msg, start_node)
+            self.logger.debug("inject msg %s in node %r", msg.short_uuid, start_node)
             if self.init_nodes and start_node in self.init_nodes:
                 # Inject in specific init_node, then run the process and returns resulting message
                 msg = await self._call_special_nodes(
@@ -715,13 +716,16 @@ class BaseChannel:
 
         if self.status in [BaseChannel.STOPPED, BaseChannel.STOPPING]:
             raise ChannelStopped("Channel is stopped so you can't send message.")
-        self.logger.info("chan %s handle %s", str(self), str(msg))
+        self.logger.info("channel %s handling new msg %s", self.short_name, msg.short_uuid)
         setattr(msg, "chan_rslt", None)
         setattr(msg, "chan_exc", None)
         setattr(msg, "chan_exc_traceback", None)
         # Only one message processing at time
         async with self.lock:
             if self.status == BaseChannel.PAUSED:
+                self.logger.warning(
+                    "channel %s paused, msg %s sent to retry store",
+                    self.short_name, msg.short_uuid)
                 await self.message_store.change_message_state(msg.store_id, message.Message.WAIT_RETRY)
                 if self.retry_store:
                     await self.retry_store.store_until_retry(msg=msg, nodename=None)
@@ -736,7 +740,8 @@ class BaseChannel:
             try:
                 return await self._call_base_handling(msg=msg)
             except exceptions.RetryException as exc:
-                self.logger.warning("Retry Exception caught: Set Channel in retry mode")
+                self.logger.warning(
+                    "Retry Exception caught: Set Channel %s in retry mode", self.short_name)
                 self.status = BaseChannel.PAUSED
                 raise exceptions.PausedChanException(exc)
             finally:
@@ -894,7 +899,7 @@ class BaseChannel:
 
         :return: The result of the processing.
         """
-        self.logger.info("try to replay %s", str(msg_id))
+        self.logger.info("replaying msg %s", msg_id)
         msg_dict = await self.message_store.get(msg_id)
         new_message = msg_dict['message'].renew()
         result = await self.handle(new_message)
@@ -1028,7 +1033,7 @@ def reset_pypeman_channels():
 
     Can be useful for unit testing.
     """
-    logger.info("clearing all_channels and _channel-names.")
+    logger.debug("clearing all_channels and _channel-names.")
     all_channels.clear()
     _channel_names.clear()
 
@@ -1062,16 +1067,12 @@ class SubChannel(BaseChannel):
             if self.join_nodes:
                 endnode_task = asyncio.create_task(self._call_special_nodes(result.copy(), node_type="join"))
                 endnodes_tasks.append(endnode_task)
-            logger.info(
-                "Subchannel %s end process message %s, rslt is msg %s",
-                str(self), str(entrymsg), str(result))
+            self.logger.debug("subchan join, rslt is msg %s", result.short_uuid)
         except EndChanProcess:
             if self.join_nodes:
                 endnode_task = asyncio.create_task(self._call_special_nodes(result.copy(), node_type="join"))
                 endnodes_tasks.append(endnode_task)
-            logger.info(
-                "Subchannel %s end process message %s, rslt is msg %s",
-                str(self), str(entrymsg), str(result))
+            self.logger.debug("subchan join, rslt is msg %s", result.short_uuid)
         except Dropped as exc:
             entrymsg.chan_exc = exc
             entrymsg.chan_exc_traceback = traceback.format_exc()
@@ -1079,7 +1080,7 @@ class SubChannel(BaseChannel):
                 endnode_task = asyncio.create_task(
                     self._call_special_nodes(entrymsg.copy(), node_type="drop"))
                 endnodes_tasks.append(endnode_task)
-            self.logger.info("Subchannel %s. Msg %s was dropped", str(self), str(entrymsg))
+            self.logger.debug("subchan callback: msg %s dropped", entrymsg.short_uuid)
         except Rejected as exc:
             entrymsg.chan_exc = exc
             entrymsg.chan_exc_traceback = traceback.format_exc()
@@ -1087,7 +1088,7 @@ class SubChannel(BaseChannel):
                 endnode_task = asyncio.create_task(
                     self._call_special_nodes(entrymsg.copy(), node_type="reject"))
                 endnodes_tasks.append(endnode_task)
-            self.logger.info("Subchannel %s. Msg %s was Rejected", str(self), str(entrymsg))
+            self.logger.debug("subchan callback: msg %s rejected", entrymsg.short_uuid)
             raise
         except exceptions.RetryException as exc:
             retry_exc = exc
@@ -1099,8 +1100,8 @@ class SubChannel(BaseChannel):
                 endnode_task = asyncio.create_task(
                     self._call_special_nodes(entrymsg.copy(), node_type="fail"))
                 endnodes_tasks.append(endnode_task)
-            self.logger.exception(
-                "Error while processing msg %s in subchannel %s", str(entrymsg), str(self))
+            self.logger.error(
+                "error while processing msg %s in subchan: %r", entrymsg.short_uuid, exc)
             raise
         finally:
             if self.has_message_store:
@@ -1113,8 +1114,7 @@ class SubChannel(BaseChannel):
                 endnodes_tasks.append(endnode_task)
             self.parent.sub_chan_endnodes.extend(endnodes_tasks)
             self.parent.sub_chan_tasks.remove(fut)
-            self.logger.info(
-                "subchan %s end process msg %s", str(self), str(entrymsg))
+            self.logger.debug("subchan end process of msg %s", entrymsg.short_uuid)
 
     async def handle(self, msg):
         msg_store_id = await self.message_store.store(msg)
@@ -1329,7 +1329,7 @@ class FileWatcherChannel(BaseChannel):
         while not self.is_stopped():
             await self.check_and_process_folder()
             await self.interruptable_sleeper.sleep(self.interval)
-        logger.info("Stopped watcher %s", self.short_name)
+        self.logger.info("watcher %s stopped", self.short_name)
 
     async def watch_for_file(self):
         logger.warning(
@@ -1360,7 +1360,7 @@ class FileWatcherChannel(BaseChannel):
                                 else:
                                     # If no related files
                                     # TODO : ask if raise exc or not
-                                    logger.error(
+                                    self.logger.error(
                                         "No %r related file to %s",
                                         self.real_extensions, str(filepath))
                                     continue

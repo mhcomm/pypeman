@@ -65,6 +65,11 @@ class Message():
 
         self.ctx = {}
 
+    @property
+    def short_uuid(self):
+        """ Short form of the message uuid, used in log lines. """
+        return self.uuid[:8]
+
     def timestamp_str(self):
         """ Return timestamp formated string """
         return self.timestamp.strftime(DATE_FORMAT)

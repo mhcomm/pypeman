@@ -11,7 +11,6 @@ called when used as a module (eg `$ python -m pypeman.commands`).
 from __future__ import annotations
 
 import asyncio
-import importlib
 from argparse import ArgumentParser
 from argparse import Namespace
 from logging import getLogger
@@ -22,23 +21,11 @@ from pypeman.endpoints import all_endpoints
 from pypeman.plugin_mgr import manager
 from pypeman.plugins.base import CommandPluginMixin
 from pypeman.plugins.base import TaskPluginMixin
+from pypeman.project import load_project
+
+__all__ = ("load_project", "start", "amain", "main")
 
 logger = getLogger(__name__)
-
-
-def load_project():
-    """Helper to load the user project consistently.
-
-    This means:
-        * ensure settings are properly loaded
-        * import the project module
-        * logs; that's all folks
-    """
-    settings.raise_for_missing()
-
-    logger.debug(f"Loading ({settings.PROJECT_MODULE})...")
-    importlib.import_module(settings.PROJECT_MODULE)
-    logger.debug("Project loaded successfully.")
 
 
 async def start(_options: Namespace):

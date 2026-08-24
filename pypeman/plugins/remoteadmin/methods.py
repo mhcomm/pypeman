@@ -102,7 +102,10 @@ else:
             # called from aiohttp registered url
             if isinstance(maybe_req_or_ws, web.Request):
                 req = maybe_req_or_ws
-                res = await rfn(**req.match_info, **req.rel_url.query)
+                try:
+                    res = await rfn(**req.match_info, **req.rel_url.query)
+                except LookupError as e:
+                    raise web.HTTPNotFound(reason=str(e))
                 return web.json_response(res)
 
             # called from remoteadmin CLI (websocket client-side)
@@ -120,6 +123,14 @@ else:
 
         fn.is_remote_proc = True
         return fn
+
+
+def _get_channel(channelname: str) -> BaseChannel:
+    """`get_channel` but raising (instead of None) when not found."""
+    chan = get_channel(channelname)
+    if chan is None:
+        raise LookupError(f"no channel named {channelname!r}")
+    return chan
 
 
 class ChannelAsDict_(TypedDict):
@@ -154,8 +165,7 @@ async def start_channel(*, channelname: str) -> StartStopChannel_:
 
     :params channelname: Name of the channel to start.
     """
-    chan = get_channel(channelname)
-    assert chan, "channel not found"
+    chan = _get_channel(channelname)
     await chan.start()
     return {
         "name": chan.name,
@@ -170,8 +180,7 @@ async def stop_channel(*, channelname: str) -> StartStopChannel_:
 
     :params channelname: The channel name to stop.
     """
-    chan = get_channel(channelname)
-    assert chan, "channel not found"
+    chan = _get_channel(channelname)
     await chan.stop()
     return {
         "name": chan.name,
@@ -247,8 +256,7 @@ async def list_msgs(*, channelname: str, **search_kwargs: str) -> ListMsgs_:
 
         kwargs[name] = val
 
-    chan = get_channel(channelname)
-    assert chan, "channel not found"
+    chan = _get_channel(channelname)
 
     found: ... = await chan.message_store.search(**kwargs, meta=metargs)
     # TODO(MR-local): annotations above and below unnecessary once #322
@@ -264,7 +272,7 @@ async def list_msgs(*, channelname: str, **search_kwargs: str) -> ListMsgs_:
     }
 
 
-# guu, proper type for it 's not comming before a while
+# TODO: proper type once Message.to_dict is annotated
 Message_AsDict_ = Any
 
 
@@ -276,8 +284,7 @@ async def replay_msg(*, channelname: str, message_id: str) -> Message_AsDict_:
 
     :return: see :meth:`Message.to_dict`
     """
-    chan = get_channel(channelname)
-    assert chan, "channel not found"
+    chan = _get_channel(channelname)
 
     msg_res = await chan.replay(message_id)
     return msg_res.to_dict()
@@ -291,10 +298,9 @@ async def view_msg(*, channelname: str, message_id: str) -> Message_AsDict_:
 
     :return: see :meth:`Message.to_dict`
     """
-    chan = get_channel(channelname)
-    assert chan, "channel not found"
+    chan = _get_channel(channelname)
 
-    msg_res = await chan.message_store.get(message_id)["message"]
+    msg_res = (await chan.message_store.get(message_id))["message"]
     return msg_res.to_dict()
 
 
@@ -307,8 +313,7 @@ async def push_msg(*, channelname: str, payload: str, meta: str) -> Message_AsDi
 
     :return: see :meth:`Message.to_dict`
     """
-    chan = get_channel(channelname)
-    assert chan, "channel not found"
+    chan = _get_channel(channelname)
 
     result = await chan.handle(Message(payload=payload, meta=json.loads(meta) if meta else None))
     return result.to_dict()

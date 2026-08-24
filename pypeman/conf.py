@@ -88,13 +88,11 @@ class Settings:
             settings_mod = self.__dict__["_settings_mod"] = import_module(settings_impat)
             self.__dict__.update(p for p in vars(settings_mod).items() if "A" <= p[0][0] <= "Z")
             if self.__dict__.get("RETRY_STORE_PATH") is None:
+                # the key is always present (copied from default_settings)
                 logger.warning(
                     "No RETRY_STORE_PATH in settings, retry store unavailable."
                     + " (You may want to change this.)"
                 )
-                # make it at least be present, even if none;
-                # some code migh rely on this i haven't checked
-                self.RETRY_STORE_PATH = None
 
         except BaseException as e:
             self.__dict__["_loading_exc"] = e

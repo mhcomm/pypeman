@@ -597,7 +597,7 @@ class MessageStore(ABC):
                 interpreted and compared as numbers when possible;
 
             Reminder: when called through web API, ie from `list_msgs`
-            in pypeman/plugins/remoteadmin/views.py, these keys, in the
+            in pypeman/plugins/remoteadmin/methods.py, these keys, in the
             request params, are prefixed with "meta_" (eg.
             "meta_state" "meta_rtext_url") but here they no longer are.
 

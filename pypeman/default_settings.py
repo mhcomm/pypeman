@@ -7,17 +7,11 @@ project's setting module. See :mod:`pypeman.conf` and
 
 from os import environ
 
-# TODO: this likely does not mean anything anymore (or at least that's my hope)
-DEBUG = False  # bool. can be set by env var PYPEMAN_DEBUG (0|1|true|false) or pypeman cmd args
-TESTING = False  # bool. can be set by env var PYPEMAN_TESTING (0|1|true|false) pypeman cmd args
+DEBUG = False  # bool. user projects may read it (eg to configure their own debug mode)
+TESTING = False  # bool. idem
 
 PROJECT_MODULE = "project"  # name of module containing the project
 SETTINGS_MODULE = environ.get("PYPEMAN_SETTINGS_MODULE", "settings")  # name of the project settings module
-
-# TODO: this is not used anymore
-DEBUG_PARAMS = {
-    "slow_callback_duration": 0.1,
-}
 
 REMOTE_ADMIN_CONFIG = {
     "host": "localhost",

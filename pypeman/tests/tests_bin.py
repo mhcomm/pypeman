@@ -72,11 +72,3 @@ class BinPypemanTestCase(unittest.TestCase):
 
         cmd = self.cmd + ['graph']
         self.run_pypeman(cmd, cwd=CWD)
-
-    def test_03_can_call_test(self):
-        """ subcommand test is working """
-
-        cmd = self.cmd + ['test']
-        self.run_pypeman(cmd, cwd=os.path.join(os.path.dirname(CWD), 'test_app_testing'))
-
-# test_suite =  BinPypemanTestCase

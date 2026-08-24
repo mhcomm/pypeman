@@ -35,10 +35,9 @@ class ConfigError(ImportError):
 
 
 class Settings:
-    """Pypeman project-level (ie global as fuck) settings.
+    """Pypeman project-level (ie global) settings.
 
-    Loosely inspired by the beautiful and influential
-    `django.conf.settings` that we all came to love :gun:.
+    Loosely inspired by `django.conf.settings`.
 
     Only names with an uppercase letter in A-Z will ever be considered.
     """

@@ -16,11 +16,7 @@ class ListPluginsPlugin(BasePlugin, CommandPluginMixin):
 
     @classmethod
     def command_parse(cls, parser: ArgumentParser):
-        parser.add_argument(
-            "--dot",
-            action="store_true",
-            help="generate output in graphviz 'dot' format",
-        )
+        pass  # no option nor argument
 
     async def command(self, options: Namespace):
         for it in manager.get_all_plugins():

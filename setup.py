@@ -52,7 +52,6 @@ setup(
             "pypeman = pypeman.commands:main",
         ]
     },
-    test_suite="nose.collector",
     install_requires=[
         "python-dateutil",
         "aiohttp",

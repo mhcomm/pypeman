@@ -12,6 +12,13 @@ PROJECT_MODULE = "project"  # name of module containing the project
 # (SETTINGS_MODULE is not a default: it is owned by pypeman.conf,
 # from the PYPEMAN_SETTINGS_MODULE environment variable)
 
+# Shared web app for every plugin using BundledWebappPluginMixin
+# (each plugin is mounted under its own URL prefix).
+WEBAPP_PLUGINS_CONFIG = {
+    "host": "localhost",
+    "port": 8091,
+}
+
 REMOTE_ADMIN_CONFIG = {
     "host": "localhost",
     "port": "8091",

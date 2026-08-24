@@ -108,90 +108,107 @@ class TaskPluginMixin(ABC):
         """
 
 
+class _WebappBundle:
+    """The shared aiohttp app of :class:`BundledWebappPluginMixin`.
+
+    Every bundled plugin registers itself at instantiation; the first
+    `task_start` builds the app (mounting every member's sub-app under
+    its prefix) and starts it exactly once. host/port come from
+    `settings.WEBAPP_PLUGINS_CONFIG`.
+    """
+
+    def __init__(self):
+        self._members: list[BundledWebappPluginMixin] = []
+        self._runner: web.AppRunner | None = None
+        self._started = False
+
+    def register(self, plugin: BundledWebappPluginMixin):
+        self._members.append(plugin)
+
+    async def start_once(self):
+        if self._started:
+            return
+        # no await between the check and the set: atomic on the loop
+        self._started = True
+
+        app = web.Application()
+        for plugin in self._members:
+            prefix = plugin.webapp_prefix()
+            if not prefix.startswith("/") or "/" == prefix:
+                raise ValueError(
+                    f"{type(plugin).__name__}.webapp_prefix() must start with '/'"
+                    + f" and not be '/' (got {prefix!r})"
+                )
+            app.add_subapp(prefix, plugin.webapp_urls())
+
+        conf = settings.WEBAPP_PLUGINS_CONFIG
+        self._runner = web.AppRunner(app)
+        await self._runner.setup()
+        site = web.TCPSite(self._runner, str(conf["host"]), int(conf["port"]))
+        await site.start()
+
+    async def stop_once(self):
+        runner, self._runner = self._runner, None
+        if runner is not None:
+            await runner.cleanup()
+
+    def _reset(self):
+        """Test hook: forget members and started state."""
+        self._members = []
+        self._runner = None
+        self._started = False
+
+
+webapp_bundle = _WebappBundle()
+
+
 class BundledWebappPluginMixin(TaskPluginMixin, ABC):
     """Mixin to integrate with the common webapp.
 
     This mixin extends on :class:`TaskPluginMixin` (so if your plugin
     is implementing it, there is no need to include both in the base
-    mixins, and you will need to follow cooperative inheritance).
+    mixins, and you will need to follow cooperative inheritance --
+    in particular call `super().__init__()`).
 
     The idea is to bundle together every plugins which may want to
     expose web API endpoints. By using this mixin, the implementing
-    plugin essentially registers itself to be part of the bundle.
-    It will be served under the same port (configured through
-    `settings.WEBAPP_PLUGINS_CONFIG`).
+    plugin registers itself to be part of the bundle. All bundled
+    plugins are served by a single web app on the same host and port
+    (configured through `settings.WEBAPP_PLUGINS_CONFIG`), each under
+    its own non-optional URL prefix (:meth:`webapp_prefix`).
 
-    This is of cours an optional approach as no plugin is prevented
+    This is of course an optional approach as no plugin is prevented
     from spinning up its own web app. Furthermore, only enabled plugins
     will actually be bundled within the common webapp.
-
-    ;
-
-    WIP: this is not hooked in, not use yet;
-    RemoteAdminPlugin would inherit from this mixin rather than
-    TaskPluginMixin directly (making it shorted)
-    HOWEVER this will be done under the condition that we make
-    prefix **non optional**
-    mhclient/app/interface-interop/interface-interop-service.js
     """
 
-    @classmethod
+    def __init__(self):
+        super().__init__()
+        webapp_bundle.register(self)
+
     @abstractmethod
-    def webapp_prefix(cls) -> str:
-        ...
+    def webapp_prefix(self) -> str:
+        """The URL prefix this plugin is mounted under.
+
+        Must start with '/' and not be just '/'.
+        """
 
     @abstractmethod
     def webapp_urls(self) -> web.Application:
-        ...
+        """Return a fresh sub-application with the plugin's routes.
 
-    __bundle: 'web.Application | None' = None
-    __runner: web.AppRunner
+        The routes are relative to :meth:`webapp_prefix`.
+        """
 
     async def task_start(self):
-        # the first child class to be started will trigger this;
-        # the attributes are class static attributes, meaning any other
-        # child class with this mixin will not start another webapp
-        if __class__.__bundle is None:
-            __class__.__bundle = web.Application()
-            __class__.__bundle.add_subapp(self.webapp_prefix(), self.webapp_urls())
-
-            conf = settings.WEBAPP_PLUGINS_CONFIG
-            host = str(conf["host"])
-            port = int(conf["port"])
-
-            __class__.__runner = web.AppRunner(__class__.__bundle)
-            await __class__.__runner.setup()
-            site = web.TCPSite(__class__.__runner, host, port)
-            await site.start()
+        await webapp_bundle.start_once()
 
     async def task_stop(self):
-        if __class__.__bundle is not None:
-            await __class__.__runner.cleanup()
-
-
-# class ChannelEventPluginMixin(ABC):
-#
-#     @abstractmethod
-#     async def _channel_started(self, chan: BaseChannel):
-#         """"""
-#
-#     @abstractmethod
-#     async def _channel_stopped(self, chan: BaseChannel):
-#         """"""
-#
-#     @abstractmethod
-#     async def _channel_incoming(self, msg: Message):
-#         """note that msg is a pale copy (not affected by changes)""" # should it? idk
-#
-#     @abstractmethod
-#     async def _channel_outgoing(self, msg: Message):
-#         """note that msg is a pale copy (not affected by changes)""" # should it? idk
-#
+        await webapp_bundle.stop_once()
 
 
 MixinClasses_ = Union[
     CommandPluginMixin,
     TaskPluginMixin,
     BundledWebappPluginMixin,
-    # ChannelEventPluginMixin,
 ]

@@ -19,24 +19,12 @@ WEBAPP_PLUGINS_CONFIG = {
     "port": 8091,
 }
 
+# Remote admin plugin specific configuration; host/port of the server
+# come from WEBAPP_PLUGINS_CONFIG.
+# (REMOTE_ADMIN_WEBSOCKET_CONFIG / REMOTE_ADMIN_WEB_CONFIG are
+# deprecated and must not be defined here: only user settings may.)
 REMOTE_ADMIN_CONFIG = {
-    "host": "localhost",
-    "port": "8091",
-    # "ssl": None, # TODO: ? see what it was meant to be
-    "url": "",  # must be set when behind a reverse proxy
-}
-
-# TODO: being deprecated, see RemoteAdminPlugin's constructor
-REMOTE_ADMIN_WEBSOCKET_CONFIG = {
-    "host": "localhost",
-    "port": "8091",
-    "ssl": None,
-    "url": "",  # must be set when behind a reverse proxy
-}
-REMOTE_ADMIN_WEB_CONFIG = {
-    "host": "localhost",
-    "port": "8090",
-    "ssl": None,
+    "url": "/remoteadmin",  # URL prefix; also what to set behind a reverse proxy
 }
 
 HTTP_ENDPOINT_CONFIG = ["0.0.0.0", "8080"]

@@ -1,8 +1,13 @@
 """Tests for the remoteadmin plugin (ws RPC validation + plugin config)."""
 
+import logging
+
 import pytest
 
+from pypeman.conf import settings
+from pypeman.plugins.base import webapp_bundle
 from pypeman.plugins.remoteadmin import methods
+from pypeman.plugins.remoteadmin.plugin import RemoteAdminPlugin
 from pypeman.plugins.remoteadmin.urls import _check_params
 
 
@@ -27,3 +32,52 @@ from pypeman.plugins.remoteadmin.urls import _check_params
 def test_check_params(rfn, params, expect_valid):
     valid, _expects = _check_params(rfn, params)
     assert valid is expect_valid
+
+
+@pytest.fixture
+def plugin_env():
+    webapp_bundle._reset()
+    yield
+    webapp_bundle._reset()
+
+
+def test_plugin_default_prefix(plugin_env):
+    plugin = RemoteAdminPlugin()
+    assert plugin.webapp_prefix() == "/remoteadmin"
+    # instantiating registered the plugin into the shared bundle
+    assert plugin in webapp_bundle._members
+
+
+def test_plugin_prefix_from_settings(plugin_env, monkeypatch):
+    monkeypatch.setitem(settings.__dict__, "REMOTE_ADMIN_CONFIG", {"url": "/admin"})
+    assert RemoteAdminPlugin().webapp_prefix() == "/admin"
+
+
+def test_plugin_warns_on_ignored_host_port(plugin_env, monkeypatch, caplog):
+    monkeypatch.setitem(
+        settings.__dict__, "REMOTE_ADMIN_CONFIG", {"url": "/admin", "host": "localhost"}
+    )
+    with caplog.at_level(logging.WARNING):
+        RemoteAdminPlugin()
+    assert any("host/port are ignored" in rec.message for rec in caplog.records)
+
+
+def test_plugin_deprecated_settings(plugin_env, monkeypatch, caplog):
+    monkeypatch.setitem(
+        settings.__dict__,
+        "REMOTE_ADMIN_WEBSOCKET_CONFIG",
+        {"host": "localhost", "port": "8091", "url": "/old"},
+    )
+    with caplog.at_level(logging.WARNING):
+        plugin = RemoteAdminPlugin()
+    assert plugin.webapp_prefix() == "/old"
+    assert any("deprecated" in rec.message for rec in caplog.records)
+
+
+def test_plugin_no_deprecation_warning_by_default(plugin_env, caplog):
+    # REMOTE_ADMIN_WEBSOCKET_CONFIG is no longer part of the defaults,
+    # so the deprecation must not fire unless the user defines it
+    assert not hasattr(settings, "REMOTE_ADMIN_WEBSOCKET_CONFIG")
+    with caplog.at_level(logging.WARNING):
+        RemoteAdminPlugin()
+    assert not any("deprecated" in rec.message for rec in caplog.records)

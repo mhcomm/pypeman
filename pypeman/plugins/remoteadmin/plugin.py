@@ -12,61 +12,39 @@ from aiohttp import web
 
 from pypeman.conf import settings
 from pypeman.plugins.base import BasePlugin
+from pypeman.plugins.base import BundledWebappPluginMixin
 from pypeman.plugins.base import CommandPluginMixin
-from pypeman.plugins.base import TaskPluginMixin
 from pypeman.plugins.remoteadmin.shell import RemoteAdminShell
 from pypeman.plugins.remoteadmin.urls import init_urls
 
 logger = getLogger(__name__)
 
+DEFAULT_URL_PREFIX = "/remoteadmin"
 
-class RemoteAdminPlugin(BasePlugin, CommandPluginMixin, TaskPluginMixin):
+
+class RemoteAdminPlugin(BasePlugin, CommandPluginMixin, BundledWebappPluginMixin):
     """Provides the `shell` command, alongside the related server."""
 
     def __init__(self):
+        # only true when the USER settings module defines it
+        # (it is no longer part of the defaults)
         if hasattr(settings, "REMOTE_ADMIN_WEBSOCKET_CONFIG"):
             logger.warning(
-                "REMOTE_ADMIN_WEBSOCKET_CONFIG and REMOTE_ADMIN_WEB_CONFIG are deprecated,"
-                + " please use REMOTE_ADMIN_CONFIG."
+                "REMOTE_ADMIN_WEBSOCKET_CONFIG and REMOTE_ADMIN_WEB_CONFIG are deprecated:"
+                + " use REMOTE_ADMIN_CONFIG['url'] for the prefix"
+                + " and WEBAPP_PLUGINS_CONFIG for host/port."
             )
             conf = settings.REMOTE_ADMIN_WEBSOCKET_CONFIG
         else:
             conf = settings.REMOTE_ADMIN_CONFIG
-        self._host = str(conf["host"])
-        self._port = int(conf["port"])
-        self._url_prefix = str(conf.get("url", ""))
-        if self._url_prefix and not self._url_prefix.startswith("/"):
-            raise ValueError("REMOTE_ADMIN_CONFIG['url'] must start with a '/'!")
+            if "host" in conf or "port" in conf:
+                logger.warning(
+                    "REMOTE_ADMIN_CONFIG host/port are ignored;"
+                    + " the shared webapp uses WEBAPP_PLUGINS_CONFIG."
+                )
+        self._url_prefix = str(conf.get("url") or DEFAULT_URL_PREFIX)
 
-        """
-        # old veryold:
-        remote = remoteadmin.RemoteAdminServer(loop=loop,
-                  **settings.REMOTE_ADMIN_WEBSOCKET_CONFIG)
-        webadmin = remoteadmin.WebAdmin(loop=loop,
-                  **settings.REMOTE_ADMIN_WEB_CONFIG)
-
-        # old plugin:
-        plugins were all started with `cls()`
-        __init__(self, host="127.0.0.1", port=8091, url_prefix="")
-        and the `shell` command:
-        remoteadmin.PypemanShell(url='ws://%s:%s'
-                  % (settings.REMOTE_ADMIN_WEBSOCKET_CONFIG['host'],
-                     settings.REMOTE_ADMIN_WEBSOCKET_CONFIG['port'])
-              ).cmdloop()
-
-        # TODO: being deprecated, see RemoteAdminPlugin's constructor
-        REMOTE_ADMIN_WEBSOCKET_CONFIG = {
-            "host": "localhost",
-            "port": "8091",
-            "ssl": None,
-            "url": None,  # must be set when behind a reverse proxy
-        }
-        REMOTE_ADMIN_WEB_CONFIG = {
-            "host": "localhost",
-            "port": "8090",
-            "ssl": None,
-        }
-        """
+        super().__init__()  # registers into the webapp bundle
 
     @classmethod
     def command_name(cls):
@@ -79,19 +57,20 @@ class RemoteAdminPlugin(BasePlugin, CommandPluginMixin, TaskPluginMixin):
 
     async def command(self, options: Namespace):
         settings.raise_for_missing()
-        async with ClientSession() as cs, cs.ws_connect(f"ws://{self._host}:{self._port}") as ws:
+        conf = settings.WEBAPP_PLUGINS_CONFIG
+        host = options.host or str(conf["host"])
+        port = options.port or int(conf["port"])
+        url = f"ws://{host}:{port}{self._url_prefix}/"
+        async with ClientSession() as cs, cs.ws_connect(url) as ws:
             # no other way to make it work with python's cmd module...
             # (see :mod:`shell`, it has doc about that)
             await asyncio.get_running_loop().run_in_executor(None, RemoteAdminShell(ws).cmdloop)
 
-    async def task_start(self):
-        self.app = web.Application()
-        init_urls(self.app, self._url_prefix)
+    def webapp_prefix(self) -> str:
+        return self._url_prefix
 
-        self.runner = web.AppRunner(self.app)
-        await self.runner.setup()
-        site = web.TCPSite(self.runner, self._host, self._port)
-        await site.start()
-
-    async def task_stop(self):
-        await self.runner.cleanup()
+    def webapp_urls(self) -> web.Application:
+        subapp = web.Application()
+        # routes are relative: the bundle mounts them at webapp_prefix()
+        init_urls(subapp, prefix="")
+        return subapp

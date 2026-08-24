@@ -95,6 +95,18 @@ LOGGING = {
     },
 }
 
+# Shared web app for the plugins that expose web endpoints
+# (for example the remote admin server).
+# WEBAPP_PLUGINS_CONFIG = {
+#     "host": "localhost",
+#     "port": 8091,
+# }
+
+# Remote admin URL prefix (also what to set behind a reverse proxy).
+# REMOTE_ADMIN_CONFIG = {
+#     "url": "/remoteadmin",
+# }
+
 """
 
 DIST_SETTINGS_TEMPLATE = """\

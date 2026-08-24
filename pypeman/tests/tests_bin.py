@@ -1,6 +1,7 @@
 # pypeman -- A command-line argument parser for Python
 # Copyright (C) 2015-2016 by MHComm. See LICENSE for details
 
+import json
 import os
 import sys
 import unittest
@@ -33,29 +34,27 @@ class BinPypemanTestCase(unittest.TestCase):
     def run_pypeman(self, cmd, cwd=None):
         """
         Runs a command, gathers output and captures exit code
-        :return: return_code and data (bytestring of stdout / stderr)
+        :return: return_code and data (bytestring of stdout)
         """
         out_fname = mktempfname()
-        self.tempfiles.append(out_fname)
+        err_fname = mktempfname()
+        self.tempfiles.extend((out_fname, err_fname))
 
         if cwd is None:
             cwd = os.getcwd()
 
-        # TODO: why not reading stdout / stderr directoy into a var ??
-        # TODO: if not reason can be found change code to use no temp file
-        # TODO: perhaps some issue with unicode / python 3 ???
-        with open(out_fname, 'wb') as fout:
-            proc = subprocess.Popen(cmd, stdout=fout, stderr=fout, cwd=cwd)
+        with open(out_fname, 'wb') as fout, open(err_fname, 'wb') as ferr:
+            proc = subprocess.Popen(cmd, stdout=fout, stderr=ferr, cwd=cwd)
             proc.wait()
         ret_code = proc.returncode
 
-        data = None
-        if ret_code:
-            with open(out_fname, 'rb') as fin:
-                data = fin.read()
+        with open(out_fname, 'rb') as fin:
+            data = fin.read()
+        with open(err_fname, 'rb') as fin:
+            err_data = fin.read()
 
-        self.assertEqual(ret_code, 0, "exit code %d when calling %r in %s: %s" %
-                         (ret_code, cmd, cwd, data))
+        self.assertEqual(ret_code, 0, "exit code %d when calling %r in %s: %s / %s" %
+                         (ret_code, cmd, cwd, data, err_data))
 
         return ret_code, data
 
@@ -68,7 +67,12 @@ class BinPypemanTestCase(unittest.TestCase):
         self.run_pypeman(cmd, cwd=CWD)
 
     def test_02_can_call_graph(self):
-        """ subcommand graph is working """
+        """ subcommand graph is working (all formats) """
 
-        cmd = self.cmd + ['graph']
-        self.run_pypeman(cmd, cwd=CWD)
+        self.run_pypeman(self.cmd + ['graph'], cwd=CWD)
+        self.run_pypeman(self.cmd + ['graph', '--format', 'dot'], cwd=CWD)
+
+        _, data = self.run_pypeman(self.cmd + ['graph', '--format', 'json'], cwd=CWD)
+        graph = json.loads(data)
+        self.assertEqual(graph['version'], 1)
+        self.assertIn('channels', graph)

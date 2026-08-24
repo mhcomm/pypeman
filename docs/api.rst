@@ -76,5 +76,5 @@ Events
 Remote admin
 ------------
 
-.. automodule:: pypeman.remoteadmin
+.. automodule:: pypeman.plugins.remoteadmin.methods
     :members:

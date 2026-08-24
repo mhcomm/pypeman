@@ -36,9 +36,8 @@ here until resolved (see :func:`_sync`).
 
     return asyncio.run_coroutine_threadsafe(afn(self, *a, **ka), self._main_thread_loop).result(5)
 
-Overall this might seems like a lot but Python isn't the only one that
-couldn't figure out async correctly in time and messed up, so this one
-I forgive.
+Overall this might seem like a lot, but it is the standard workaround
+for bridging :mod:`cmd`'s synchronous world with a running event loop.
 """
 
 from __future__ import annotations
@@ -103,7 +102,9 @@ class RemoteAdminShell(Cmd):
     def __init__(self, ws: ClientWebSocketResponse, *a: ..., **ka: ...):
         super().__init__(*a, **ka)
 
-        self._main_thread_loop = asyncio.get_event_loop()
+        # instantiated in the main thread, within the running loop
+        # (the cmdloop itself then runs in an executor thread)
+        self._main_thread_loop = asyncio.get_running_loop()
         self._ws = ws
         # for commands that requires it
         self._current_channel: str | None = None
@@ -219,12 +220,7 @@ class RemoteAdminShell(Cmd):
             (Cmd) list start_dt='2025-10-10 15:30' end_dt='2025-10-10 17' order_by=timestamp
             (Cmd) list start_dt=2024 end_dt=2025 group_by=status
         """
-        kwargs = self._arg_extract_kwargs(search, ["start", "end", "order_by"])
-        # TODO: XXX: (about above)
-        #   `start`/`stop` are no longer valid and as such will be removed
-        #   (I added this part of the code mechanically, but...)
-        #   `order_by` is I guess a valid positional argument;
-        #   what about having `start_dt`/`end_dt` instead of `start`/`stop`?
+        kwargs = self._arg_extract_kwargs(search, ["start_dt", "end_dt", "order_by"])
 
         result = await methods.list_msgs(self._ws, channelname=channelname, **kwargs)
         if not result["total"]:
@@ -239,15 +235,16 @@ class RemoteAdminShell(Cmd):
             if not messages:
                 self.stdout.write("No matching message.\n")
             else:
-                self.stdout.write(f"Matched {messages} message(s).\n")
+                self.stdout.write(f"Matched {len(messages)} message(s).\n")
 
         elif isinstance(messages, dict):
             total = 0
             for group in messages:
-                self.stdout.write("Group {group!r}:\n")
+                self.stdout.write(f"Group {group!r}:\n")
                 for msg in messages[group]:
                     self.stdout.write(f"\t{msg['timestamp']} {msg['id']} {msg['state']}\n")
                     self._known_msg_ids.add(msg["id"])
+                total += len(messages[group])
             if not messages:
                 self.stdout.write("No matching message.\n")
             else:
@@ -259,9 +256,10 @@ class RemoteAdminShell(Cmd):
             # life hack: if you <tab> at this point, we'll give you the current time
             return [datetime.now().strftime("'%Y-%m-%d %H:%M'")]
 
-        if "start_id=" == text:
-            # life hack 2: we try to be useful mdr
-            return [id for id in self._known_msg_ids if id.startswith(text)]
+        if text.startswith("start_id="):
+            # complete with the (store specific) ids seen so far
+            given = text[len("start_id="):]
+            return [f"start_id={id}" for id in self._known_msg_ids if id.startswith(given)]
 
         flate = {"count=", "start_id=", "start_dt=", "end_dt=", "text=", "rtext=", "meta_"}
         ordre = {f"order_by={v}" for v in {"timestamp", "state", "-timestamp", "-state"}}
@@ -296,9 +294,9 @@ class RemoteAdminShell(Cmd):
     @_sync
     async def do_view(self, channelname: str, ids: str):
         """View a list of messages by their message store ids."""
-        # don't asyncio.gather here it's useless;
-        # the proper thing to do would be https://www.jsonrpc.org/specification#batch
-        # (+7 lines in .urls when i did) but it's unnecessary trust me sis/bro
+        # don't asyncio.gather here, it's useless; the proper thing to
+        # do would be https://www.jsonrpc.org/specification#batch but
+        # it is unnecessary for now
         for msg_id in str(ids).split():
             msg_dict = await methods.view_msg(self._ws, channelname=channelname, message_id=msg_id)
             self.stdout.write(f"(Store id {msg_id})\n")

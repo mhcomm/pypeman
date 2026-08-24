@@ -36,17 +36,13 @@ async def start(_options: Namespace):
     await asyncio.gather(*(it.start() for it in all_endpoints + all_channels))
     # TODO: check this point, ordering might matter (all endpoints then all channels)
 
-    # TODO/FIXME: after the line above, essentially all error within
-    #             this function are inhibited (? wth) wanna investigate
-
     logger.debug("Everything ready.")
-    try:
-        while ...:
-            await asyncio.sleep(43210)
-            logger.debug("Still live and kicking.")
-    except KeyboardInterrupt:
-        logger.debug("SIGINT!")
-    logger.debug("Loop was stopped.")
+    # TODO: graceful shutdown (loop signal handlers for SIGINT/SIGTERM
+    #       + an event instead of this idle loop) so the stop sequence
+    #       below actually runs; deliberately left for a dedicated rework
+    while ...:
+        await asyncio.sleep(43210)
+        logger.debug("Still live and kicking.")
 
     await asyncio.gather(*(it.stop() for it in all_endpoints + all_channels))
 
@@ -57,15 +53,10 @@ async def amain():
     parser = ArgumentParser()
     subpar = parser.add_subparsers(dest="command", required=True)
 
-    # `start` isn't moved to a plugin (lucky little one)
+    # `start` is the only command not provided through a plugin
     subpar.add_parser("start").set_defaults(_func=start)
 
     manager.register_plugins(*settings.PLUGINS)
-    # side-note: the 'discovery' of plugins relies solely on "settings.py"
-    #            and i dont like "settings.py"
-    # also there is a world in which we `parser.parse_known_args` early
-    # to collect a list of "--plugin <badibooda>" for example, or even
-    # "--no-plugin" to disable some, etc..
     manager.instantiate_plugins()
 
     for com in manager.get_plugins(CommandPluginMixin):

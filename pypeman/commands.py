@@ -101,4 +101,7 @@ def main():
 
 
 if "__main__" == __name__:
-    asyncio.run(amain())
+    # running the file as a script has the same sys.path quirk as the
+    # console script (the script's directory replaces the CWD), so go
+    # through main() for its sys.path fixup
+    main()

@@ -5,13 +5,12 @@ project's setting module. See :mod:`pypeman.conf` and
 :obj:`pypeman.conf.settings`.
 """
 
-from os import environ
-
 DEBUG = False  # bool. user projects may read it (eg to configure their own debug mode)
 TESTING = False  # bool. idem
 
 PROJECT_MODULE = "project"  # name of module containing the project
-SETTINGS_MODULE = environ.get("PYPEMAN_SETTINGS_MODULE", "settings")  # name of the project settings module
+# (SETTINGS_MODULE is not a default: it is owned by pypeman.conf,
+# from the PYPEMAN_SETTINGS_MODULE environment variable)
 
 REMOTE_ADMIN_CONFIG = {
     "host": "localhost",

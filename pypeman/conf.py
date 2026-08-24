@@ -83,6 +83,8 @@ class Settings:
         settings_impat = str(self.__dict__["SETTINGS_MODULE"])
         self.__dict__.clear()
         self.__dict__.update(p for p in vars(default_settings).items() if "A" <= p[0][0] <= "Z")
+        # keep the module actually being imported (not a default_settings value)
+        self.__dict__["SETTINGS_MODULE"] = settings_impat
 
         try:
             settings_mod = self.__dict__["_settings_mod"] = import_module(settings_impat)

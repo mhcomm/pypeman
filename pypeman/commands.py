@@ -15,6 +15,7 @@ from argparse import ArgumentParser
 from argparse import Namespace
 from logging import getLogger
 
+from pypeman import __version__
 from pypeman.channels import all_channels
 from pypeman.conf import settings
 from pypeman.endpoints import all_endpoints
@@ -50,17 +51,20 @@ async def start(_options: Namespace):
 
 
 async def amain():
-    parser = ArgumentParser()
+    parser = ArgumentParser(prog="pypeman")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subpar = parser.add_subparsers(dest="command", required=True)
 
     # `start` is the only command not provided through a plugin
-    subpar.add_parser("start").set_defaults(_func=start)
+    subpar.add_parser("start", help="start the pypeman project").set_defaults(_func=start)
 
     manager.register_plugins(*settings.PLUGINS)
     manager.instantiate_plugins()
 
     for com in manager.get_plugins(CommandPluginMixin):
-        com_parser = subpar.add_parser(com.command_name())
+        doc = (type(com).__doc__ or "").strip().splitlines()
+        help_line = doc[0] if doc else None
+        com_parser = subpar.add_parser(com.command_name(), help=help_line, description=help_line)
         com.command_parse(com_parser)
         com_parser.set_defaults(_func=com.command)
 

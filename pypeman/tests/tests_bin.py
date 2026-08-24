@@ -78,6 +78,15 @@ class BinPypemanTestCase(unittest.TestCase):
         self.assertEqual(graph['version'], 1)
         self.assertIn('channels', graph)
 
+    def test_03_can_call_listplugins_and_printsettings(self):
+        """ subcommands listplugins and printsettings are working """
+
+        _, data = self.run_pypeman(self.cmd + ['listplugins'], cwd=CWD)
+        self.assertIn(b'GraphPlugin', data)
+
+        _, data = self.run_pypeman(self.cmd + ['printsettings'], cwd=CWD)
+        self.assertIn(b'PROJECT_MODULE', data)
+
     def test_04_can_call_startproject(self):
         """ bin/pypeman-startproject creates the project files """
 

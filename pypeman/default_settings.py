@@ -39,15 +39,14 @@ PERSISTENCE_CONFIG = {}
 
 RETRY_STORE_PATH = None
 
-PLUGINS = {
+# Loaded in order; override in the project settings module with
+# a full list (settings are immutable once loaded).
+PLUGINS = [
     "pypeman.plugins.plugins.ListPluginsPlugin",
     "pypeman.plugins.graph.GraphPlugin",
     "pypeman.plugins.settings.PrintSettingsPlugin",
-    # i dont like the name 'startproject' cause it seems to me like that
-    # would be an alias for 'start' (or the other way around, you get it)
-    # TODO: "pypeman.plugins.project.StartProjectPlugin",
     "pypeman.plugins.remoteadmin.RemoteAdminPlugin",
-}
+]
 
 LOGGING = {
     "version": 1,

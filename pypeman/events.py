@@ -99,3 +99,26 @@ class Event:
 
 
 channel_change_state = Event("channel_change_state")
+
+msg_processing_start = Event("msg_processing_start")
+"""Fired by :meth:`pypeman.channels.BaseChannel.handle` on message entry.
+
+Handlers are awaited before the message is stored and processed, and
+receive `channel` and `msg` as keyword arguments. `msg` is the very
+message the channel is about to process: enriching its `meta` from a
+handler is seen by the nodes and by the message store.
+"""
+
+msg_processing_end = Event("msg_processing_end")
+"""Fired by :meth:`pypeman.channels.BaseChannel.handle` on message exit.
+
+Handlers are awaited whatever the outcome and receive as keyword
+arguments the `channel`, the `msg` the start event was fired with, the
+`result` message (`None` if the processing raised) and the raised
+`exc` (`None` if it did not).
+"""
+
+# Both are fired once per `handle` call: a message going through a
+# forked or conditional subchannel fires a pair for the parent channel
+# and another one for the subchannel. Handlers being awaited in the
+# message path, a slow handler slows the channel down.

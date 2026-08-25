@@ -114,6 +114,41 @@ They listen to a specific port for a specific protocol.
     :members:
     :noindex:
 
+Events
+------
+
+Channels fire events which a plugin, or the project itself, can subscribe to.
+:obj:`pypeman.events.msg_processing_start` and
+:obj:`pypeman.events.msg_processing_end` are fired by every channel around the
+processing of a message: this is how extra information can be added to all the
+messages without changing the channels themselves.
+
+::
+
+    from pypeman import events
+    from pypeman.plugins.base import BasePlugin, TaskPluginMixin
+
+
+    class TagPlugin(BasePlugin, TaskPluginMixin):
+        """Tag every message with the name of the channel handling it."""
+
+        async def task_start(self):
+            events.msg_processing_start.add_handler(self.on_msg)
+
+        async def task_stop(self):
+            events.msg_processing_start.remove_handler(self.on_msg)
+
+        async def on_msg(self, channel, msg):
+            msg.meta["entry_channel"] = channel.name
+
+Handlers may be sync or async and are awaited in the message path, so they must
+be quick; an handler raising is logged and does not break the processing.
+:class:`pypeman.plugins.proctime.ProcTimePlugin` is a working example, tagging
+every message with the time its channel took to process it (enable it by adding
+``"pypeman.plugins.proctime.ProcTimePlugin"`` to ``settings.PLUGINS``).
+
+See :mod:`pypeman.events` for the list of events and their arguments.
+
 Message Stores
 --------------
 

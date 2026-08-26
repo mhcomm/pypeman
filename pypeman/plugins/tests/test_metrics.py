@@ -1,4 +1,4 @@
-"""Tests for the metrics plugin (JSON routes)."""
+"""Tests for the metrics plugin (JSON and Prometheus routes)."""
 
 import asyncio
 
@@ -148,6 +148,49 @@ def test_metrics_error_cases(plugin_env):
         await plugin.task_stop()
 
     asyncio.run(scenario())
+
+
+@pytest.mark.usefixtures("clear_graph")
+def test_metrics_prometheus(plugin_env):
+    async def scenario():
+        plugin = MetricsPlugin()
+        await plugin.task_start()
+        await _mk_handled_channel()
+
+        async with ClientSession() as cs:
+            async with cs.get(_server_url() + "/metrics") as resp:
+                assert resp.status == 200
+                assert resp.headers["Content-Type"] \
+                    == "text/plain; version=0.0.4; charset=utf-8"
+                body = await resp.text()
+
+        lines = body.splitlines()
+        assert "# TYPE pypeman_channel_messages_total counter" in lines
+        assert 'pypeman_channel_messages_total{channel="metrics_chan"} 3' in lines
+        assert 'pypeman_channel_errors_total{channel="metrics_chan"} 1' in lines
+        assert 'pypeman_channel_retry_deferred_total{channel="metrics_chan"} 0' in lines
+        assert 'pypeman_channel_state{channel="metrics_chan",state="WAITING"} 1' in lines
+        assert 'pypeman_channel_state{channel="metrics_chan",state="PAUSED"} 0' in lines
+        assert 'pypeman_channel_processing_seconds_count{channel="metrics_chan"} 3' in lines
+        assert 'pypeman_channel_store_messages{channel="metrics_chan"} 3' in lines
+        assert not any("pypeman_channel_retry_pending" in line for line in lines)
+        assert any(line.startswith("pypeman_info{version=") for line in lines)
+        assert any(line.startswith("pypeman_process_start_time_seconds ") for line in lines)
+        assert any(line.startswith("pypeman_event_loop_lag_seconds ") for line in lines)
+        assert any(
+            line.startswith('pypeman_channel_processing_seconds_min{channel="metrics_chan"} ')
+            for line in lines)
+
+        await plugin.task_stop()
+
+    asyncio.run(scenario())
+
+
+def test_prometheus_label_escaping():
+    from pypeman.plugins.metrics import _sample
+
+    line = _sample("some_metric", {"channel": 'na"me\\with\nfun'}, 1.5)
+    assert line == 'some_metric{channel="na\\"me\\\\with\\nfun"} 1.5'
 
 
 @pytest.mark.usefixtures("clear_graph")

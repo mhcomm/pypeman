@@ -16,12 +16,24 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import os
 import time
 from time import perf_counter
 
 from pypeman import events
 from pypeman import exceptions
 from pypeman.channels import BaseChannel
+
+
+def rss_bytes() -> int | None:
+    """Current resident set size of the process, or None when /proc
+    is not available (shared by the health and metrics plugins)."""
+    try:
+        with open("/proc/self/statm") as statm:
+            pages = int(statm.read().split()[1])
+        return pages * os.sysconf("SC_PAGE_SIZE")
+    except (OSError, ValueError, IndexError):
+        return None
 
 
 class ChannelStats:

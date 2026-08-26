@@ -29,6 +29,7 @@ from pypeman import channels
 from pypeman.conf import settings
 from pypeman.plugins.base import BasePlugin
 from pypeman.plugins.base import BundledWebappPluginMixin
+from pypeman.plugins.stats import rss_bytes
 from pypeman.plugins.stats import stats_collector
 
 logger = getLogger(__name__)
@@ -44,16 +45,6 @@ def _ago(epoch: float | None, now: float) -> dict | None:
     if epoch is None:
         return None
     return {"at": _iso(epoch), "seconds_ago": round(now - epoch, 3)}
-
-
-def _rss_bytes() -> int | None:
-    """Current resident set size, or None when /proc is not available."""
-    try:
-        with open("/proc/self/statm") as statm:
-            pages = int(statm.read().split()[1])
-        return pages * os.sysconf("SC_PAGE_SIZE")
-    except (OSError, ValueError, IndexError):
-        return None
 
 
 class HealthPlugin(BasePlugin, BundledWebappPluginMixin):
@@ -108,7 +99,7 @@ class HealthPlugin(BasePlugin, BundledWebappPluginMixin):
                 "python_version": platform.python_version(),
                 "started_at": _iso(started_at),
                 "uptime_seconds": round(now - started_at, 3) if started_at else None,
-                "rss_bytes": _rss_bytes(),
+                "rss_bytes": rss_bytes(),
                 # ru_maxrss is in KiB on linux
                 "peak_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024,
             },

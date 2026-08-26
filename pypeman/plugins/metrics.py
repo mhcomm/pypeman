@@ -3,6 +3,9 @@
 On the shared plugins web app (prefix configurable via
 `settings.METRICS_CONFIG["url"]`):
 
+* `GET /metrics` — Prometheus text exposition of the live counters
+  and gauges (channel label = full dotted channel name: subchannels
+  report the same messages as their parent, don't sum across labels);
 * `GET /metrics/channels` — JSON since-start stats for every channel;
 * `GET /metrics/channels/<name>` — JSON stats for one channel;
 
@@ -16,23 +19,28 @@ figures, do not survive restarts nor cover retry replays.
 
 from __future__ import annotations
 
+import asyncio
+import platform
 from datetime import datetime
 from logging import getLogger
 
 from aiohttp import web
 from dateutil import parser as dateutilparser
 
+import pypeman
 from pypeman import channels
 from pypeman.conf import settings
 from pypeman.message import Message
 from pypeman.plugins.base import BasePlugin
 from pypeman.plugins.base import BundledWebappPluginMixin
 from pypeman.plugins.proctime import ProcTimePlugin
+from pypeman.plugins.stats import rss_bytes
 from pypeman.plugins.stats import stats_collector
 
 logger = getLogger(__name__)
 
 DEFAULT_URL = "/metrics"
+PROMETHEUS_CONTENT_TYPE = "text/plain; version=0.0.4; charset=utf-8"
 
 
 def _parse_query_dt(request: web.Request, name: str) -> datetime | None:
@@ -47,6 +55,19 @@ def _parse_query_dt(request: web.Request, name: str) -> datetime | None:
     if parsed.tzinfo is not None:
         parsed = parsed.astimezone().replace(tzinfo=None)
     return parsed
+
+
+def _escape_label(value: str) -> str:
+    return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+
+
+def _sample(name: str, labels: dict | None, value) -> str:
+    """One Prometheus sample line."""
+    rendered = repr(float(value)) if isinstance(value, float) else str(value)
+    if labels:
+        inner = ",".join(f'{key}="{_escape_label(str(val))}"' for key, val in labels.items())
+        return f"{name}{{{inner}}} {rendered}"
+    return f"{name} {rendered}"
 
 
 def _aggregate_metas(metas: list[dict]) -> dict:
@@ -101,6 +122,7 @@ class MetricsPlugin(BasePlugin, BundledWebappPluginMixin):
             raise ValueError(
                 f"METRICS_CONFIG['url'] must start with '/' and not be '/' (got {self._url!r})")
         return [
+            web.get(self._url, self._get_prometheus),
             web.get(self._url + "/channels", self._get_channels),
             web.get(self._url + "/channels/{channelname}", self._get_channel),
         ]
@@ -184,3 +206,101 @@ class MetricsPlugin(BasePlugin, BundledWebappPluginMixin):
         else:
             doc["throughput_per_second"] = None
         return doc
+
+    async def _get_prometheus(self, request: web.Request) -> web.Response:
+        """Prometheus text exposition; live counters and O(1) store
+        totals only, no store scan on scrape."""
+        lines = []
+
+        def family(name, ftype, help_text):
+            lines.append(f"# HELP {name} {help_text}")
+            lines.append(f"# TYPE {name} {ftype}")
+
+        family("pypeman_info", "gauge", "Version information of the running pypeman.")
+        lines.append(_sample("pypeman_info", {
+            "version": pypeman.__version__, "python": platform.python_version()}, 1))
+
+        if stats_collector.started_at is not None:
+            family("pypeman_process_start_time_seconds", "gauge",
+                   "Unix time the process started at.")
+            lines.append(_sample(
+                "pypeman_process_start_time_seconds", None, stats_collector.started_at))
+
+        rss = rss_bytes()
+        if rss is not None:
+            family("pypeman_process_resident_memory_bytes", "gauge",
+                   "Resident memory size in bytes.")
+            lines.append(_sample("pypeman_process_resident_memory_bytes", None, rss))
+
+        family("pypeman_event_loop_lag_seconds", "gauge",
+               "Last measured event-loop wakeup lag.")
+        lines.append(_sample("pypeman_event_loop_lag_seconds", None, stats_collector.loop_lag))
+        family("pypeman_pending_tasks", "gauge", "Pending asyncio tasks.")
+        lines.append(_sample("pypeman_pending_tasks", None, len(asyncio.all_tasks())))
+
+        chans = list(channels.all_channels)
+
+        family("pypeman_channel_state", "gauge", "Channel state as a one-hot gauge.")
+        for chan in chans:
+            current = chan.status_id_to_str(chan.status)
+            for state in channels.BaseChannel.STATE_NAMES:
+                lines.append(_sample("pypeman_channel_state",
+                                     {"channel": chan.name, "state": state},
+                                     int(state == current)))
+
+        for name, help_text, attr in (
+            ("pypeman_channel_messages_total",
+             "Messages handled since start (first attempts and deferrals, not retries).",
+             "msg_count"),
+            ("pypeman_channel_errors_total", "Messages ended in error since start.",
+             "error_count"),
+            ("pypeman_channel_retry_deferred_total", "Messages deferred to retry since start.",
+             "retry_deferred_count"),
+        ):
+            family(name, "counter", help_text)
+            for chan in chans:
+                stats = stats_collector.channel_stats(chan.name)
+                lines.append(_sample(name, {"channel": chan.name},
+                                     getattr(stats, attr) if stats else 0))
+
+        family("pypeman_channel_processing_seconds", "summary", "Message processing time.")
+        for chan in chans:
+            stats = stats_collector.channel_stats(chan.name)
+            labels = {"channel": chan.name}
+            lines.append(_sample("pypeman_channel_processing_seconds_sum", labels,
+                                 stats.time_sum if stats else 0.0))
+            lines.append(_sample("pypeman_channel_processing_seconds_count", labels,
+                                 stats.time_count if stats else 0))
+
+        for suffix, attr in (("min", "time_min"), ("max", "time_max")):
+            samples = []
+            for chan in chans:
+                stats = stats_collector.channel_stats(chan.name)
+                if stats and stats.time_count:
+                    samples.append(_sample(f"pypeman_channel_processing_seconds_{suffix}",
+                                           {"channel": chan.name}, getattr(stats, attr)))
+            if samples:
+                family(f"pypeman_channel_processing_seconds_{suffix}", "gauge",
+                       f"{suffix.capitalize()} message processing time since start.")
+                lines.extend(samples)
+
+        for name, help_text, getter in (
+            ("pypeman_channel_store_messages", "Messages in the channel's message store.",
+             lambda chan: chan.message_store if self._has_active_store(chan) else None),
+            ("pypeman_channel_retry_pending", "Messages awaiting retry.",
+             lambda chan: (chan.retry_store
+                           if getattr(chan, "retry_store", None) is not None
+                           and chan.retry_store._active else None)),
+        ):
+            samples = []
+            for chan in chans:
+                store = getter(chan)
+                if store is not None:
+                    samples.append(_sample(name, {"channel": chan.name}, await store.total()))
+            if samples:
+                family(name, "gauge", help_text)
+                lines.extend(samples)
+
+        body = "\n".join(lines) + "\n"
+        return web.Response(body=body.encode("utf-8"),
+                            headers={"Content-Type": PROMETHEUS_CONTENT_TYPE})

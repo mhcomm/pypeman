@@ -39,6 +39,11 @@ HEALTH_CONFIG = {
     "degraded_error_window": 300,
 }
 
+# Metrics plugin specific configuration; same remarks as HEALTH_CONFIG.
+METRICS_CONFIG = {
+    "url": "/metrics",
+}
+
 HTTP_ENDPOINT_CONFIG = ["0.0.0.0", "8080"]
 
 PERSISTENCE_BACKEND = None
@@ -55,6 +60,7 @@ PLUGINS = [
     "pypeman.plugins.remoteadmin.RemoteAdminPlugin",
     "pypeman.plugins.proctime.ProcTimePlugin",
     "pypeman.plugins.health.HealthPlugin",
+    "pypeman.plugins.metrics.MetricsPlugin",
 ]
 
 # Entries of PLUGINS (same dotted paths) to deactivate; lets a project

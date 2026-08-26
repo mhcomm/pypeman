@@ -24,7 +24,9 @@
   live snapshot as JSON. Configured with `METRICS_CONFIG` (`url` prefix).
 * `RetryFileMsgStore` tracks `retry_attempts` and `retry_mode_since`;
   `MessageStore.get_message_metas(start_dt, end_dt)` returns store metas over a time
-  span without deserializing the messages.
+  span without deserializing the messages;
+  `MessageStore.update_message_meta_infos(id, infos)` writes several meta infos in one
+  read/write cycle.
 * Remote admin is served on the shared web app, under an optional URL prefix
   (`REMOTE_ADMIN_CONFIG["url"]`, empty by default: the API stays at the root);
   host/port come from `WEBAPP_PLUGINS_CONFIG`.

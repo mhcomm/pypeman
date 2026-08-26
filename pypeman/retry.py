@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import time
 
 from pathlib import Path
 
@@ -32,6 +33,8 @@ class RetryFileMsgStore(FileMessageStore):
         self.state = self.STOPPED
         self.stop_flag = False
         self.retry_task = None
+        self.retry_attempts = 0  # message replay attempts since entering retry mode
+        self.retry_mode_since = None  # time.time() of the last retry-mode entry
         self.exit_event = asyncio.Event()
         self.test_mode = False
         super().__init__(*args, path=path, **kwargs)
@@ -195,11 +198,13 @@ class RetryFileMsgStore(FileMessageStore):
                     logger.debug("No more messages to reply, chan will be un-paused")
                     self.channel.status = BaseChannel.WAITING
                     self.state = self.STOPPED
+                    self.retry_mode_since = None
                     break
                 else:
                     msg_data = msgs_data[0]
                     message_store_id = msg_data["meta"]["store_id"]
             retry_exc_catched = False
+            self.retry_attempts += 1
             try:
                 await self.retry_one_store_id(msg_store_id=message_store_id)
                 logger.debug(
@@ -232,6 +237,8 @@ class RetryFileMsgStore(FileMessageStore):
         from pypeman.channels import BaseChannel
         logger.debug(f"Retrystore of {self.channel.short_name} start retry mode")
         self.state = self.RETRY_MODE
+        self.retry_attempts = 0
+        self.retry_mode_since = time.time()
         if self.channel.status != BaseChannel.PAUSED:
             self.channel.status = BaseChannel.PAUSED
         if not self.test_mode:

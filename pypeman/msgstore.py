@@ -388,6 +388,28 @@ class MessageStore(ABC):
         """
         return await asyncio.gather(*map(self.get, ids))
 
+    async def get_message_metas(
+        self,
+        start_dt: datetime | None = None,
+        end_dt: datetime | None = None,
+    ) -> list[dict[str, Any]]:
+        """Store-related metas of the messages within the given time frame.
+
+        Much cheaper than :meth:`search` when only metas are needed: the
+        messages themselves are never deserialized.
+
+        :param start_dt: (optional) Inclusive lower bound, or None.
+        :param end_dt: (optional) Exclusive upper bound, or None.
+        :return: Meta dicts, sorted by increasing message timestamp.
+        :raise ValueError: When the bounds form an empty or backward span.
+        """
+        if start_dt is not None and end_dt is not None and not start_dt < end_dt:
+            raise ValueError("start_dt must be strictly before end_dt")
+        if 0 == await self.total():
+            return []
+        ids = await self._span_select(start_dt, end_dt)
+        return [await self._get_storemeta(id) for id in ids]
+
     async def add_message_meta_infos(self, id: str, meta_info_name: str, info: Any):
         """Add a store-related meta info to a message.
 

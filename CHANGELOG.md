@@ -12,6 +12,19 @@
 * startproject revived as a standalone `pypeman-startproject` script.
 * Plugins can expose web endpoints through a shared web app (`BundledWebappPluginMixin`,
   configured with `settings.WEBAPP_PLUGINS_CONFIG`).
+* New `HealthPlugin` (on by default): `GET /health` on the shared web app reports an
+  overall ok/degraded status, version, process and event-loop info, and per-channel
+  status, in-flight processing time, retry state, store count and last message/error
+  times (`GET /health/channels/<name>` for a single channel). Configured with
+  `HEALTH_CONFIG` (`url` prefix, `degraded_error_window`).
+* New `MetricsPlugin` (on by default): `GET /metrics/channels[/<name>]` serves
+  per-channel JSON stats (message/error counts, mean/min/max processing time), with
+  optional `start_dt`/`end_dt` time-range stats computed from the message store metas;
+  `GET /metrics` serves the Prometheus text format. Configured with `METRICS_CONFIG`
+  (`url` prefix).
+* `RetryFileMsgStore` tracks `retry_attempts` and `retry_mode_since`;
+  `MessageStore.get_message_metas(start_dt, end_dt)` returns store metas over a time
+  span without deserializing the messages.
 * Remote admin is served on the shared web app, under an optional URL prefix
   (`REMOTE_ADMIN_CONFIG["url"]`, empty by default: the API stays at the root);
   host/port come from `WEBAPP_PLUGINS_CONFIG`.

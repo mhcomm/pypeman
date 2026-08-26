@@ -4,6 +4,7 @@
 import json
 import os
 import sys
+import tempfile
 import unittest
 import subprocess
 import logging
@@ -76,3 +77,16 @@ class BinPypemanTestCase(unittest.TestCase):
         graph = json.loads(data)
         self.assertEqual(graph['version'], 1)
         self.assertIn('channels', graph)
+
+    def test_04_can_call_startproject(self):
+        """ bin/pypeman-startproject creates the project files """
+
+        script = os.path.join(os.path.dirname(__file__), '..', '..', 'bin', 'pypeman-startproject')
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # run from a NON-project cwd: no settings module around
+            self.run_pypeman([sys.executable, script, 'demo_pjt'], cwd=tmpdir)
+
+            pjt_dir = os.path.join(tmpdir, 'demo_pjt')
+            for fname in ('project.py', 'settings.py', 'dist_settings.py', 'tests.py'):
+                self.assertTrue(os.path.exists(os.path.join(pjt_dir, fname)),
+                                "missing generated file %s" % fname)

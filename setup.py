@@ -52,6 +52,9 @@ setup(
             "pypeman = pypeman.commands:main",
         ]
     },
+    scripts=[
+        "bin/pypeman-startproject",
+    ],
     install_requires=[
         "python-dateutil",
         "aiohttp",

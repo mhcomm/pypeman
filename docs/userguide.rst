@@ -144,8 +144,11 @@ messages without changing the channels themselves.
 Handlers may be sync or async and are awaited in the message path, so they must
 be quick; an handler raising is logged and does not break the processing.
 :class:`pypeman.plugins.msgmetaextender.MsgMetaExtenderPlugin` is a working
-example, tagging every message with the time its channel took to process it
-(enabled by default, deactivate through ``settings.DISABLED_PLUGINS``).
+example, tagging every message store entry with processing facts: the time the
+channel took (``process_time``), the byte size and type of the input and output
+payloads (``input_size``/``input_type``/``output_size``/``output_type``), the
+``content_type`` and the total size of the saved contexts (``ctx_size``). It is
+enabled by default; deactivate through ``settings.DISABLED_PLUGINS``.
 
 See :mod:`pypeman.events` for the list of events and their arguments.
 

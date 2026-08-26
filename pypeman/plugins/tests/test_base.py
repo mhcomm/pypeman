@@ -2,6 +2,8 @@
 
 import pytest
 
+from pypeman.commands import enabled_plugins
+from pypeman.conf import settings
 from pypeman.plugin_mgr import PluginManager
 from pypeman.plugins.base import BasePlugin
 from pypeman.plugins.base import CommandPluginMixin
@@ -53,6 +55,19 @@ def test_manager_instantiate_and_get_plugins():
     assert [type(it) for it in commands] == [GraphPlugin, ListPluginsPlugin]
     assert list(manager.get_plugins(TaskPluginMixin)) == []
     assert [type(it) for it in manager.get_all_plugins()] == [GraphPlugin, ListPluginsPlugin]
+
+
+def test_enabled_plugins_filters_disabled(monkeypatch):
+    monkeypatch.setitem(settings.__dict__, "PLUGINS", ["pkg.mod.A", "pkg.mod.B"])
+    monkeypatch.setitem(settings.__dict__, "DISABLED_PLUGINS", ["pkg.mod.B"])
+    assert enabled_plugins() == ["pkg.mod.A"]
+
+
+def test_enabled_plugins_rejects_unknown_entry(monkeypatch):
+    monkeypatch.setitem(settings.__dict__, "PLUGINS", ["pkg.mod.A"])
+    monkeypatch.setitem(settings.__dict__, "DISABLED_PLUGINS", ["pkg.mod.Typo"])
+    with pytest.raises(ValueError, match="pkg.mod.Typo"):
+        enabled_plugins()
 
 
 def test_manager_lifecycle_assertions():

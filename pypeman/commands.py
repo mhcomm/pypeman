@@ -50,6 +50,18 @@ async def start(_options: Namespace):
     await asyncio.gather(*(task.task_stop() for task in manager.get_plugins(TaskPluginMixin)))
 
 
+def enabled_plugins():
+    """`settings.PLUGINS` minus `settings.DISABLED_PLUGINS`.
+
+    An entry of `DISABLED_PLUGINS` not found in `PLUGINS` fails at
+    startup, like a typo in `PLUGINS` itself would.
+    """
+    unknown = [it for it in settings.DISABLED_PLUGINS if it not in settings.PLUGINS]
+    if unknown:
+        raise ValueError(f"DISABLED_PLUGINS entries not found in PLUGINS: {', '.join(unknown)}")
+    return [it for it in settings.PLUGINS if it not in settings.DISABLED_PLUGINS]
+
+
 async def amain():
     parser = ArgumentParser(prog="pypeman")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
@@ -58,7 +70,7 @@ async def amain():
     # `start` is the only command not provided through a plugin
     subpar.add_parser("start", help="start the pypeman project").set_defaults(_func=start)
 
-    manager.register_plugins(*settings.PLUGINS)
+    manager.register_plugins(*enabled_plugins())
     manager.instantiate_plugins()
 
     for com in manager.get_plugins(CommandPluginMixin):

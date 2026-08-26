@@ -32,7 +32,7 @@ class BinPypemanTestCase(unittest.TestCase):
             if os.path.exists(fname):
                 os.unlink(fname)
 
-    def run_pypeman(self, cmd, cwd=None):
+    def run_pypeman(self, cmd, cwd=None, expected_code=0):
         """
         Runs a command, gathers output and captures exit code
         :return: return_code and data (bytestring of stdout)
@@ -54,7 +54,7 @@ class BinPypemanTestCase(unittest.TestCase):
         with open(err_fname, 'rb') as fin:
             err_data = fin.read()
 
-        self.assertEqual(ret_code, 0, "exit code %d when calling %r in %s: %s / %s" %
+        self.assertEqual(ret_code, expected_code, "exit code %d when calling %r in %s: %s / %s" %
                          (ret_code, cmd, cwd, data, err_data))
 
         return ret_code, data
@@ -87,7 +87,23 @@ class BinPypemanTestCase(unittest.TestCase):
         _, data = self.run_pypeman(self.cmd + ['printsettings'], cwd=CWD)
         self.assertIn(b'PROJECT_MODULE', data)
 
-    def test_04_can_call_startproject(self):
+    def test_04_can_deactivate_plugins(self):
+        """ DISABLED_PLUGINS drops the plugin's command and listplugins reports it """
+
+        os.environ['PYPEMAN_SETTINGS_MODULE'] = 'settings_disabled'
+        try:
+            _, data = self.run_pypeman(self.cmd + ['listplugins'], cwd=CWD)
+            # not active any more (active entries read "<module> GraphPlugin:")
+            self.assertNotIn(b'GraphPlugin:', data)
+            self.assertIn(b'Deactivated by settings.DISABLED_PLUGINS:', data)
+            self.assertIn(b'pypeman.plugins.graph.GraphPlugin', data)
+
+            # its command is gone: argparse rejects it (exit code 2)
+            self.run_pypeman(self.cmd + ['graph'], cwd=CWD, expected_code=2)
+        finally:
+            del os.environ['PYPEMAN_SETTINGS_MODULE']
+
+    def test_05_can_call_startproject(self):
         """ bin/pypeman-startproject creates the project files """
 
         script = os.path.join(os.path.dirname(__file__), '..', '..', 'bin', 'pypeman-startproject')

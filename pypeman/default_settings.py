@@ -47,6 +47,11 @@ PLUGINS = [
     # "pypeman.plugins.proctime.ProcTimePlugin",
 ]
 
+# Entries of PLUGINS (same dotted paths) to deactivate; lets a project
+# drop some default plugins without redefining the whole PLUGINS list.
+# An entry not found in PLUGINS is an error (typo protection).
+DISABLED_PLUGINS = []
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

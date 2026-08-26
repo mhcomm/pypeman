@@ -26,6 +26,12 @@ class ListPluginsPlugin(BasePlugin, CommandPluginMixin):
             print("   ", doc.strip())
             print()
 
+        if settings.DISABLED_PLUGINS:
+            print("Deactivated by settings.DISABLED_PLUGINS:")
+            for path in settings.DISABLED_PLUGINS:
+                print("   ", path)
+            print()
+
         # afterward, after listing the effective plugins,
         # notify the user (and crash) if the module couldn't be loaded
         settings.raise_for_missing()

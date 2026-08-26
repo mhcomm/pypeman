@@ -108,6 +108,12 @@ LOGGING = {
 #     "url": "/remoteadmin",
 # }
 
+# Deactivate some default plugins (dotted paths from
+# pypeman.default_settings.PLUGINS) without redefining the whole list.
+# DISABLED_PLUGINS = [
+#     "pypeman.plugins.remoteadmin.RemoteAdminPlugin",
+# ]
+
 """
 
 DIST_SETTINGS_TEMPLATE = """\

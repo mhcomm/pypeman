@@ -125,9 +125,7 @@ def make_routes() -> list[web.RouteDef]:
         web.get("/channels/{channelname}/messages", methods.list_msgs),
         web.get("/channels/{channelname}/messages/{message_id}/replay", methods.replay_msg),
         web.get("/channels/{channelname}/messages/{message_id}/view", methods.view_msg),
-        # /preview kept as an alias of /view for compatibility
-        # (the legacy distinct preview handler is gone)
-        web.get("/channels/{channelname}/messages/{message_id}/preview", methods.view_msg),
+        web.get("/channels/{channelname}/messages/{message_id}/preview", methods.preview_msg),
         # websocket:
         web.get("/", _rpc_url_handler),
     ]

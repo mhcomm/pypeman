@@ -305,6 +305,20 @@ async def view_msg(*, channelname: str, message_id: str) -> Message_AsDict_:
 
 
 @_remote_proc
+async def preview_msg(*, channelname: str, message_id: str) -> Message_AsDict_:
+    """Retrieve a message with its payload truncated to 1000 characters.
+
+    The message must of course exist in the channel's store.
+
+    :return: see :meth:`Message.to_dict`
+    """
+    chan = _get_channel(channelname)
+
+    msg_res = await chan.message_store.get_preview_str(message_id)
+    return msg_res.to_dict()
+
+
+@_remote_proc
 async def push_msg(*, channelname: str, payload: str, meta: str) -> Message_AsDict_:
     """Push a message for the channel to handle.
 

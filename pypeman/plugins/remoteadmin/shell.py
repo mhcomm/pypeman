@@ -303,11 +303,26 @@ class RemoteAdminShell(Cmd):
             self.stdout.write(Message.from_dict(msg_dict).to_print())
             self.stdout.write("\n")
 
+    @_try_except_print
+    @_with_current_channel
+    @_sync
+    async def do_preview(self, channelname: str, ids: str):
+        """Preview messages by their message store ids.
+
+        Same as `view`, with the payload truncated to 1000 characters.
+        """
+        for msg_id in str(ids).split():
+            msg_dict = await methods.preview_msg(self._ws, channelname=channelname, message_id=msg_id)
+            self.stdout.write(f"(Store id {msg_id})\n")
+            self.stdout.write(Message.from_dict(msg_dict).to_print())
+            self.stdout.write("\n")
+
     def complete_replay(self, text: str, *_: ...):
         "message store id completion, can only provides 'list'-ed ones"
         return [id for id in self._known_msg_ids if id.startswith(text)]
 
     complete_view = complete_replay
+    complete_preview = complete_replay
 
     @_try_except_print
     @_with_current_channel

@@ -12,8 +12,9 @@
 * startproject revived as a standalone `pypeman-startproject` script.
 * Plugins can expose web endpoints through a shared web app (`BundledWebappPluginMixin`,
   configured with `settings.WEBAPP_PLUGINS_CONFIG`).
-* Remote admin is served under a URL prefix (`REMOTE_ADMIN_CONFIG["url"]`, default
-  `/remoteadmin`) on the shared web app; host/port come from `WEBAPP_PLUGINS_CONFIG`.
+* Remote admin is served on the shared web app, under an optional URL prefix
+  (`REMOTE_ADMIN_CONFIG["url"]`, empty by default: the API stays at the root);
+  host/port come from `WEBAPP_PLUGINS_CONFIG`.
   `REMOTE_ADMIN_WEBSOCKET_CONFIG`/`REMOTE_ADMIN_WEB_CONFIG` are deprecated (only read,
   with a warning, when defined in the project settings). Legacy `pypeman.remoteadmin`
   module removed.

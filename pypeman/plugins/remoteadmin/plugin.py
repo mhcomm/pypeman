@@ -15,11 +15,9 @@ from pypeman.plugins.base import BasePlugin
 from pypeman.plugins.base import BundledWebappPluginMixin
 from pypeman.plugins.base import CommandPluginMixin
 from pypeman.plugins.remoteadmin.shell import RemoteAdminShell
-from pypeman.plugins.remoteadmin.urls import init_urls
+from pypeman.plugins.remoteadmin.urls import make_routes
 
 logger = getLogger(__name__)
-
-DEFAULT_URL_PREFIX = "/remoteadmin"
 
 
 class RemoteAdminPlugin(BasePlugin, CommandPluginMixin, BundledWebappPluginMixin):
@@ -42,7 +40,9 @@ class RemoteAdminPlugin(BasePlugin, CommandPluginMixin, BundledWebappPluginMixin
                     "REMOTE_ADMIN_CONFIG host/port are ignored;"
                     + " the shared webapp uses WEBAPP_PLUGINS_CONFIG."
                 )
-        self._url_prefix = str(conf.get("url") or DEFAULT_URL_PREFIX)
+        # default is no prefix (served at the root of the shared app);
+        # rstrip so that the legacy '/' still means the root
+        self._url_prefix = str(conf.get("url") or "").rstrip("/")
 
         super().__init__()  # registers into the webapp bundle
 
@@ -69,8 +69,6 @@ class RemoteAdminPlugin(BasePlugin, CommandPluginMixin, BundledWebappPluginMixin
     def webapp_prefix(self) -> str:
         return self._url_prefix
 
-    def webapp_urls(self) -> web.Application:
-        subapp = web.Application()
+    def webapp_urls(self) -> list[web.RouteDef]:
         # routes are relative: the bundle mounts them at webapp_prefix()
-        init_urls(subapp, prefix="")
-        return subapp
+        return make_routes()

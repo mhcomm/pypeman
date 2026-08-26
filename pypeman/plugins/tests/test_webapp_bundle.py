@@ -21,13 +21,10 @@ def _mk_plugin_cls(prefix):
             return prefix
 
         def webapp_urls(self):
-            subapp = web.Application()
-
             async def ping(_request):
                 return web.Response(text=f"ok {prefix}")
 
-            subapp.add_routes([web.get("/ping", ping)])
-            return subapp
+            return [web.get("/ping", ping)]
 
     return DummyPlugin
 
@@ -67,6 +64,27 @@ def test_two_plugins_one_app(bundle_env):
     asyncio.run(scenario())
 
 
+def test_empty_prefix_mounts_at_root(bundle_env):
+    async def scenario():
+        root = _mk_plugin_cls("")()
+        sub = _mk_plugin_cls("/sub")()
+        await root.task_start()
+
+        host, port = bundle_env._runner.addresses[0][:2]
+        async with ClientSession() as cs:
+            async with cs.get(f"http://{host}:{port}/ping") as resp:
+                assert resp.status == 200
+                assert await resp.text() == "ok "
+            async with cs.get(f"http://{host}:{port}/sub/ping") as resp:
+                assert resp.status == 200
+                assert await resp.text() == "ok /sub"
+
+        await root.task_stop()
+        await sub.task_stop()
+
+    asyncio.run(scenario())
+
+
 def test_stop_without_start_is_a_noop(bundle_env):
     plugin = _mk_plugin_cls("/lonely")()
     asyncio.run(plugin.task_stop())  # must not raise
@@ -74,7 +92,7 @@ def test_stop_without_start_is_a_noop(bundle_env):
 
 def test_invalid_prefix_rejected(bundle_env):
     async def scenario():
-        for bad_prefix in ("", "/", "oops"):
+        for bad_prefix in ("/", "oops"):
             bundle = _WebappBundle()
             bundle.register(_mk_plugin_cls(bad_prefix)())
             with pytest.raises(ValueError):

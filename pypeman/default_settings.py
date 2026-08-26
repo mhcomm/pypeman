@@ -24,7 +24,9 @@ WEBAPP_PLUGINS_CONFIG = {
 # (REMOTE_ADMIN_WEBSOCKET_CONFIG / REMOTE_ADMIN_WEB_CONFIG are
 # deprecated and must not be defined here: only user settings may.)
 REMOTE_ADMIN_CONFIG = {
-    "url": "/remoteadmin",  # URL prefix; also what to set behind a reverse proxy
+    # URL prefix; empty = served at the root of the shared web app.
+    # Set eg "/remoteadmin" to namespace it (behind a reverse proxy...).
+    "url": "",
 }
 
 HTTP_ENDPOINT_CONFIG = ["0.0.0.0", "8080"]

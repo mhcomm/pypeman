@@ -112,8 +112,9 @@ class _WebappBundle:
     """The shared aiohttp app of :class:`BundledWebappPluginMixin`.
 
     Every bundled plugin registers itself at instantiation; the first
-    `task_start` builds the app (mounting every member's sub-app under
-    its prefix) and starts it exactly once. host/port come from
+    `task_start` builds the app (mounting every member's routes under
+    its prefix -- directly at the root for an empty prefix) and starts
+    it exactly once. host/port come from
     `settings.WEBAPP_PLUGINS_CONFIG`.
     """
 
@@ -134,12 +135,19 @@ class _WebappBundle:
         app = web.Application()
         for plugin in self._members:
             prefix = plugin.webapp_prefix()
-            if not prefix.startswith("/") or "/" == prefix:
+            if prefix and (not prefix.startswith("/") or "/" == prefix):
                 raise ValueError(
-                    f"{type(plugin).__name__}.webapp_prefix() must start with '/'"
-                    + f" and not be '/' (got {prefix!r})"
+                    f"{type(plugin).__name__}.webapp_prefix() must be '' (root)"
+                    + f" or start with '/' and not be '/' (got {prefix!r})"
                 )
-            app.add_subapp(prefix, plugin.webapp_urls())
+            if prefix:
+                subapp = web.Application()
+                subapp.add_routes(plugin.webapp_urls())
+                app.add_subapp(prefix, subapp)
+            else:
+                # aiohttp cannot mount a sub-app at '/': root-mounted
+                # plugins get their routes on the shared app itself
+                app.add_routes(plugin.webapp_urls())
 
         conf = settings.WEBAPP_PLUGINS_CONFIG
         self._runner = web.AppRunner(app)
@@ -175,7 +183,8 @@ class BundledWebappPluginMixin(TaskPluginMixin, ABC):
     plugin registers itself to be part of the bundle. All bundled
     plugins are served by a single web app on the same host and port
     (configured through `settings.WEBAPP_PLUGINS_CONFIG`), each under
-    its own non-optional URL prefix (:meth:`webapp_prefix`).
+    its own URL prefix (:meth:`webapp_prefix`; an empty prefix serves
+    the plugin at the root of the shared app).
 
     This is of course an optional approach as no plugin is prevented
     from spinning up its own web app. Furthermore, only enabled plugins
@@ -190,14 +199,15 @@ class BundledWebappPluginMixin(TaskPluginMixin, ABC):
     def webapp_prefix(self) -> str:
         """The URL prefix this plugin is mounted under.
 
-        Must start with '/' and not be just '/'.
+        Either '' (mounted at the root of the shared app) or a string
+        starting with '/' and not just '/'.
         """
 
     @abstractmethod
-    def webapp_urls(self) -> web.Application:
-        """Return a fresh sub-application with the plugin's routes.
+    def webapp_urls(self) -> list[web.RouteDef]:
+        """Return the plugin's route definitions.
 
-        The routes are relative to :meth:`webapp_prefix`.
+        The route paths are relative to :meth:`webapp_prefix`.
         """
 
     async def task_start(self):

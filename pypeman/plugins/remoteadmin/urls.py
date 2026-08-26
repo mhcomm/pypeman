@@ -1,13 +1,15 @@
 """URL exposed by the remoteadmin web server plugin task.
 
-:func:`init_urls` adds the request handlers that re-expose the remote
-methods from :mod:`methods` in two ways:
+:func:`make_routes` builds the request handlers that re-expose the
+remote methods from :mod:`methods` in two ways:
     * normal direct HTTP(s) (GET only) endpoints;
     * a websocket-based endpoint which :mod:`shell` delegates to.
 
 The websocket part is handled by the private (but mentionned for doc
 purpose) :func:`_rpc_url_handler` which implements WS JSON RPC server.
 """
+
+from __future__ import annotations
 
 import inspect
 import json
@@ -108,24 +110,24 @@ async def _rpc_url_handler(request: web.Request):
     return ws
 
 
-def init_urls(app: web.Application, prefix: str):
+def make_routes() -> list[web.RouteDef]:
     """Create the pypeman remoteadmin routing.
 
-    Please see the module-level documentation for actual detail.
+    Paths are relative to the plugin's URL prefix (the webapp bundle
+    mounts them). Please see the module-level documentation for
+    actual detail.
     """
-    app.add_routes(
-        [
-            # web API:
-            web.get(prefix + "/channels", methods.list_channels),
-            web.get(prefix + "/channels/{channelname}/start", methods.start_channel),
-            web.get(prefix + "/channels/{channelname}/stop", methods.stop_channel),
-            web.get(prefix + "/channels/{channelname}/messages", methods.list_msgs),
-            web.get(prefix + "/channels/{channelname}/messages/{message_id}/replay", methods.replay_msg),
-            web.get(prefix + "/channels/{channelname}/messages/{message_id}/view", methods.view_msg),
-            # /preview kept as an alias of /view for compatibility
-            # (the legacy distinct preview handler is gone)
-            web.get(prefix + "/channels/{channelname}/messages/{message_id}/preview", methods.view_msg),
-            # websocket:
-            web.get(prefix + "/", _rpc_url_handler),
-        ]
-    )
+    return [
+        # web API:
+        web.get("/channels", methods.list_channels),
+        web.get("/channels/{channelname}/start", methods.start_channel),
+        web.get("/channels/{channelname}/stop", methods.stop_channel),
+        web.get("/channels/{channelname}/messages", methods.list_msgs),
+        web.get("/channels/{channelname}/messages/{message_id}/replay", methods.replay_msg),
+        web.get("/channels/{channelname}/messages/{message_id}/view", methods.view_msg),
+        # /preview kept as an alias of /view for compatibility
+        # (the legacy distinct preview handler is gone)
+        web.get("/channels/{channelname}/messages/{message_id}/preview", methods.view_msg),
+        # websocket:
+        web.get("/", _rpc_url_handler),
+    ]

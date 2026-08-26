@@ -10,9 +10,9 @@ shell.
 The remote admin server is provided by the `RemoteAdminPlugin` (enabled
 by default) and starts with `pypeman start`. It is served as part of the
 shared plugins web app: host and port are configured through
-`settings.WEBAPP_PLUGINS_CONFIG`, and the remote admin URL prefix through
-`settings.REMOTE_ADMIN_CONFIG["url"]` (by default
-`http://localhost:8091/remoteadmin/...`).
+`settings.WEBAPP_PLUGINS_CONFIG`, and an optional remote admin URL prefix
+through `settings.REMOTE_ADMIN_CONFIG["url"]` (empty by default: the API
+is served at the root, `http://localhost:8091/...`).
 
 Custom command shell
 --------------------

@@ -43,7 +43,8 @@ def plugin_env():
 
 def test_plugin_default_prefix(plugin_env):
     plugin = RemoteAdminPlugin()
-    assert plugin.webapp_prefix() == "/remoteadmin"
+    # no prefix by default: served at the root of the shared app
+    assert plugin.webapp_prefix() == ""
     # instantiating registered the plugin into the shared bundle
     assert plugin in webapp_bundle._members
 
@@ -51,6 +52,12 @@ def test_plugin_default_prefix(plugin_env):
 def test_plugin_prefix_from_settings(plugin_env, monkeypatch):
     monkeypatch.setitem(settings.__dict__, "REMOTE_ADMIN_CONFIG", {"url": "/admin"})
     assert RemoteAdminPlugin().webapp_prefix() == "/admin"
+
+
+def test_plugin_prefix_normalized(plugin_env, monkeypatch):
+    # a legacy '/' (or a trailing slash) still means the root
+    monkeypatch.setitem(settings.__dict__, "REMOTE_ADMIN_CONFIG", {"url": "/"})
+    assert RemoteAdminPlugin().webapp_prefix() == ""
 
 
 def test_plugin_warns_on_ignored_host_port(plugin_env, monkeypatch, caplog):

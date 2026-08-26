@@ -102,7 +102,8 @@ LOGGING = {
 #     "port": 8091,
 # }
 
-# Remote admin URL prefix (also what to set behind a reverse proxy).
+# Remote admin URL prefix; empty (the default) serves it at the root
+# of the shared web app (also what to set behind a reverse proxy).
 # REMOTE_ADMIN_CONFIG = {
 #     "url": "/remoteadmin",
 # }

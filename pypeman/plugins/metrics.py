@@ -13,7 +13,7 @@ On the shared plugins web app (prefix configurable via
 Both accept `start_dt`/`end_dt` ISO query parameters; a `range` block
 is then computed from the channel's message store metas (counts by
 state, mean/min/max of the `process_time` meta written by
-ProcTimePlugin). Since-start figures come from the shared
+MsgMetaExtenderPlugin). Since-start figures come from the shared
 :obj:`pypeman.plugins.stats.stats_collector` and, unlike range
 figures, do not survive restarts nor cover retry replays.
 """
@@ -34,7 +34,7 @@ from pypeman.conf import settings
 from pypeman.message import Message
 from pypeman.plugins.base import BasePlugin
 from pypeman.plugins.base import BundledWebappPluginMixin
-from pypeman.plugins.proctime import ProcTimePlugin
+from pypeman.plugins.msgmetaextender import MsgMetaExtenderPlugin
 from pypeman.plugins.stats import rss_bytes
 from pypeman.plugins.stats import stats_collector
 
@@ -79,7 +79,7 @@ def _aggregate_metas(metas: list[dict]) -> dict:
         state = meta.get("state")
         by_state[state] = by_state.get(state, 0) + 1
         try:
-            times.append(float(meta[ProcTimePlugin.META_NAME]))
+            times.append(float(meta[MsgMetaExtenderPlugin.META_PROCESS_TIME]))
         except (KeyError, TypeError, ValueError):
             pass
     return {

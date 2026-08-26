@@ -47,7 +47,7 @@ def _server_url():
 async def _mk_handled_channel():
     """A started channel that handled 2 ok + 1 error message on
     2026-08-01 at 10:00, 11:00 and 12:00, with process_time metas
-    (as ProcTimePlugin would have written) on the two ok ones."""
+    (as MsgMetaExtenderPlugin would have written) on the two ok ones."""
     chan = BaseChannel(
         name="metrics_chan", message_store_factory=msgstore.MemoryMessageStoreFactory())
     chan.add(BoomNode(name="metrics_boom"))

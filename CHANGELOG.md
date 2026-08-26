@@ -37,9 +37,10 @@
   processing of every message. Handlers (typically registered by a plugin from its
   `task_start`) may enrich `msg.meta` before the message store copy, and a raising
   handler is logged instead of breaking the channel (`Event.fire_safely`).
-* New opt-in plugin `pypeman.plugins.proctime.ProcTimePlugin`, tagging every message
-  with the time its channel took to process it (`msg.meta["process_time"]`, also added
-  to the message store entry).
+* New plugin `pypeman.plugins.msgmetaextender.MsgMetaExtenderPlugin` (on by default,
+  deactivatable through `settings.DISABLED_PLUGINS`), tagging every message with the
+  time its channel took to process it (`msg.meta["process_time"]`, also added to the
+  message store entry).
 * FIX settings loading no longer fails when the project leaves `RETRY_STORE_PATH = None`.
 * FIX remote admin ws RPC rejected every call with parameters; `view_msg` (and the
   `/view` + `/preview` routes) crashed; `shell` host/port arguments were ignored and

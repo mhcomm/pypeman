@@ -6,7 +6,7 @@ from pypeman import events
 from pypeman import msgstore
 from pypeman.channels import BaseChannel
 from pypeman.nodes import Sleep
-from pypeman.plugins.proctime import ProcTimePlugin
+from pypeman.plugins.msgmetaextender import MsgMetaExtenderPlugin
 from pypeman.tests.common import ExceptNode
 from pypeman.tests.common import generate_msg
 from pypeman.tests.common import TstException
@@ -16,7 +16,7 @@ from pypeman.tests.pytest_helpers import clear_graph  # noqa: F401 (fixture)
 @pytest.fixture
 async def plugin():
     """A started plugin, stopped (hence unsubscribed) afterwards."""
-    plugin = ProcTimePlugin()
+    plugin = MsgMetaExtenderPlugin()
     await plugin.task_start()
     yield plugin
     await plugin.task_stop()
@@ -25,8 +25,8 @@ async def plugin():
 @pytest.mark.usefixtures("clear_graph")
 async def test_process_time_is_tagged_everywhere(plugin):
     chan = BaseChannel(
-        name="proctime_chan", message_store_factory=msgstore.MemoryMessageStoreFactory())
-    chan.add(Sleep(name="proctime_sleep", duration=0.05))
+        name="msgmetaext_chan", message_store_factory=msgstore.MemoryMessageStoreFactory())
+    chan.add(Sleep(name="msgmetaext_sleep", duration=0.05))
     await chan.start()
 
     msg = generate_msg()
@@ -42,8 +42,8 @@ async def test_process_time_is_tagged_everywhere(plugin):
 
 @pytest.mark.usefixtures("clear_graph")
 async def test_entry_time_is_dropped_on_error(plugin):
-    chan = BaseChannel(name="proctime_exc_chan")
-    chan.add(ExceptNode(name="proctime_exc_node"))
+    chan = BaseChannel(name="msgmetaext_exc_chan")
+    chan.add(ExceptNode(name="msgmetaext_exc_node"))
     await chan.start()
 
     with pytest.raises(TstException):
@@ -53,7 +53,7 @@ async def test_entry_time_is_dropped_on_error(plugin):
 
 
 async def test_task_stop_unsubscribes():
-    plugin = ProcTimePlugin()
+    plugin = MsgMetaExtenderPlugin()
     await plugin.task_start()
     assert plugin._on_start in events.msg_processing_start.handlers
     assert plugin._on_end in events.msg_processing_end.handlers

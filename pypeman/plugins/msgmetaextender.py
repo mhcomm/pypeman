@@ -1,7 +1,8 @@
 """Plugin tagging the messages with their processing time.
 
 Enabled by default; deactivate it by adding
-`"pypeman.plugins.proctime.ProcTimePlugin"` to `settings.DISABLED_PLUGINS`.
+`"pypeman.plugins.msgmetaextender.MsgMetaExtenderPlugin"` to
+`settings.DISABLED_PLUGINS`.
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ from pypeman.plugins.base import BasePlugin
 from pypeman.plugins.base import TaskPluginMixin
 
 
-class ProcTimePlugin(BasePlugin, TaskPluginMixin):
+class MsgMetaExtenderPlugin(BasePlugin, TaskPluginMixin):
     """Tag every message with the time its channel took to process it.
 
     The duration in seconds is written to `msg.meta["process_time"]`,
@@ -29,7 +30,7 @@ class ProcTimePlugin(BasePlugin, TaskPluginMixin):
     plugins: subscribe in `task_start`, unsubscribe in `task_stop`.
     """
 
-    META_NAME = "process_time"
+    META_PROCESS_TIME = "process_time"
 
     def __init__(self):
         # (channel name, message uuid) -> entry time; a message keeps
@@ -57,8 +58,8 @@ class ProcTimePlugin(BasePlugin, TaskPluginMixin):
             # `result` is None when the processing raised, and may be a
             # generator when the channel ends on a yielding node
             if isinstance(getattr(tagged, "meta", None), dict):
-                tagged.meta[self.META_NAME] = process_time
+                tagged.meta[self.META_PROCESS_TIME] = process_time
 
         if msg.store_id and msg.store_chan_name == channel.short_name:
             await channel.message_store.add_message_meta_infos(
-                msg.store_id, self.META_NAME, process_time)
+                msg.store_id, self.META_PROCESS_TIME, process_time)

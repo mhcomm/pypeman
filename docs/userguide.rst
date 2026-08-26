@@ -171,7 +171,8 @@ counts and mean/min/max processing time since start; with ``start_dt`` /
 ``end_dt`` ISO query parameters, it also aggregates the channel's message
 store metas over that time range (counts by state, stats of the
 ``process_time`` meta written by ProcTimePlugin, throughput). ``GET /metrics``
-serves the same live counters in the Prometheus text format, ready to scrape.
+serves the live counters and gauges in the Prometheus text format, ready to
+scrape; ``GET /metrics/live`` serves the exact same snapshot as JSON.
 
 Both read live counters from a shared event-fed collector
 (:mod:`pypeman.plugins.stats`): those figures start from zero at each

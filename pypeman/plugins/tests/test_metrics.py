@@ -186,6 +186,41 @@ def test_metrics_prometheus(plugin_env):
     asyncio.run(scenario())
 
 
+@pytest.mark.usefixtures("clear_graph")
+def test_metrics_live_json(plugin_env):
+    async def scenario():
+        plugin = MetricsPlugin()
+        await plugin.task_start()
+        await _mk_handled_channel()
+
+        async with ClientSession() as cs:
+            async with cs.get(_server_url() + "/metrics/live") as resp:
+                assert resp.status == 200
+                assert resp.content_type == "application/json"
+                doc = await resp.json()
+
+        assert doc["info"]["version"]
+        assert doc["process"]["start_time_seconds"] > 0
+        assert doc["event_loop"]["pending_tasks"] >= 1
+        assert doc["event_loop"]["lag_seconds"] >= 0
+
+        (chan_doc,) = doc["channels"]
+        assert chan_doc["name"] == "metrics_chan"
+        assert chan_doc["state"] == "WAITING"
+        assert chan_doc["messages_total"] == 3
+        assert chan_doc["errors_total"] == 1
+        assert chan_doc["retry_deferred_total"] == 0
+        proc = chan_doc["processing_seconds"]
+        assert proc["count"] == 3
+        assert 0 <= proc["min"] <= proc["max"] <= proc["sum"]
+        assert chan_doc["store_messages"] == 3
+        assert chan_doc["retry_pending"] is None  # no RETRY_STORE_PATH configured
+
+        await plugin.task_stop()
+
+    asyncio.run(scenario())
+
+
 def test_prometheus_label_escaping():
     from pypeman.plugins.metrics import _sample
 

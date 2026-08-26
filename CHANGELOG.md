@@ -20,8 +20,8 @@
 * New `MetricsPlugin` (on by default): `GET /metrics/channels[/<name>]` serves
   per-channel JSON stats (message/error counts, mean/min/max processing time), with
   optional `start_dt`/`end_dt` time-range stats computed from the message store metas;
-  `GET /metrics` serves the Prometheus text format. Configured with `METRICS_CONFIG`
-  (`url` prefix).
+  `GET /metrics` serves the Prometheus text format and `GET /metrics/live` the same
+  live snapshot as JSON. Configured with `METRICS_CONFIG` (`url` prefix).
 * `RetryFileMsgStore` tracks `retry_attempts` and `retry_mode_since`;
   `MessageStore.get_message_metas(start_dt, end_dt)` returns store metas over a time
   span without deserializing the messages.

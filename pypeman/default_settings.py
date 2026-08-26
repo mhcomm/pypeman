@@ -43,8 +43,7 @@ PLUGINS = [
     "pypeman.plugins.graph.GraphPlugin",
     "pypeman.plugins.settings.PrintSettingsPlugin",
     "pypeman.plugins.remoteadmin.RemoteAdminPlugin",
-    # tags every message with its processing time (opt-in):
-    # "pypeman.plugins.proctime.ProcTimePlugin",
+    "pypeman.plugins.proctime.ProcTimePlugin",
 ]
 
 # Entries of PLUGINS (same dotted paths) to deactivate; lets a project

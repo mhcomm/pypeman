@@ -3,7 +3,6 @@
 
 import contextvars
 import logging
-log_trace = []
 
 # Hold the message currently being processed and the channel processing it.
 # Set/reset by BaseChannel.handle() and BaseChannel.inject() so that every

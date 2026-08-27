@@ -55,13 +55,6 @@ from pypeman.conf import settings
 
 """
 
-# TODO Unused but should be done
-"""# HTTP channel example (Remember to install required dependency
-# before running it. Use "$pypeman requirements" command.
-
-# If you use Http channel, at least one end point MUST be specified
-# http = endpoints.HTTPEndpoint(address='0.0.0.0', port='8080')"""
-
 SETTINGS_TEMPLATE = """\
 # This is the local settings File For pypeman
 # This file should contain all settings, that should NOT be added to your version control

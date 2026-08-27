@@ -24,6 +24,7 @@ async def get_backend(loop):
     Return the configured backend instance.
 
     :param loop: Asyncio loop to use. Passed backend instance.
+        If None, the backend keeps the loop it bound at start.
     """
     global _backend
     if not _backend:
@@ -36,7 +37,7 @@ async def get_backend(loop):
         _backend = getattr(loaded_module, class_)(loop=loop, **settings.PERSISTENCE_CONFIG)
 
         await _backend.start()
-    if _backend.loop != loop:
+    if loop is not None and _backend.loop != loop:
         logger.warning("Backend loop not the same as loop argument, changing it")
         _backend.loop = loop
     return _backend
@@ -100,15 +101,16 @@ class SqliteBackend():
     :param loop: Loop used for the executor.
     """
     def __init__(self, path, thread_pool=None, loop=None):
-        self.loop = loop or asyncio.get_event_loop()
+        self.loop = loop
         self.executor = thread_pool or ThreadPoolExecutor(max_workers=1)
         self.path = path
 
     async def start(self):
         """
-        Do nothing for this backend.
+        Only bind the loop used by the executor, if none was given.
         """
-        pass
+        if self.loop is None:
+            self.loop = asyncio.get_running_loop()
 
     def _sync_store(self, namespace, key, value):
         with SqliteDict(self.path, tablename=namespace) as pdict:

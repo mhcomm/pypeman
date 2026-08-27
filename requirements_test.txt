@@ -1,8 +1,8 @@
-tox
 hl7
 xmltodict
 aiohttp
 aiocron
+pytest
 pytest-asyncio<1.0
 pytest-aiohttp
 pytest-cov

@@ -651,30 +651,34 @@ class MessageStore(ABC):
             end_dt = dateutilparser.isoparse(end_dt)
 
         if start_dt and end_dt:
-            assert start_dt <= end_dt, "backward time span given"
-            assert start_dt != end_dt, "empty time span given"
+            if start_dt > end_dt:
+                raise ValueError("backward time span given")
+            if start_dt == end_dt:
+                raise ValueError("empty time span given")
 
         # only one of the two is non-none at once
-        order_by_payload = None
-        order_by_meta = None
+        order_by_payload: str | None = None
+        order_by_meta: str | None = None
         reverse = "-" == order_by[0]
         if reverse:
             order_by = order_by[1:]
         if order_by.startswith("meta_"):
             order_by_meta = order_by[5:]
         else:
-            assert order_by in {"timestamp", "state"}
-            order_by_payload: ... = order_by
+            if order_by not in {"timestamp", "state"}:
+                raise ValueError(f"invalid order_by {order_by!r}")
+            order_by_payload = order_by
 
         # only one of the two may be non-none at once
-        group_by_payload = None
-        group_by_meta = None
+        group_by_payload: str | None = None
+        group_by_meta: str | None = None
         if group_by:
             if group_by.startswith("meta_"):
                 group_by_meta = group_by[5:]
             else:
-                assert group_by in {"state"}
-                group_by_payload: ... = group_by
+                if group_by not in {"state"}:
+                    raise ValueError(f"invalid group_by {group_by!r}")
+                group_by_payload = group_by
 
         # note that it compiles any rtext and already raises if invalid
         payload_filt = _MsgFilt(order_by_payload, group_by_payload, text, rtext)
@@ -767,13 +771,13 @@ class _MsgFilt:
             return entry["message"].timestamp
         if "state" == self.order_by:
             return entry["meta"]["state"]
-        assert None, "unreachable"  # pragma: no cover
+        raise RuntimeError("unreachable")  # pragma: no cover
 
     def group(self, entry: MessageStore.StoredEntry_) -> str:
         ":return: group name for entry"
         if "state" == self.group_by:
             return entry["meta"]["state"]
-        assert None, "unreachable"  # pragma: no cover
+        raise RuntimeError("unreachable")  # pragma: no cover
 
 
 class _MetaFilt:
@@ -1043,7 +1047,8 @@ class FileMessageStoreFactory(MessageStoreFactory):
     def _new_store(self, store_id: str) -> MessageStore:
         # there **must not** be any of these char in `store_id`
         # (matches the set of illegal DOS/Windows path characters)
-        assert not set(r'<>:"/\|?*') & set(store_id), f"store id {store_id!r} contains annoying characters"
+        if set(r'<>:"/\|?*') & set(store_id):
+            raise ValueError(f"store id {store_id!r} contains annoying characters")
         return FileMessageStore(self.base_path, store_id)
 
     async def _delete_store(self, store: MessageStore):
@@ -1287,7 +1292,8 @@ class DatabaseMessageStoreFactory(MessageStoreFactory):
     def _new_store(self, store_id: str) -> MessageStore:
         # there **must not** be any of these char in `store_id`
         # (picked as to avoid all and any escaping need - ie quoting is enough but we're being extra-careful)
-        assert not set("\"':?\\[]`") & set(store_id), f"store id {store_id!r} contains annoying characters"
+        if set("\"':?\\[]`") & set(store_id):
+            raise ValueError(f"store id {store_id!r} contains annoying characters")
         # see notes in constructor for the parameters
         return DatabaseMessageStore(self, store_id)
 

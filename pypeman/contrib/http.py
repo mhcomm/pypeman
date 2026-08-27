@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import ssl
@@ -80,6 +81,8 @@ class HTTPEndpoint(endpoints.SocketEndpoint):
         self._app.router.add_route(*args, **kwargs)
 
     async def start(self):
+        if self.loop is None:
+            self.loop = asyncio.get_running_loop()
         self.make_socket()
         if self._app is not None:
             srv = await self.loop.create_server(

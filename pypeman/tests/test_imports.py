@@ -16,3 +16,9 @@ class ImportTests(TestCase):
 
     def test_xml_import(self):
         import pypeman.contrib.xml  # noqa: F401
+
+    def test_map_item_import(self):
+        import pypeman.map_item  # noqa: F401
+
+    def test_pjt_templates_import(self):
+        import pypeman.pjt_templates  # noqa: F401

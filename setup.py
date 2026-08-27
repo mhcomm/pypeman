@@ -41,9 +41,9 @@ setup(
         "pypeman.plugins",
         "pypeman.plugins.remoteadmin",
         "pypeman.plugins.tests",
+        # shipped because interop resets PYPEMAN_SETTINGS_MODULE to
+        # pypeman.tests.settings.test_settings_default in its own test helpers
         "pypeman.tests",
-        "pypeman.tests.test_app",
-        "pypeman.tests.test_app_testing",
         "pypeman.tests.settings",
     ],
     package_data={

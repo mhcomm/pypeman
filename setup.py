@@ -68,7 +68,5 @@ setup(
         "time": ["aiocron"],
         "all": ["hl7", "xmltodict", "aiocron"],
     },
-    setup_requires=["pytest-runner"],
-    tests_require=["pytest", "pytest-cov", "pytest-asyncio"],
     include_package_data=True,
 )

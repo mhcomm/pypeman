@@ -33,6 +33,7 @@ setup(
     author="Jeremie Pardou",
     author_email="jeremie@jeremiez.net",
     license="Apache Software License",
+    python_requires=">=3.8",
     packages=[
         "pypeman",
         "pypeman.contrib",
@@ -60,7 +61,7 @@ setup(
         "python-dateutil",
         "aiohttp",
         "aiosqlite",
-        "sqlitedict",
+        "sqlitedict>=2.1",  # Python 3.10 DeprecationWarning: setDaemon() is deprecated
     ],
     extras_require={
         "hl7": ["hl7"],

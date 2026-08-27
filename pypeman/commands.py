@@ -34,6 +34,12 @@ async def start(_options: Namespace):
 
     await asyncio.gather(*(task.task_start() for task in manager.get_plugins(TaskPluginMixin)))
 
+    # bind them before start() so that start() overrides can already use the loop
+    loop = asyncio.get_running_loop()
+    for chan in all_channels:
+        if chan.loop is None:
+            chan.loop = loop
+
     await asyncio.gather(*(it.start() for it in all_endpoints + all_channels))
     # TODO: check this point, ordering might matter (all endpoints then all channels)
 

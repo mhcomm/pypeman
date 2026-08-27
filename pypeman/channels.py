@@ -121,10 +121,9 @@ class BaseChannel:
 
         _channel_names.add(self.short_name)
 
-        if loop is None:
-            self.loop = asyncio.get_event_loop()
-        else:
-            self.loop = loop
+        # Channels are usually built at import time, outside of any running loop.
+        # An explicit loop is honored, else it is resolved at start().
+        self.loop = loop
 
         self.logger = logging.getLogger('pypeman.channels.%s' % self.short_name)
 
@@ -209,6 +208,8 @@ class BaseChannel:
         start procedure.
         """
         self.logger.debug("channel %s starting ...", self.short_name)
+        if self.loop is None:
+            self.loop = asyncio.get_running_loop()
         self.lock = asyncio.Lock()
         self.status = BaseChannel.STARTING
         if self._first_start:
@@ -1199,7 +1200,8 @@ class Case():
         if names is None:
             names = []
 
-        self.loop = loop or asyncio.get_event_loop()
+        # only used to forward it to the case channels, which resolve it at start()
+        self.loop = loop
 
         for cond, name in zip(args, names):
             b = BaseChannel(name=name, parent_channel=parent_channel,

@@ -107,6 +107,12 @@ Handlers are awaited before the message is stored and processed, and
 receive `channel` and `msg` as keyword arguments. `msg` is the very
 message the channel is about to process: enriching its `meta` from a
 handler is seen by the nodes and by the message store.
+
+Exception: a forked :class:`~pypeman.channels.SubChannel` stores its
+copy BEFORE its own events fire, so what its start handlers add to
+`msg.meta` is missing from that stored copy (it still carries what the
+parent's start handlers added, and store META written by end handlers
+is unaffected).
 """
 
 msg_processing_end = Event("msg_processing_end")

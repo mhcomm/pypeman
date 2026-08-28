@@ -35,7 +35,8 @@
   module removed.
 * Channels fire `events.msg_processing_start` / `events.msg_processing_end` around the
   processing of every message. Handlers (typically registered by a plugin from its
-  `task_start`) may enrich `msg.meta` before the message store copy, and a raising
+  `task_start`) may enrich `msg.meta` before the message store copy — except on a
+  forked subchannel, which stores its copy before its own events fire — and a raising
   handler is logged instead of breaking the channel (`Event.fire_safely`).
 * New plugin `pypeman.plugins.msgmetaextender.MsgMetaExtenderPlugin` (on by default,
   deactivatable through `settings.DISABLED_PLUGINS`), tagging every message store

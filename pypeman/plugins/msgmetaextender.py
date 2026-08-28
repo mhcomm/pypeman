@@ -74,7 +74,10 @@ class MsgMetaExtenderPlugin(BasePlugin, TaskPluginMixin):
 
     A message forked or routed to a subchannel is tagged once per
     channel it goes through, each channel writing to its own store
-    entry.
+    entry. Forks are covered although a `SubChannel` stores its copy
+    before its own events fire (see :mod:`pypeman.events`): the metas
+    are written to the store from the end handler, not carried by the
+    message.
 
     This plugin doubles as a reference for :mod:`pypeman.events` based
     plugins: subscribe in `task_start`, unsubscribe in `task_stop`.

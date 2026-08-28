@@ -119,6 +119,30 @@ async def test_ctx_size_on_error_path_counts_entry_contexts_only(plugin):
     assert stored_meta["ctx_size"] == 10  # the 100 bytes added by the node are lost
 
 
+@pytest.mark.usefixtures("clear_graph")
+async def test_forked_subchannel_store_meta_is_complete(plugin):
+    """A fork stores before the events fire, but its metas land all the same."""
+    chan = BaseChannel(
+        name="msgmetaext_fork_chan", wait_subchans=True,
+        message_store_factory=msgstore.MemoryMessageStoreFactory())
+    fork = chan.fork(
+        name="msgmetaext_fork_sub",
+        message_store_factory=msgstore.MemoryMessageStoreFactory())
+    fork.add(Sleep(name="msgmetaext_fork_sleep", duration=0.05))
+    await chan.start()
+    await fork.start()
+
+    msg = generate_msg(message_content="héhé")
+    await chan.handle(msg)
+
+    stored_meta = await fork.message_store.get_message_meta_infos(msg.uuid)
+    assert stored_meta["input_size"] == 6
+    assert stored_meta["input_type"] == "str"
+    assert stored_meta["content_type"] == "application/text"
+    assert stored_meta["process_time"] >= 0.05
+    assert not plugin._inflight  # no leak
+
+
 async def test_task_stop_unsubscribes():
     plugin = MsgMetaExtenderPlugin()
     await plugin.task_start()

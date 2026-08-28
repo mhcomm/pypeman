@@ -124,7 +124,8 @@ class Message():
             try:
                 result['payload'] = str(self.payload)
             except Exception:
-                default_logger.warning("Cannot convert to string payload %r, pickling it")
+                default_logger.warning("Cannot convert to string payload of type %r, pickling it",
+                                       type(self.payload))
                 result['payload'] = base64.b64encode(pickle.dumps(self.payload)).decode('ascii')
         result['meta'] = self.meta
         result['ctx'] = {}

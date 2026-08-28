@@ -1,4 +1,4 @@
-# pypeman -- A command-line argument parser for Python
+# pypeman -- tests for the bin/pypeman command line interface
 # Copyright (C) 2015-2016 by MHComm. See LICENSE for details
 
 import json
@@ -23,11 +23,16 @@ class BinPypemanTestCase(unittest.TestCase):
         """ prep a test """
         pypeman = os.path.join(os.path.dirname(__file__), '..', '..', 'pypeman', 'commands.py')
         self.cmd = [sys.executable, pypeman]
+        self.saved_pythonpath = os.environ.get('PYTHONPATH')
         os.environ['PYTHONPATH'] = os.path.join(os.path.dirname(__file__), '..', '..')
         self.tempfiles = []
 
     def tearDown(self):
-        """ cleanup potentially created temp files """
+        """ restore the environment and cleanup potentially created temp files """
+        if self.saved_pythonpath is None:
+            del os.environ['PYTHONPATH']
+        else:
+            os.environ['PYTHONPATH'] = self.saved_pythonpath
         for fname in self.tempfiles:
             if os.path.exists(fname):
                 os.unlink(fname)

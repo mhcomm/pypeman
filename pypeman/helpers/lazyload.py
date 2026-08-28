@@ -1,6 +1,9 @@
 import importlib
+import logging
 import sys
 import traceback
+
+logger = logging.getLogger(__name__)
 
 
 def load_class(module, class_, deps):
@@ -26,10 +29,10 @@ def load_class(module, class_, deps):
                 break
 
         if not found:
-            print("IMPORT ERROR...", file=sys.stderr)
+            logger.error("cannot import %s", module)
             raise
 
-        print("%s module not activated" % module)
+        logger.warning("%s module not activated, missing dependency", module)
         raise
 
 

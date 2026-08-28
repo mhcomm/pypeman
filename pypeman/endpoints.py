@@ -71,7 +71,7 @@ class SocketEndpoint(BaseEndpoint):
                     host, port = sock.split(":")
                     port = int(port)
                     if not host:
-                        raise
+                        raise ValueError("no host in sock parameter %r" % sock)
                     bind_param = (host, port)
                 except Exception:
                     logger.error('error on sock params in socket endpoint')

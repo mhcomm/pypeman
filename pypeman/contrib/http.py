@@ -87,12 +87,9 @@ class HTTPEndpoint(endpoints.SocketEndpoint):
                 sock=self.sock_obj,
                 ssl=self.ssl_context,
             )
-            message = "Server started at %r" % self.sock
-            print(message)
-            logger.info(message)
+            logger.info("Server started at %r", self.sock)
             return srv
         else:
-            print("No HTTP route.")
             logger.warning("No HTTP route.")
 
 

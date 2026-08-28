@@ -79,6 +79,11 @@ class MsgMetaExtenderPlugin(BasePlugin, TaskPluginMixin):
     are written to the store from the end handler, not carried by the
     message.
 
+    When a message is deferred by the retry machinery, the recorded
+    `process_time` is the duration up to the deferral; the later replay
+    goes through `inject()`, which fires no events, so the stored value
+    is never corrected.
+
     This plugin doubles as a reference for :mod:`pypeman.events` based
     plugins: subscribe in `task_start`, unsubscribe in `task_stop`.
     """

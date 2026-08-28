@@ -175,7 +175,9 @@ times. ``GET /health/channels/<name>`` answers for a single channel.
 counts and mean/min/max processing time since start; with ``start_dt`` /
 ``end_dt`` ISO query parameters, it also aggregates the channel's message
 store metas over that time range (counts by state, stats of the
-``process_time`` meta written by MsgMetaExtenderPlugin, throughput). ``GET /metrics``
+``process_time`` meta written by MsgMetaExtenderPlugin — for a retry-deferred
+message that meta holds the duration up to the deferral, as replays are injected
+without firing the message events — and throughput). ``GET /metrics``
 serves the live counters and gauges in the Prometheus text format, ready to
 scrape; ``GET /metrics/live`` serves the exact same snapshot as JSON.
 

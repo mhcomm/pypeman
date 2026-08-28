@@ -88,6 +88,30 @@
 * - Channel *short* names must now be unique (duplicate subchannel short names raise NameError at import)
 * - Log level pins on full dotted subchannel logger names must use the subchannel short name instead
 
+### Breaking for downstream projects
+
+Upgrading a project to this release needs code changes; check these before deploying.
+
+* The `pypeman.graph` module is gone. `load_project()` moved to `pypeman.project`; the
+  graph drawing helpers were replaced by the `graph` command's structured builders in
+  `pypeman.plugins.graph`.
+* `pypeman start` takes no options any more: `--no-daemon`, `--reload` and
+  `--remote-admin` were removed along with daemon mode, so a launcher passing them now
+  dies on an argparse error. Run plain `pypeman start` under your process supervisor and
+  stop it with Ctrl-C / SIGINT; the `stop`, `debug`, `pyshell`, `test` and `pytest`
+  commands are gone too.
+* Remote admin host and port now come exclusively from `WEBAPP_PLUGINS_CONFIG`
+  (default `localhost:8091`); host/port set in `REMOTE_ADMIN_CONFIG` or in the
+  deprecated `REMOTE_ADMIN_WEBSOCKET_CONFIG` / `REMOTE_ADMIN_WEB_CONFIG` are ignored,
+  and the separate web-client server (port 8090 by default) no longer exists - the API
+  and the client are served by the same web app. A client hardcoding
+  `http://127.0.0.1:8091` can fail against the `localhost` default when that resolves
+  to `::1` first; such projects should pin
+  `WEBAPP_PLUGINS_CONFIG = {"host": "127.0.0.1", "port": 8091}`.
+* `pypeman.helpers.logging` still has no `LogContextFilter`: a project whose logging
+  configuration declares that filter needs the pending logging rework, so this release
+  and that one have to be deployed together.
+
 ## [0.6.6](https://github.com/mhcomm/pypeman/compare/0.6.5...0.6.6)
 * FileWriter node: Don't raise "group not exist" error at startup
 

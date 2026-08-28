@@ -26,7 +26,12 @@ def payload_size(payload):
     if isinstance(payload, memoryview):
         return payload.nbytes
     if isinstance(payload, str):
-        return len(payload.encode("utf-8"))
+        if payload.isascii():  # C-speed scan, no allocation
+            return len(payload)
+        # exact utf-8 size without allocating a full-size copy: slicing a
+        # str cannot split a code point, so the chunked sum is exact
+        return sum(len(payload[i:i + 2 ** 16].encode("utf-8"))
+                   for i in range(0, len(payload), 2 ** 16))
     return None
 
 

@@ -28,6 +28,7 @@ def test_payload_size():
     assert payload_size(bytearray(b"123")) == 3
     assert payload_size(memoryview(b"1234")) == 4
     assert payload_size("héhé") == 6  # utf-8 byte length, not char count
+    assert payload_size("é" * 70000) == 140000  # non-ascii, several chunks
     assert payload_size({"not": "measurable"}) is None
     assert payload_size(None) is None
 

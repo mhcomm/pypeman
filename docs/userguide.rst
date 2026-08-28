@@ -186,6 +186,8 @@ survive restarts).
 Only failures are counted as errors: messages deliberately dropped (a ``Drop``
 node, a filtering fork) are counted apart as ``dropped`` and never degrade
 ``/health``, and messages refused by a stopping channel are not counted at all.
+Traffic entering a :class:`pypeman.channels.MergeChannel` through one of its
+input channels is reported under the merge channel.
 
 Message Stores
 --------------

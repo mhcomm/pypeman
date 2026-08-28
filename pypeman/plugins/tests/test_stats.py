@@ -7,6 +7,7 @@ import pytest
 from pypeman import events
 from pypeman import exceptions
 from pypeman.channels import BaseChannel
+from pypeman.channels import MergeChannel
 from pypeman.nodes import Drop
 from pypeman.nodes import Sleep
 from pypeman.plugins.stats import stats_collector
@@ -142,6 +143,21 @@ async def test_dropped_in_forked_subchannel(collector):
     assert parent_stats.dropped_count == 1
     assert parent_stats.error_count == 0
     assert parent_stats.last_error_at is None
+
+
+@pytest.mark.usefixtures("clear_graph")
+async def test_merge_channel_counts_once(collector):
+    """Input channels report under the merge channel, they don't double-count."""
+    input1 = BaseChannel(name="stats_merge_in1")
+    input2 = BaseChannel(name="stats_merge_in2")
+    merge = MergeChannel(name="stats_merge_chan", chans=[input1, input2])
+    await merge.start()
+
+    await input1.handle(generate_msg())
+
+    assert collector.channel_stats("stats_merge_chan").msg_count == 1
+    assert collector.channel_stats("stats_merge_in1").has_parent is True
+    assert collector.global_totals()["messages"] == 1
 
 
 @pytest.mark.usefixtures("clear_graph")

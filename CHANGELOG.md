@@ -40,8 +40,8 @@
 * New plugin `pypeman.plugins.msgmetaextender.MsgMetaExtenderPlugin` (on by default,
   deactivatable through `settings.DISABLED_PLUGINS`), tagging every message store
   entry with processing facts: `process_time`, `input_size`/`input_type`,
-  `output_size`/`output_type`, `content_type` and `ctx_size` (`process_time` and the
-  input metas are also written to `msg.meta`).
+  `output_size`/`output_type`, `content_type` and `ctx_size`. Those metas are written
+  to the store entry only, never to `msg.meta`, so they stay out of the nodes' way.
 * Health and metrics count deliberately dropped messages apart from errors: new
   `dropped` key (`/health` channel docs and totals, `/metrics/channels` since_start),
   `dropped_total` in `/metrics/live` and the `pypeman_channel_dropped_total` Prometheus

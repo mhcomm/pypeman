@@ -33,7 +33,7 @@ def test_payload_size():
 
 
 @pytest.mark.usefixtures("clear_graph")
-async def test_metas_are_tagged_everywhere(plugin):
+async def test_metas_are_stored_only(plugin):
     chan = BaseChannel(
         name="msgmetaext_chan", message_store_factory=msgstore.MemoryMessageStoreFactory())
     chan.add(Sleep(name="msgmetaext_sleep", duration=0.05))
@@ -43,15 +43,12 @@ async def test_metas_are_tagged_everywhere(plugin):
     msg.add_context("saved", generate_msg(message_content=b"1234567890"))
     result = await chan.handle(msg)
 
-    process_time = msg.meta["process_time"]
-    assert process_time >= 0.05
-    assert result.meta["process_time"] == process_time
-    assert msg.meta["input_size"] == 6
-    assert msg.meta["input_type"] == "str"
-    assert msg.meta["content_type"] == "application/text"
+    # the metas go to the store entry and nowhere else
+    assert "process_time" not in result.meta
+    assert "input_size" not in msg.meta
 
     stored_meta = await chan.message_store.get_message_meta_infos(msg.store_id)
-    assert stored_meta["process_time"] == process_time
+    assert stored_meta["process_time"] >= 0.05
     assert stored_meta["input_size"] == 6
     assert stored_meta["input_type"] == "str"
     assert stored_meta["content_type"] == "application/text"

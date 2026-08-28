@@ -33,6 +33,7 @@ setup(
     author="Jeremie Pardou",
     author_email="jeremie@jeremiez.net",
     license="Apache Software License",
+    python_requires=">=3.8",
     packages=[
         "pypeman",
         "pypeman.contrib",
@@ -40,9 +41,9 @@ setup(
         "pypeman.plugins",
         "pypeman.plugins.remoteadmin",
         "pypeman.plugins.tests",
+        # shipped because interop resets PYPEMAN_SETTINGS_MODULE to
+        # pypeman.tests.settings.test_settings_default in its own test helpers
         "pypeman.tests",
-        "pypeman.tests.test_app",
-        "pypeman.tests.test_app_testing",
         "pypeman.tests.settings",
     ],
     package_data={
@@ -60,7 +61,7 @@ setup(
         "python-dateutil",
         "aiohttp",
         "aiosqlite",
-        "sqlitedict",
+        "sqlitedict>=2.1",  # Python 3.10 DeprecationWarning: setDaemon() is deprecated
     ],
     extras_require={
         "hl7": ["hl7"],
@@ -68,7 +69,5 @@ setup(
         "time": ["aiocron"],
         "all": ["hl7", "xmltodict", "aiocron"],
     },
-    setup_requires=["pytest-runner"],
-    tests_require=["pytest", "pytest-cov", "pytest-asyncio"],
     include_package_data=True,
 )

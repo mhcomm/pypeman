@@ -84,6 +84,13 @@
 * - Nodes now log through their channel's logger (`BaseNode.logger` property, custom logger still assignable)
 * - f-string log calls converted to lazy %-style (nodes, retry, msgstore)
 * - `MSG_CTXVAR` moved to `pypeman.helpers.logging` (still importable from `pypeman.channels`); it is now set during any channel handle/inject processing
+* Event loops are now resolved with `asyncio.get_running_loop()` at call time instead of
+  being captured at construction (`asyncio.get_event_loop()` there is deprecated since
+  Python 3.10). The `loop=` constructor params stay accepted but are ignored, except on
+  channels where the attribute is still used by the `handle_and_wait` sync test bridge
+  (`PypeTestCase` keeps injecting it). The deprecated `aiohttp.TCPConnector(loop=...)`
+  argument is no longer passed. Custom persistence backends no longer receive a `loop`
+  kwarg from `get_backend()`.
 * Breaking Changes:
 * - Channel *short* names must now be unique (duplicate subchannel short names raise NameError at import)
 * - Log level pins on full dotted subchannel logger names must use the subchannel short name instead

@@ -159,7 +159,8 @@ class FTPWatcherChannel(channels.BaseChannel):
         :return: processed result
         """
 
-        payload = await self.loop.run_in_executor(self.executor, self.download_file, filename)
+        payload = await asyncio.get_running_loop().run_in_executor(
+            self.executor, self.download_file, filename)
         if payload is not None:
             self.logger.info(
                 "downloaded ftp file %s/%s (%d bytes)", self.basedir, filename, len(payload))
@@ -174,7 +175,7 @@ class FTPWatcherChannel(channels.BaseChannel):
             if self.delete_after:
                 self.logger.debug(
                     "deleting ftp file %s/%s after processing", self.basedir, filename)
-                await self.loop.run_in_executor(
+                await asyncio.get_running_loop().run_in_executor(
                                 self.executor,
                                 self.ftphelper.delete,
                                 self.basedir + '/' + filename)
@@ -186,7 +187,8 @@ class FTPWatcherChannel(channels.BaseChannel):
         One iteration of watching.
         """
 
-        ls = await self.loop.run_in_executor(self.executor, self.ftphelper.list_dir, self.basedir)
+        ls = await asyncio.get_running_loop().run_in_executor(
+            self.executor, self.ftphelper.list_dir, self.basedir)
 
         # Make diff from previous one.
         added = self.sort_function(ls-self.ls_prev)

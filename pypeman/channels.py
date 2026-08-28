@@ -53,7 +53,8 @@ class BaseChannel:
 
     :param parent_channel: Used with sub channels. Don't specify yourself.
 
-    :param loop: To specify a custom event loop.
+    :param loop: Deprecated. Only used by :meth:`handle_and_wait` (test harness);
+        coroutines resolve the running loop at call time.
 
     :param message_store_factory:     You can specify a message store (see below) at channel
         initialisation if you want to save all processed message. Use
@@ -75,7 +76,7 @@ class BaseChannel:
         self._node_map = {}
         self._status = BaseChannel.STOPPED
         self.processed_msgs = 0
-        self.interruptable_sleeper = Sleeper(loop)  # for interruptable sleeps
+        self.interruptable_sleeper = Sleeper()  # for interruptable sleeps
         self.join_nodes = None
         self.fail_nodes = None
         self.drop_nodes = None
@@ -121,8 +122,8 @@ class BaseChannel:
 
         _channel_names.add(self.short_name)
 
-        # Channels are usually built at import time, outside of any running loop.
-        # An explicit loop is honored, else it is resolved at start().
+        # Kept only for handle_and_wait (sync test bridge); everything running
+        # inside the loop uses `asyncio.get_running_loop()` at call time.
         self.loop = loop
 
         self.logger = logging.getLogger('pypeman.channels.%s' % self.short_name)
@@ -404,7 +405,8 @@ class BaseChannel:
         :param msg: Message to process
         :return: Processed message.
         """
-        return self.loop.run_until_complete(self.handle(msg))
+        loop = self.loop or asyncio.get_event_loop()
+        return loop.run_until_complete(self.handle(msg))
 
     def _has_callback(self):
         return hasattr(self, "_callback")
@@ -1200,7 +1202,6 @@ class Case():
         if names is None:
             names = []
 
-        # only used to forward it to the case channels, which resolve it at start()
         self.loop = loop
 
         for cond, name in zip(args, names):
@@ -1249,21 +1250,6 @@ class MergeChannel(BaseChannel):
 
     TODO: CAUTION: Not sure that input channels works with end nodes
 
-    TODO: check why we need
-        if channel.loop != self.loop:
-            channel.loop = self.loop
-    There's a bug with event loop (maybe only on tests) but weird
-    (traceback: RuntimeError: Task <Task pending name='Task-126' coro=<MergeChannel.start()
-    running at
-    /home/quentin/projects/interop2/app/vendor/common/custom_channels.py:51>
-    cb=[_run_until_complete_cb()
-    at /home/quentin/.pyenv/versions/3.10.10/lib/python3.10/asyncio/base_events.py:184]>
-    got Future
-    <Future pending cb=[_chain_future.<locals>._call_check_cancel() at
-    /home/quentin/.pyenv/versions/3.10.10/lib/python3.10/asyncio/futures.py:385]>
-    attached to a different loop
-    )
-
     Args:
         channels (list of channels): List of channels to use as inputs
     """
@@ -1286,15 +1272,14 @@ class MergeChannel(BaseChannel):
         for channel in self.channels:
             if channel._nodes:
                 raise AttributeError(f"A merged channel cannot have nodes (chan {channel.name})")
-            if channel.loop != self.loop:
-                channel.loop = self.loop
+            # merged inputs are removed from all_channels, so the test harness
+            # cannot set their handle_and_wait loop itself
+            channel.loop = self.loop
             await channel.start()
         await super().start()
 
     async def stop(self):
         for channel in self.channels:
-            if channel.loop != self.loop:
-                channel.loop = self.loop
             await channel.stop()
         await super().stop()
 

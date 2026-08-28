@@ -8,8 +8,7 @@ class Sleeper:
     found at: https://stackoverflow.com/questions/37209864/interrupt-all-asyncio-sleep-currently-executing
     """
 
-    def __init__(self, loop):
-        self.loop = loop
+    def __init__(self):
         self.tasks = set()
 
     async def sleep(self, delay, result=None):

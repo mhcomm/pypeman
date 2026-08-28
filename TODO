@@ -1,25 +1,11 @@
-Fix Error if pypeman is started without command <-- begins lib bug
-fix pypeman starts even without a project and doesn't even warn
+Wishlist of ideas not yet implemented (see CHANGELOG.md for what did land).
+
 Find better word for "endpoint"
 Implement soap client node
 Implement soap server endpoint
 Implement mllp client node
 Implement sql querier node
 Implement sql saver node
-Implement http requester node
-Think about channel testing
 Channel joining ?
-Write Documentation
-Add multi message to nodes ?
-Find better way to handle external dependencies without breaking dep checking
-Savepoints and auto reload when pypeman stop
-Store with message status (Message broker ?) with replay or abort action
 Use aiofiles for file writing
-Handle channel states
-Instrospection to know what is happening in realtime
-Add web IHM to control execution in real time
-Add way to replay stored message
-Add status to stored messages
-
-
-
+Savepoints and auto reload when pypeman stop

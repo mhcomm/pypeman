@@ -132,30 +132,41 @@ class _WebappBundle:
         # no await between the check and the set: atomic on the loop
         self._started = True
 
-        app = web.Application()
-        for plugin in self._members:
-            prefix = plugin.webapp_prefix()
-            if prefix and (not prefix.startswith("/") or "/" == prefix):
-                raise ValueError(
-                    f"{type(plugin).__name__}.webapp_prefix() must be '' (root)"
-                    + f" or start with '/' and not be '/' (got {prefix!r})"
-                )
-            if prefix:
-                subapp = web.Application()
-                subapp.add_routes(plugin.webapp_urls())
-                app.add_subapp(prefix, subapp)
-            else:
-                # aiohttp cannot mount a sub-app at '/': root-mounted
-                # plugins get their routes on the shared app itself
-                app.add_routes(plugin.webapp_urls())
+        # a member route or the bind can fail (bad prefix/url, port in
+        # use): undo the flag and the half-built runner, or every other
+        # member's start_once() would silently report success
+        try:
+            app = web.Application()
+            for plugin in self._members:
+                prefix = plugin.webapp_prefix()
+                if prefix and (not prefix.startswith("/") or "/" == prefix):
+                    raise ValueError(
+                        f"{type(plugin).__name__}.webapp_prefix() must be '' (root)"
+                        + f" or start with '/' and not be '/' (got {prefix!r})"
+                    )
+                if prefix:
+                    subapp = web.Application()
+                    subapp.add_routes(plugin.webapp_urls())
+                    app.add_subapp(prefix, subapp)
+                else:
+                    # aiohttp cannot mount a sub-app at '/': root-mounted
+                    # plugins get their routes on the shared app itself
+                    app.add_routes(plugin.webapp_urls())
 
-        conf = settings.WEBAPP_PLUGINS_CONFIG
-        self._runner = web.AppRunner(app)
-        await self._runner.setup()
-        site = web.TCPSite(self._runner, str(conf["host"]), int(conf["port"]))
-        await site.start()
+            conf = settings.WEBAPP_PLUGINS_CONFIG
+            self._runner = web.AppRunner(app)
+            await self._runner.setup()
+            site = web.TCPSite(self._runner, str(conf["host"]), int(conf["port"]))
+            await site.start()
+        except BaseException:
+            self._started = False
+            runner, self._runner = self._runner, None
+            if runner is not None:
+                await runner.cleanup()
+            raise
 
     async def stop_once(self):
+        self._started = False  # a later start_once() must rebuild the app
         runner, self._runner = self._runner, None
         if runner is not None:
             await runner.cleanup()

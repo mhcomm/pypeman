@@ -99,3 +99,45 @@ def test_invalid_prefix_rejected(bundle_env):
                 await bundle.start_once()
 
     asyncio.run(scenario())
+
+
+def test_bundle_restarts_after_stop(bundle_env):
+    async def scenario():
+        plugin = _mk_plugin_cls("/again")()
+        await plugin.task_start()
+        await plugin.task_stop()
+
+        # the bundle must rebuild and rebind, not report a stale success
+        await plugin.task_start()
+        assert bundle_env._runner is not None
+        host, port = bundle_env._runner.addresses[0][:2]
+        async with ClientSession() as cs:
+            async with cs.get(f"http://{host}:{port}/again/ping") as resp:
+                assert resp.status == 200
+        await plugin.task_stop()
+
+    asyncio.run(scenario())
+
+
+def test_failed_start_is_retryable(bundle_env):
+    """A member raising while its routes are collected must not leave the
+    bundle marked as started (every other member would then be silently
+    unserved)."""
+    async def scenario():
+        broken = _mk_plugin_cls("oops")()  # invalid prefix -> ValueError
+        good = _mk_plugin_cls("/good")()
+
+        with pytest.raises(ValueError):
+            await good.task_start()
+        assert bundle_env._started is False
+        assert bundle_env._runner is None
+
+        bundle_env._members.remove(broken)
+        await good.task_start()
+        host, port = bundle_env._runner.addresses[0][:2]
+        async with ClientSession() as cs:
+            async with cs.get(f"http://{host}:{port}/good/ping") as resp:
+                assert resp.status == 200
+        await good.task_stop()
+
+    asyncio.run(scenario())

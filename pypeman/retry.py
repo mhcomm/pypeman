@@ -206,7 +206,6 @@ class RetryFileMsgStore(FileMessageStore):
                     msg_data = msgs_data[0]
                     message_store_id = msg_data["meta"]["store_id"]
             retry_exc_catched = False
-            self.retry_attempts += 1
             try:
                 await self.retry_one_store_id(msg_store_id=message_store_id)
                 logger.debug(
@@ -215,6 +214,7 @@ class RetryFileMsgStore(FileMessageStore):
                 )
                 continue
             except exceptions.RetryException:
+                self.retry_attempts += 1
                 logger.warning(
                     "Retrystore Retry %s: Retry of store_id=%s not good: "
                     "RetryExc catched, will retry later",
@@ -223,6 +223,7 @@ class RetryFileMsgStore(FileMessageStore):
                 retry_exc_catched = True
                 return
             except Exception:
+                self.retry_attempts += 1
                 logger.warning(
                     "Retrystore Retry %s: Retry of store_id=%s Done (with err)",
                     self.channel.short_name, message_store_id

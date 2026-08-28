@@ -486,6 +486,8 @@ class RetryStoreTests(TestCase):
                 raise Exception("Msg to retry store_id %s not in store", store_id)
         assert chan.status == BaseChannel.PAUSED
         assert retry_store.state == RetryFileMsgStore.RETRY_MODE
+        assert retry_store.retry_mode_since is not None
+        assert retry_store.retry_attempts == 0
 
         print("\n")
         print("RETRY first node OK")
@@ -509,6 +511,9 @@ class RetryStoreTests(TestCase):
         assert msgs_retry_store[0]["meta"]["nodename"] == join_node.name
         assert chan.status == BaseChannel.PAUSED
         assert retry_store.state == RetryFileMsgStore.RETRY_MODE
+        # 2 store_ids were replayed in that single retry() pass: msg1 succeeded and
+        # is not counted, only msg2's failure is
+        assert retry_store.retry_attempts == 1
         assert forked_chan.status == BaseChannel.WAITING
         assert forked_chan_retry_store.state == RetryFileMsgStore.STOPPED
         assert conditional_chan.status == BaseChannel.WAITING
@@ -537,6 +542,7 @@ class RetryStoreTests(TestCase):
         assert msgs_retry_store[0]["meta"]["nodename"] == final_node.name
         assert chan.status == BaseChannel.PAUSED
         assert retry_store.state == RetryFileMsgStore.RETRY_MODE
+        assert retry_store.retry_attempts == 2
         assert forked_chan.status == BaseChannel.WAITING
         assert forked_chan_retry_store.state == RetryFileMsgStore.STOPPED
         assert conditional_chan.status == BaseChannel.WAITING

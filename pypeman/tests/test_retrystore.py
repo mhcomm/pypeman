@@ -379,6 +379,9 @@ class RetryStoreTests(TestCase):
         assert retry_store.state == RetryFileMsgStore.RETRY_MODE
         assert forked_chan.status == BaseChannel.WAITING
         assert forked_chan_retry_store.state == RetryFileMsgStore.STOPPED
+        # the replay succeeded: it is not counted as an attempt, and leaving retry
+        # mode clears the counter
+        assert forked_chan_retry_store.retry_attempts == 0
         assert conditional_chan.status == BaseChannel.WAITING
         cnt_msgs_retrystore = self.loop.run_until_complete(forked_chan_retry_store.total())
         msgs_retry_store = self.loop.run_until_complete(forked_chan_retry_store.search(order_by="timestamp"))
@@ -401,7 +404,7 @@ class RetryStoreTests(TestCase):
         assert chan.status == BaseChannel.WAITING
         assert retry_store.state == RetryFileMsgStore.STOPPED
         assert retry_store.retry_mode_since is None
-        assert retry_store.retry_attempts > 1
+        assert retry_store.retry_attempts == 0
         assert forked_chan.status == BaseChannel.WAITING
         assert conditional_chan.status == BaseChannel.WAITING
         stored_msg = self.loop.run_until_complete(msgstore.get(id=msg.uuid))
@@ -566,6 +569,8 @@ class RetryStoreTests(TestCase):
         assert cnt_msgs_retrystore == 0
         assert chan.status == BaseChannel.WAITING
         assert retry_store.state == RetryFileMsgStore.STOPPED
+        assert retry_store.retry_mode_since is None
+        assert retry_store.retry_attempts == 0
         assert forked_chan.status == BaseChannel.WAITING
         assert forked_chan_retry_store.state == RetryFileMsgStore.STOPPED
         assert conditional_chan.status == BaseChannel.WAITING

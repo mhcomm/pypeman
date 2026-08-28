@@ -201,6 +201,7 @@ class RetryFileMsgStore(FileMessageStore):
                     self.channel.status = BaseChannel.WAITING
                     self.state = self.STOPPED
                     self.retry_mode_since = None
+                    self.retry_attempts = 0
                     break
                 else:
                     msg_data = msgs_data[0]

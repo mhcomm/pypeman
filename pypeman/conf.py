@@ -79,15 +79,15 @@ class Settings:
             conf.settings.init_settings()
             conf.settings.raise_for_missing()
         """
-        # save this before clearing; we'd want to clear so as to now muddy things up
-        settings_impat = str(self.__dict__["SETTINGS_MODULE"])
+        # save this before clearing; we'd want to clear so as to not muddy things up
+        settings_import = str(self.__dict__["SETTINGS_MODULE"])
         self.__dict__.clear()
         self.__dict__.update(p for p in vars(default_settings).items() if "A" <= p[0][0] <= "Z")
         # keep the module actually being imported (not a default_settings value)
-        self.__dict__["SETTINGS_MODULE"] = settings_impat
+        self.__dict__["SETTINGS_MODULE"] = settings_import
 
         try:
-            settings_mod = self.__dict__["_settings_mod"] = import_module(settings_impat)
+            settings_mod = self.__dict__["_settings_mod"] = import_module(settings_import)
             self.__dict__.update(p for p in vars(settings_mod).items() if "A" <= p[0][0] <= "Z")
             if self.__dict__.get("RETRY_STORE_PATH") is None:
                 # the key is always present (copied from default_settings)
@@ -96,7 +96,7 @@ class Settings:
                     + " (You may want to change this.)"
                 )
 
-        except BaseException as e:
+        except Exception as e:
             self.__dict__["_loading_exc"] = e
 
         logging.config.dictConfig(self.LOGGING)
@@ -109,7 +109,7 @@ class Settings:
             raise ConfigError(f"Cannot import setting module '{self.SETTINGS_MODULE}' (see above).") from exc
 
     def __bool__(self):
-        """Truhty if it was imported (or attempted at all)."""
+        """Truthy if it was imported (or attempted at all)."""
         return self.__dict__.get("_settings_mod") is not None or self.__dict__.get("_loading_exc") is not None
 
     def __setattr__(self, name, value):

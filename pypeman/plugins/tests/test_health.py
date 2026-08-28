@@ -164,7 +164,6 @@ def test_health_custom_url_and_validation(plugin_env, monkeypatch):
     async def scenario():
         monkeypatch.setitem(settings.__dict__, "HEALTH_CONFIG", {"url": "/sante/"})
         plugin = HealthPlugin()
-        assert plugin._url == "/sante"
         await plugin.task_start()
         async with ClientSession() as cs:
             async with cs.get(_server_url() + "/sante") as resp:
@@ -173,8 +172,9 @@ def test_health_custom_url_and_validation(plugin_env, monkeypatch):
 
         for bad_url in ("oops", "/"):
             monkeypatch.setitem(settings.__dict__, "HEALTH_CONFIG", {"url": bad_url})
+            # the message must name the url as configured, not stripped
             bad_plugin = HealthPlugin()  # ctor must not raise
-            with pytest.raises(ValueError):
+            with pytest.raises(ValueError, match=repr(bad_url)):
                 bad_plugin.webapp_urls()
 
     asyncio.run(scenario())

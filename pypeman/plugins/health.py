@@ -53,8 +53,9 @@ class HealthPlugin(BasePlugin, BundledWebappPluginMixin):
     def __init__(self):
         conf = settings.HEALTH_CONFIG
         # never raise here (plugin ctors run for every CLI command):
-        # the url is validated in webapp_urls, at bundle start
-        self._url = str(conf.get("url") or DEFAULT_URL).rstrip("/")
+        # the url is validated (and stripped) in webapp_urls, at bundle
+        # start -- kept as configured so the error can name it
+        self._url = str(conf.get("url") or DEFAULT_URL)
         self._error_window = conf.get("degraded_error_window", 300)
         super().__init__()  # registers into the webapp bundle
 
@@ -72,12 +73,13 @@ class HealthPlugin(BasePlugin, BundledWebappPluginMixin):
         return ""
 
     def webapp_urls(self) -> list[web.RouteDef]:
-        if not self._url.startswith("/") or "/" == self._url:
+        url = self._url.rstrip("/")
+        if not url.startswith("/"):
             raise ValueError(
                 f"HEALTH_CONFIG['url'] must start with '/' and not be '/' (got {self._url!r})")
         return [
-            web.get(self._url, self._get_health),
-            web.get(self._url + "/channels/{channelname}", self._get_channel_health),
+            web.get(url, self._get_health),
+            web.get(url + "/channels/{channelname}", self._get_channel_health),
         ]
 
     async def _get_health(self, request: web.Request) -> web.Response:

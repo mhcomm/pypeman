@@ -236,7 +236,6 @@ def test_metrics_custom_url_and_validation(plugin_env, monkeypatch):
     async def scenario():
         monkeypatch.setitem(settings.__dict__, "METRICS_CONFIG", {"url": "/stats/"})
         plugin = MetricsPlugin()
-        assert plugin._url == "/stats"
         await plugin.task_start()
         async with ClientSession() as cs:
             async with cs.get(_server_url() + "/stats/channels") as resp:
@@ -245,8 +244,9 @@ def test_metrics_custom_url_and_validation(plugin_env, monkeypatch):
 
         for bad_url in ("oops", "/"):
             monkeypatch.setitem(settings.__dict__, "METRICS_CONFIG", {"url": bad_url})
+            # the message must name the url as configured, not stripped
             bad_plugin = MetricsPlugin()  # ctor must not raise
-            with pytest.raises(ValueError):
+            with pytest.raises(ValueError, match=repr(bad_url)):
                 bad_plugin.webapp_urls()
 
     asyncio.run(scenario())

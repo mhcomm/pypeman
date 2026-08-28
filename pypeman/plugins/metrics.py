@@ -101,8 +101,9 @@ class MetricsPlugin(BasePlugin, BundledWebappPluginMixin):
     def __init__(self):
         conf = settings.METRICS_CONFIG
         # never raise here (plugin ctors run for every CLI command):
-        # the url is validated in webapp_urls, at bundle start
-        self._url = str(conf.get("url") or DEFAULT_URL).rstrip("/")
+        # the url is validated (and stripped) in webapp_urls, at bundle
+        # start -- kept as configured so the error can name it
+        self._url = str(conf.get("url") or DEFAULT_URL)
         super().__init__()  # registers into the webapp bundle
 
     async def task_start(self):
@@ -119,14 +120,15 @@ class MetricsPlugin(BasePlugin, BundledWebappPluginMixin):
         return ""
 
     def webapp_urls(self) -> list[web.RouteDef]:
-        if not self._url.startswith("/") or "/" == self._url:
+        url = self._url.rstrip("/")
+        if not url.startswith("/"):
             raise ValueError(
                 f"METRICS_CONFIG['url'] must start with '/' and not be '/' (got {self._url!r})")
         return [
-            web.get(self._url, self._get_prometheus),
-            web.get(self._url + "/live", self._get_live),
-            web.get(self._url + "/channels", self._get_channels),
-            web.get(self._url + "/channels/{channelname}", self._get_channel),
+            web.get(url, self._get_prometheus),
+            web.get(url + "/live", self._get_live),
+            web.get(url + "/channels", self._get_channels),
+            web.get(url + "/channels/{channelname}", self._get_channel),
         ]
 
     async def _get_channels(self, request: web.Request) -> web.Response:

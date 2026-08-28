@@ -179,9 +179,14 @@ def test_metrics_prometheus(plugin_env):
         assert any(line.startswith("pypeman_info{version=") for line in lines)
         assert any(line.startswith("pypeman_process_start_time_seconds ") for line in lines)
         assert any(line.startswith("pypeman_event_loop_lag_seconds ") for line in lines)
+        assert "# TYPE pypeman_channel_processing_seconds_minimum gauge" in lines
         assert any(
-            line.startswith('pypeman_channel_processing_seconds_min{channel="metrics_chan"} ')
+            line.startswith(
+                'pypeman_channel_processing_seconds_minimum{channel="metrics_chan"} ')
             for line in lines)
+        # not '_min'/'_max': those read as samples of the SUMMARY family
+        assert not any("pypeman_channel_processing_seconds_min{" in line for line in lines)
+        assert not any("pypeman_channel_processing_seconds_max{" in line for line in lines)
 
         await plugin.task_stop()
 

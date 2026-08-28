@@ -327,15 +327,17 @@ def _render_prometheus(snapshot: dict) -> str:
         lines.append(_sample("pypeman_channel_processing_seconds_count", labels,
                              chan["processing_seconds"]["count"]))
 
-    for bound in ("min", "max"):
+    # '_minimum'/'_maximum', not '_min'/'_max': the latter read as
+    # samples of the SUMMARY family above (promtool flags them)
+    for bound, suffix in (("min", "minimum"), ("max", "maximum")):
         samples = [
-            _sample(f"pypeman_channel_processing_seconds_{bound}",
+            _sample(f"pypeman_channel_processing_seconds_{suffix}",
                     {"channel": chan["name"]}, chan["processing_seconds"][bound])
             for chan in chans if chan["processing_seconds"][bound] is not None
         ]
         if samples:
-            family(f"pypeman_channel_processing_seconds_{bound}", "gauge",
-                   f"{bound.capitalize()} message processing time since start.")
+            family(f"pypeman_channel_processing_seconds_{suffix}", "gauge",
+                   f"{suffix.capitalize()} message processing time since start.")
             lines.extend(samples)
 
     for name, help_text, key in (

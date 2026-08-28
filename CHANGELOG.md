@@ -46,6 +46,14 @@
 * FIX remote admin ws RPC rejected every call with parameters; `view_msg` (and the
   `/view` + `/preview` routes) crashed; `shell` host/port arguments were ignored and
   several shell outputs were wrong.
+* FIX `MessageStore.get_message_metas` (hence the `/metrics` time-range stats) no
+  longer fails outright when a single message has a missing or corrupt store meta:
+  that message is skipped with a warning.
+* FIX remote admin no longer puts the url-decoded message id into the HTTP reason
+  phrase of its 404s (a newline in the id made older aiohttp answer 500 instead).
+* The `/metrics` Prometheus min/max processing-time gauges are renamed
+  `pypeman_channel_processing_seconds_minimum` / `_maximum` (they used to hide under
+  the `_seconds` SUMMARY family name).
 
 ## [0.6.6](https://github.com/mhcomm/pypeman/compare/0.6.5...0.6.6)
 * FileWriter node: Don't raise "group not exist" error at startup

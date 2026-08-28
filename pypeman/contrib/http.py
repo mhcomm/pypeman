@@ -9,7 +9,7 @@ from aiohttp import web
 
 from pypeman import endpoints, channels, nodes, message
 from pypeman.exceptions import Dropped
-from pypeman.errors import PypemanParamError
+from pypeman.exceptions import PypemanParamError
 
 
 logger = logging.getLogger(__name__)

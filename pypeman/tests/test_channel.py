@@ -19,7 +19,7 @@ from pypeman import msgstore
 from pypeman import message
 from pypeman.channels import BaseChannel
 from pypeman.exceptions import Dropped, Rejected
-from pypeman.errors import PypemanParamError
+from pypeman.exceptions import PypemanParamError
 from pypeman.helpers.aio_compat import awaitify
 from pypeman.test import TearDownProjectTestCase as TestCase
 from pypeman.tests.common import ExceptNode

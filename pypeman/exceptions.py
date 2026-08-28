@@ -32,3 +32,15 @@ class PausedChanException(Exception):
     """
         Custom Exception that is raise when a pypeman channel is paused
     """
+
+
+class PypemanError(Exception):
+    """ custom error """
+
+
+class PypemanConfigError(PypemanError):
+    """ custom error """
+
+
+class PypemanParamError(PypemanError):
+    """ custom error """

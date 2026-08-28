@@ -25,6 +25,7 @@ class CronChannel(channels.BaseChannel):
         crontab(self.cron, func=self.tic, start=True, loop=self.loop)
 
     async def tic(self):
+        self.logger.debug("cron %r fired, triggering channel", self.cron)
         msg = message.Message()
         msg.payload = datetime.datetime.now()
         await self.handle(msg)

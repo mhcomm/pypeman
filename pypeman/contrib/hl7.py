@@ -41,6 +41,7 @@ class MLLPProtocol(asyncio.Protocol):
         To receive data, wait for data_received() calls.
         When the connection is closed, connection_lost() is called.
         """
+        logger.info("MLLP: connection made from %s", transport.get_extra_info("peername"))
         self.transport = transport
 
     def process_response(self, future):
@@ -171,14 +172,18 @@ class MLLPChannel(channels.BaseChannel):
         self.mllp_endpoint.set_handler(handler=self.handle_hl7_message)
 
     async def handle_hl7_message(self, hl7_message):
+        self.logger.info("mllp message received (%d bytes)", len(hl7_message))
         content = hl7_message.decode(self.encoding)
         msg = message.Message(content_type='text/hl7', payload=content, meta={})
         try:
             await self.handle(msg)
+            self.logger.debug("sending AA ack for msg %s", msg.short_uuid)
             return self._create_ack_from_hl7(hl7_str=content, ack_status="AA").encode(self.encoding)
         except Dropped:
+            self.logger.debug("sending AA ack for dropped msg %s", msg.short_uuid)
             return self._create_ack_from_hl7(hl7_str=content, ack_status="AA").encode(self.encoding)
         except Rejected:
+            self.logger.warning("sending AR ack for rejected msg %s", msg.short_uuid)
             return self._create_ack_from_hl7(hl7_str=content, ack_status="AR").encode(self.encoding)
         except Exception:
             logger.exception(

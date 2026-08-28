@@ -75,9 +75,14 @@ from dist_settings import *
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'filters': {
+        'context': {
+            '()': 'pypeman.helpers.logging.LogContextFilter',
+        },
+    },
     'formatters': {
         'basic' : {
-            'format': '%%(levelname)-8s %%(asctime)s %%(module)s %%(message)s',
+            'format': '%%(levelname)-8s %%(asctime)s %%(name)s %%(channel)s%%(msg_id)s%%(message)s',
         },
     },
     'handlers' : {
@@ -85,6 +90,7 @@ LOGGING = {
             'level' : 'INFO',
             'class' : 'logging.StreamHandler',
             'formatter' : 'basic',
+            'filters': ['context'],
         },
     },
     'loggers' : {

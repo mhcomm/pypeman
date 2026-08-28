@@ -1,12 +1,14 @@
 import asyncio
 import base64
 import collections
+import contextvars
 import grp
 import json
 import logging
 import os
 import shutil
 import smtplib
+import time
 import types
 import warnings
 
@@ -170,6 +172,23 @@ class BaseNode:
         """
         return "%s.%s" % (self.channel.name, self.name)
 
+    @property
+    def logger(self):
+        """
+        Node custom logger if set, else channel logger if node is attached
+        to a channel, module logger otherwise.
+        """
+        custom_logger = getattr(self, "_logger", None)
+        if custom_logger is not None:
+            return custom_logger
+        if self.channel:
+            return self.channel.logger
+        return logger
+
+    @logger.setter
+    def logger(self, value):
+        self._logger = value
+
     async def _call_run(self, msg):
         if asyncio.iscoroutinefunction(self.process):
             result = await self.async_run(msg)
@@ -185,10 +204,16 @@ class BaseNode:
         :param msg: incoming message
         :return: modified message after a process call and some treatment
         """
-        logger.debug(f"Node {self.name} handle msg {msg}")
+        self.logger.debug(
+            "node %s: enter, msg %s (payload %s)",
+            self.name, msg.short_uuid, type(msg.payload).__name__)
+        start_time = time.monotonic()
         # TODO : Make sure exceptions are well raised (does not happen if i.e 1/0 here atm)
         if self.store_input_as:
             msg.add_context(self.store_input_as, msg)
+            self.logger.debug(
+                "node %s: msg %s stored in ctx as %r",
+                self.name, msg.short_uuid, self.store_input_as)
         if self.passthrough or self.auto_retry_exceptions:
             old_msg = msg.copy()
         # Allow process as coroutine function
@@ -196,12 +221,14 @@ class BaseNode:
             try:
                 result = await self._call_run(msg)
             except self.auto_retry_exceptions as exc:
-                logger.warning("node %s catch retry Exception %r", self.name, exc)
+                self.logger.warning(
+                    "node %s: catch retry Exception %r for msg %s",
+                    self.name, exc, msg.short_uuid)
                 if self.channel.retry_store:
                     await self.channel.retry_store.store_until_retry(msg=old_msg, nodename=self.name)
                     raise exceptions.RetryException(exc)
                 else:
-                    logger.error("Retry Store not configured, no retry will be done")
+                    self.logger.error("Retry Store not configured, no retry will be done")
                     raise exc
         else:
             result = await self._call_run(msg)
@@ -210,9 +237,11 @@ class BaseNode:
         if isinstance(result, asyncio.Future):
             result = await result
 
-        self.channel.logger.debug(
-            '%s node end handle msg %s, result is msg %s',
-            str(self), str(msg), str(result))
+        self.logger.debug(
+            "node %s: exit after %.3fs, result is msg %s (payload %s)",
+            self.name, time.monotonic() - start_time,
+            getattr(result, "short_uuid", result),
+            type(getattr(result, "payload", result)).__name__)
 
         if not isinstance(result, types.GeneratorType) and getattr(result, 'store_id', None) is not None:
             store = self.channel.message_store
@@ -224,6 +253,9 @@ class BaseNode:
 
         if self.store_output_as:
             result.add_context(self.store_output_as, result)
+            self.logger.debug(
+                "node %s: result msg %s stored in ctx as %r",
+                self.name, result.short_uuid, self.store_output_as)
 
         if self.passthrough:
             result.payload = old_msg.payload
@@ -344,11 +376,7 @@ class BaseNode:
         return self._last_input
 
     def __str__(self):
-        if self.channel:
-            chan_name = self.channel.name
-        else:
-            chan_name = ""
-        return "<%s(%s)>" % (chan_name, self.name)
+        return "<node: %s>" % self.name
 
 
 class RaiseError(BaseNode):
@@ -423,7 +451,9 @@ class ThreadNode(BaseNode):
             self.executor = thread_pool
 
     def run(self, msg):
-        result = self.channel.loop.run_in_executor(self.executor, self.process, msg)
+        # Copy the context so logs from the executor thread keep the msg id contextvar
+        ctx = contextvars.copy_context()
+        result = self.channel.loop.run_in_executor(self.executor, ctx.run, self.process, msg)
 
         return result
 
@@ -444,7 +474,7 @@ class Log(BaseNode):
         super().__init__(*args, **kwargs)
 
     def process(self, msg):
-        self.channel.logger.log(self.lvl, '%s %s', str(self), str(msg))
+        self.channel.logger.log(self.lvl, 'log node %s', self.name)
 
         if self.channel.parent_uids:
             self.channel.logger.log(self.lvl, 'Parent channels: %s', ', '.join(self.channel.parent_names))
@@ -655,6 +685,8 @@ class FileReader(BaseNode):
             msg.meta['filename'] = name
             msg.meta['filepath'] = filepath
 
+        self.logger.debug(
+            "node %s: read file %s (%d bytes)", self.name, filepath, len(msg.payload))
         return msg
 
 
@@ -711,9 +743,12 @@ class FileWriter(BaseNode):
             os.chown(dest, -1, gid)
         if self.safe_file:
             os.rename(dest, old_file)
+        self.logger.info(
+            "node %s: wrote file %s (%d bytes)", self.name, old_file, len(msg.payload))
         if self.create_valid_file:
             validation_path = Path(old_file).with_suffix(self.validation_extension)
             validation_path.touch()
+            self.logger.debug("node %s: created validation file %s", self.name, validation_path)
         return msg
 
 
@@ -733,7 +768,8 @@ class FileMover(BaseNode):
 
     def process(self, msg):
         dest_fpath = os.path.join(self.dest_path, msg.meta["filename"])
-        logger.info("move file %s to dest %s", msg.meta["filepath"], dest_fpath)
+        self.logger.info("node %s: move file %s to dest %s",
+                         self.name, msg.meta["filepath"], dest_fpath)
         shutil.move(msg.meta["filepath"], dest_fpath)
         msg.meta["filepath"] = dest_fpath
         return msg
@@ -755,13 +791,13 @@ class FileCleaner(BaseNode):
     def process(self, msg):
         fpath = Path(msg.meta['filepath'])
         if fpath.is_file():
-            logger.info("delete %s ...", msg.meta["filepath"])
+            self.logger.info("node %s: delete %s ...", self.name, msg.meta["filepath"])
             fpath.unlink()
         if self.extensions_to_rm:
             for extension in self.extensions_to_rm:
                 meta_path = fpath.with_suffix(extension)
                 if meta_path.is_file():
-                    logger.info("delete %s ...", (meta_path))
+                    self.logger.info("node %s: delete %s ...", self.name, meta_path)
                     meta_path.unlink()
 
 
@@ -923,6 +959,8 @@ class Email(ThreadNode):
             recipients = [recipients]
 
         self.send_email(subject, sender, recipients, content)
+        self.logger.info(
+            "node %s: email %r sent to %s", self.name, subject, ", ".join(recipients))
 
         return msg
 
@@ -936,7 +974,8 @@ class YielderNode(BaseNode):
 
     def process(self, msg):
         if not isinstance(msg.payload, collections.abc.Iterable):
-            logger.error("Yielder node took a non iterable msg.payload: %r", msg.payload)
+            self.logger.error(
+                "node %s: non iterable msg.payload: %r", self.name, msg.payload)
             raise Rejected()
 
         def generator(msg):
@@ -1029,7 +1068,7 @@ def reset_pypeman_nodes():
 
     Can be useful for unit testing.
     """
-    logger.info("clearing all_nodes and BaseNode._used-names.")
+    logger.debug("clearing all_nodes and BaseNode._used-names.")
     all_nodes.clear()
     BaseNode._used_names.clear()
 

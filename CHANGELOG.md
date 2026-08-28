@@ -46,6 +46,19 @@
 * FIX remote admin ws RPC rejected every call with parameters; `view_msg` (and the
   `/view` + `/preview` routes) crashed; `shell` host/port arguments were ignored and
   several shell outputs were wrong.
+* Logging revamp:
+* - New `pypeman.helpers.logging.LogContextFilter` logging filter injecting `%(msg_id)s` (msg uuid) and `%(channel)s` (channel short name, omitted on records already emitted through the channel's own logger) in all records emitted while a message is processed, empty outside message processing. Wired in default LOGGING and startproject template; add `%(channel)s%(msg_id)s` to your formatter + the filter to your handlers to use it
+* - Per-channel loggers renamed from `pypeman.channels.<full.dotted.path>` to `pypeman.channels.<short_name>`
+* - Log message texts now carry the message short uuid (new `Message.short_uuid` property, first 8 chars) in channel and node per-message lines, and the channel short name in lifecycle lines (start/stop, msg receipt, pause/retry)
+* - New DEBUG lines to follow a message's path end to end: msg infos on receipt (timestamp, payload type and length, meta), message store id, entry into init/join/drop/reject/fail/final node sections, node enter/exit with payload type and processing duration, ctx storing (store_input_as/store_output_as), subchannel fork, ConditionSubChannel/case routing decisions, yielded submessages, cron trigger, outgoing http request, mllp acks
+* - New INFO/WARNING lines on interesting I/O events, with payload byte length where relevant: filewatcher file detection, http request received/mllp message received, ftp file downloaded, FileWriter/FTPFileWriter file written, FileMover/FileCleaner/FTPFileDeleter file moved/deleted, Email sent, MLLP connection made, HttpRequest node response with status >= 400 (WARNING); "msg dropped"/"msg rejected" lines now include the exception reason
+* - Log level policy: INFO = msg received + final outcome (processed/dropped) + channel start/stop, WARNING = reject/retry/pause, ERROR = processing failures (still without duplicate traceback), DEBUG = full per-message trace (node enter/exit, inject, subchan fork/join)
+* - Nodes now log through their channel's logger (`BaseNode.logger` property, custom logger still assignable)
+* - f-string log calls converted to lazy %-style (nodes, retry, msgstore)
+* - `MSG_CTXVAR` moved to `pypeman.helpers.logging` (still importable from `pypeman.channels`); it is now set during any channel handle/inject processing
+* Breaking Changes:
+* - Channel *short* names must now be unique (duplicate subchannel short names raise NameError at import)
+* - Log level pins on full dotted subchannel logger names must use the subchannel short name instead
 
 ## [0.6.6](https://github.com/mhcomm/pypeman/compare/0.6.5...0.6.6)
 * FileWriter node: Don't raise "group not exist" error at startup

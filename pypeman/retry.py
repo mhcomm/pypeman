@@ -33,8 +33,11 @@ class RetryFileMsgStore(FileMessageStore):
         self.state = self.STOPPED
         self.stop_flag = False
         self.retry_task = None
-        self.retry_attempts = 0  # message replay attempts since entering retry mode
-        self.retry_mode_since = None  # time.time() of the last retry-mode entry
+        # failed replay attempts since entering retry mode in this process (volatile)
+        self.retry_attempts = 0
+        # time.time() of the retry-mode entry, recovered from the oldest deferred
+        # message when the store is restarted with a non-empty backlog
+        self.retry_mode_since = None
         self.exit_event = asyncio.Event()
         self.test_mode = False
         super().__init__(*args, path=path, **kwargs)
@@ -51,6 +54,9 @@ class RetryFileMsgStore(FileMessageStore):
         cnt_msgs = await self.total()
         if cnt_msgs > 0:
             await self.start_retry_mode()
+            # retry mode began when the oldest still pending message was deferred,
+            # possibly in a previous run of the process, not now
+            self.retry_mode_since = self._earliest.timestamp()
 
     async def stop(self):
         if self.state != self.STOPPED:

@@ -1,6 +1,8 @@
 import asyncio
 import copy
+import datetime
 import logging
+import time
 
 from pypeman import channels, endpoints
 from pypeman import conf
@@ -760,3 +762,37 @@ class RetryStoreTests(TestCase):
         assert conditional_chan.status == BaseChannel.WAITING
         stored_msg = self.loop.run_until_complete(msgstore.get(id=msg.uuid))
         assert stored_msg["state"] == message.Message.ERROR
+
+    def test_retry_mode_since_recovered_after_restart(self):
+        """
+        Test that a restarted retry store dates its retry mode from the oldest message
+        it still has to replay, and not from the restart itself
+        """
+        chan, forked_chan, conditional_chan = self._create_complete_retry_chan(
+            base_chan_name="restart_retry_chan")
+        retry_store = chan.retry_store
+        deferred_at = datetime.datetime.now() - datetime.timedelta(days=3)
+        msg = generate_msg(timestamp=deferred_at, message_content=["msg1"])
+        chan._reset_test()
+        self.start_channels()
+
+        # init_node raises, the 3 days old message is deferred and retry mode starts now
+        with self.assertRaises(exceptions.PausedChanException):
+            self.loop.run_until_complete(chan.handle(msg))
+        assert retry_store.state == RetryFileMsgStore.RETRY_MODE
+        assert retry_store.retry_mode_since > deferred_at.timestamp()
+
+        # Simulate a process restart: a brand new store on the same path, with the
+        # message still pending
+        restarted_store = RetryFileMsgStore(
+            path=conf.settings.RETRY_STORE_PATH,
+            store_id=chan.name,
+            channel=chan,
+        )
+        restarted_store._reset_test()
+        self.loop.run_until_complete(restarted_store.start())
+        assert self.loop.run_until_complete(restarted_store.total()) == 1
+        assert restarted_store.state == RetryFileMsgStore.RETRY_MODE
+        assert restarted_store.retry_attempts == 0
+        assert restarted_store.retry_mode_since == deferred_at.timestamp()
+        assert restarted_store.retry_mode_since < time.time() - 2 * 24 * 3600

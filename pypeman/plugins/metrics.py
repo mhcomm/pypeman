@@ -181,6 +181,7 @@ class MetricsPlugin(BasePlugin, BundledWebappPluginMixin):
             "since_start": {
                 "messages": stats.msg_count if stats else 0,
                 "errors": stats.error_count if stats else 0,
+                "dropped": stats.dropped_count if stats else 0,
                 "retry_deferred": stats.retry_deferred_count if stats else 0,
                 "process_time": {
                     "mean": round(stats.time_sum / stats.time_count, 6),
@@ -225,6 +226,7 @@ class MetricsPlugin(BasePlugin, BundledWebappPluginMixin):
                 "state": chan.status_id_to_str(chan.status),
                 "messages_total": stats.msg_count if stats else 0,
                 "errors_total": stats.error_count if stats else 0,
+                "dropped_total": stats.dropped_count if stats else 0,
                 "retry_deferred_total": stats.retry_deferred_count if stats else 0,
                 "processing_seconds": {
                     "sum": stats.time_sum if stats else 0.0,
@@ -306,6 +308,8 @@ def _render_prometheus(snapshot: dict) -> str:
          "messages_total"),
         ("pypeman_channel_errors_total", "Messages ended in error since start.",
          "errors_total"),
+        ("pypeman_channel_dropped_total", "Messages deliberately dropped since start.",
+         "dropped_total"),
         ("pypeman_channel_retry_deferred_total", "Messages deferred to retry since start.",
          "retry_deferred_total"),
     ):

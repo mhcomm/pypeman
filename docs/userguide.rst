@@ -183,6 +183,10 @@ Both read live counters from a shared event-fed collector
 channels' retry stores; time-range stats come from the message stores and
 survive restarts).
 
+Only failures are counted as errors: messages deliberately dropped (a ``Drop``
+node, a filtering fork) are counted apart as ``dropped`` and never degrade
+``/health``, and messages refused by a stopping channel are not counted at all.
+
 Message Stores
 --------------
 

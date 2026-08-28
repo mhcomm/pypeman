@@ -398,6 +398,10 @@ class MessageStore(ABC):
         Much cheaper than :meth:`search` when only metas are needed: the
         messages themselves are never deserialized.
 
+        A message whose store meta is missing or unreadable (a lost or
+        crash-truncated sidecar file) is skipped with a warning: one bad
+        entry must not make the whole span unqueryable.
+
         :param start_dt: (optional) Inclusive lower bound, or None.
         :param end_dt: (optional) Exclusive upper bound, or None.
         :return: Meta dicts, sorted by increasing message timestamp.
@@ -407,8 +411,13 @@ class MessageStore(ABC):
             raise ValueError("start_dt must be strictly before end_dt")
         if 0 == await self.total():
             return []
-        ids = await self._span_select(start_dt, end_dt)
-        return [await self._get_storemeta(id) for id in ids]
+        metas = []
+        for id in await self._span_select(start_dt, end_dt):
+            try:
+                metas.append(await self._get_storemeta(id))
+            except (LookupError, ValueError) as exc:
+                logger.warning("skipping unreadable store meta of %r: %s", id, exc)
+        return metas
 
     async def add_message_meta_infos(self, id: str, meta_info_name: str, info: Any):
         """Add a store-related meta info to a message.

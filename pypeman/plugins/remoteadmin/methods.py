@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from functools import wraps
+from logging import getLogger
 from typing import TYPE_CHECKING
 from typing import Any
 from typing import Awaitable
@@ -25,6 +26,8 @@ from pypeman.channels import BaseChannel
 from pypeman.channels import all_channels
 from pypeman.channels import get_channel
 from pypeman.message import Message
+
+logger = getLogger(__name__)
 
 if TYPE_CHECKING:
     # ParamSpec doesn't exit before 3.10;
@@ -105,7 +108,11 @@ else:
                 try:
                     res = await rfn(**req.match_info, **req.rel_url.query)
                 except LookupError as e:
-                    raise web.HTTPNotFound(reason=str(e))
+                    # the detail carries user-controlled text (the url
+                    # id): a newline in it makes aiohttp reject the
+                    # reason phrase and answer 500 instead of 404
+                    logger.info("%s not found: %s", req.rel_url, e)
+                    raise web.HTTPNotFound(reason="not found")
                 return web.json_response(res)
 
             # called from remoteadmin CLI (websocket client-side)

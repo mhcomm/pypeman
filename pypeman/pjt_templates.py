@@ -95,6 +95,25 @@ LOGGING = {
     },
 }
 
+# Shared web app for the plugins that expose web endpoints
+# (for example the remote admin server).
+# WEBAPP_PLUGINS_CONFIG = {
+#     "host": "localhost",
+#     "port": 8091,
+# }
+
+# Remote admin URL prefix; empty (the default) serves it at the root
+# of the shared web app (also what to set behind a reverse proxy).
+# REMOTE_ADMIN_CONFIG = {
+#     "url": "/remoteadmin",
+# }
+
+# Deactivate some default plugins (dotted paths from
+# pypeman.default_settings.PLUGINS) without redefining the whole list.
+# DISABLED_PLUGINS = [
+#     "pypeman.plugins.remoteadmin.RemoteAdminPlugin",
+# ]
+
 """
 
 DIST_SETTINGS_TEMPLATE = """\

@@ -14,13 +14,13 @@ Basic usage
 
 Create a fresh project with: ::
 
-    pypeman startproject <project_dirname>
+    pypeman-startproject <project_dirname>
 
 Above command will create a new directory with a "settings.py" file containing
 local configs and a "project.py" file with a channel example that
 you can uncomment to test pypeman. Follow the commented instructions then execute: ::
 
-    pypeman start # You can use the --reload option for auto-reloading on changes
+    pypeman start # Stop it with Ctrl-C
 
 Quick command overview
 -----------------------
@@ -31,21 +31,22 @@ To get command help and more details about commands: ::
 
 To create a fresh project: ::
 
-    pypeman startproject <project_name>
+    pypeman-startproject <project_name>
 
-To start pypeman as daemon: ::
+To start pypeman (stop it with Ctrl-C): ::
 
-    pypeman start [--reload] [--remote-admin]
+    pypeman start
 
-To stop pypeman: ::
+To show a channel graph (as ascii art, graphviz dot or json): ::
 
-    pypeman stop
+    pypeman graph [--format {ascii,dot,json}]
 
-To show a channel graph: ::
+To list the enabled plugins and the effective settings: ::
 
-    pypeman graph
+    pypeman listplugins
+    pypeman printsettings
 
-To launch a remote shell (only if remote-admin is activated): ::
+To launch a remote admin shell: ::
 
     pypeman shell
 

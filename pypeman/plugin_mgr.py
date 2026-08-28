@@ -28,7 +28,8 @@ logger = getLogger(__name__)
 
 class PluginManager:
     def __init__(self):
-        self._registered_classes: set[type[BasePlugin]] = set()
+        # a list, not a set: registration order is the command order
+        self._registered_classes: list[type[BasePlugin]] = []
         self._instances: list[BasePlugin] | None = None
 
     def register_plugins(self, *plugins: str):
@@ -44,7 +45,8 @@ class PluginManager:
             cls = getattr(module, cls_name)
             # being extra-defensive here as we are importing blind
             assert isinstance(cls, type) and BasePlugin in cls.mro(), f"{cls!r} is not a plugin class"
-            self._registered_classes.add(cls)
+            if cls not in self._registered_classes:
+                self._registered_classes.append(cls)
 
     def instantiate_plugins(self):
         """Instantiate the various plugin classes.

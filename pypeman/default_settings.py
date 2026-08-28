@@ -5,38 +5,28 @@ project's setting module. See :mod:`pypeman.conf` and
 :obj:`pypeman.conf.settings`.
 """
 
-from os import environ
-
-# TODO: this likely does not mean anything anymore (or at least that's my hope)
-DEBUG = False  # bool. can be set by env var PYPEMAN_DEBUG (0|1|true|false) or pypeman cmd args
-TESTING = False  # bool. can be set by env var PYPEMAN_TESTING (0|1|true|false) pypeman cmd args
+DEBUG = False  # bool. user projects may read it (eg to configure their own debug mode)
+TESTING = False  # bool. idem
 
 PROJECT_MODULE = "project"  # name of module containing the project
-SETTINGS_MODULE = environ.get("PYPEMAN_SETTINGS_MODULE", "settings")  # name of the project settings module
+# (SETTINGS_MODULE is not a default: it is owned by pypeman.conf,
+# from the PYPEMAN_SETTINGS_MODULE environment variable)
 
-# TODO: this is not used anymore
-DEBUG_PARAMS = {
-    "slow_callback_duration": 0.1,
+# Shared web app for every plugin using BundledWebappPluginMixin
+# (each plugin is mounted under its own URL prefix).
+WEBAPP_PLUGINS_CONFIG = {
+    "host": "localhost",
+    "port": 8091,
 }
 
+# Remote admin plugin specific configuration; host/port of the server
+# come from WEBAPP_PLUGINS_CONFIG.
+# (REMOTE_ADMIN_WEBSOCKET_CONFIG / REMOTE_ADMIN_WEB_CONFIG are
+# deprecated and must not be defined here: only user settings may.)
 REMOTE_ADMIN_CONFIG = {
-    "host": "localhost",
-    "port": "8091",
-    # "ssl": None, # TODO: ? see what it was meant to be
-    "url": "",  # must be set when behind a reverse proxy
-}
-
-# TODO: being deprecated, see RemoteAdminPlugin's constructor
-REMOTE_ADMIN_WEBSOCKET_CONFIG = {
-    "host": "localhost",
-    "port": "8091",
-    "ssl": None,
-    "url": "",  # must be set when behind a reverse proxy
-}
-REMOTE_ADMIN_WEB_CONFIG = {
-    "host": "localhost",
-    "port": "8090",
-    "ssl": None,
+    # URL prefix; empty = served at the root of the shared web app.
+    # Set eg "/remoteadmin" to namespace it (behind a reverse proxy...).
+    "url": "",
 }
 
 HTTP_ENDPOINT_CONFIG = ["0.0.0.0", "8080"]
@@ -46,15 +36,20 @@ PERSISTENCE_CONFIG = {}
 
 RETRY_STORE_PATH = None
 
-PLUGINS = {
+# Loaded in order; override in the project settings module with
+# a full list (settings are immutable once loaded).
+PLUGINS = [
     "pypeman.plugins.plugins.ListPluginsPlugin",
     "pypeman.plugins.graph.GraphPlugin",
     "pypeman.plugins.settings.PrintSettingsPlugin",
-    # i dont like the name 'startproject' cause it seems to me like that
-    # would be an alias for 'start' (or the other way around, you get it)
-    # TODO: "pypeman.plugins.project.StartProjectPlugin",
     "pypeman.plugins.remoteadmin.RemoteAdminPlugin",
-}
+    "pypeman.plugins.proctime.ProcTimePlugin",
+]
+
+# Entries of PLUGINS (same dotted paths) to deactivate; lets a project
+# drop some default plugins without redefining the whole PLUGINS list.
+# An entry not found in PLUGINS is an error (typo protection).
+DISABLED_PLUGINS = []
 
 LOGGING = {
     "version": 1,

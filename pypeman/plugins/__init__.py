@@ -1,13 +1,16 @@
 """Home package for all the plugins bundled with pypeman.
 
-Plugins are added/removed through :obj:`pypeman.conf.settings`.
-For example the following lines could be put in the project user
-settings module:
+Plugins are added/removed through the `PLUGINS` setting (settings are
+immutable once loaded, so override the whole list). For example in the
+project user settings module:
 
-    from pypeman.conf import settings
-    settings.PLUGINS.add("...")
+    from pypeman.default_settings import PLUGINS
 
-Or specify the whole exact set/list of plugins you want:
+    PLUGINS = PLUGINS + [
+        "myproject.plugins.MyPlugin",
+    ]
+
+Or specify the whole exact list of plugins you want:
 
     PLUGINS = [
         "...",

@@ -670,6 +670,22 @@ class BaseChannel:
 
         :return: Processed message
         """
+        result = None
+        handle_exc = None
+        # fired before _handle stores the message so that a handler
+        # enriching `msg.meta` has its changes stored and processed
+        await events.msg_processing_start.fire_safely(channel=self, msg=msg)
+        try:
+            result = await self._handle(msg)
+            return result
+        except Exception as exc:
+            handle_exc = exc
+            raise
+        finally:
+            await events.msg_processing_end.fire_safely(
+                channel=self, msg=msg, result=result, exc=handle_exc)
+
+    async def _handle(self, msg):
         # Store message before any processing
         # TODO If store fails, do we stop processing ?
         # TODO Do we store message even if channel is stopped ?

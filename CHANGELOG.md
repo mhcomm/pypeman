@@ -1,4 +1,35 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
+## unreleased
+* CLI reworked: argparse + plugin architecture (`plugin_mgr`, `pypeman.plugins`).
+  Commands: `start`, `graph`, `listplugins`, `printsettings`, `shell`.
+  Removed: `stop`, `pyshell`, `debug`, `test`, `pytest`, daemon mode, `--reload`,
+  `--remote-admin`, the `pypeman_tool` script (stop pypeman with Ctrl-C).
+  Dropped dependencies: click, daemonlite, websockets, jsonrpcserver, jsonrpcclient,
+  requests, ipython.
+* `graph` now builds a structured representation of the channels first and gains
+  `--format {ascii,dot,json}`; the JSON output describes channels, nodes, fork/when/case
+  (with conditions) and the special end-node paths. `--special final` no longer crashes.
+* startproject revived as a standalone `pypeman-startproject` script.
+* Plugins can expose web endpoints through a shared web app (`BundledWebappPluginMixin`,
+  configured with `settings.WEBAPP_PLUGINS_CONFIG`).
+* Remote admin is served on the shared web app, under an optional URL prefix
+  (`REMOTE_ADMIN_CONFIG["url"]`, empty by default: the API stays at the root);
+  host/port come from `WEBAPP_PLUGINS_CONFIG`.
+  `REMOTE_ADMIN_WEBSOCKET_CONFIG`/`REMOTE_ADMIN_WEB_CONFIG` are deprecated (only read,
+  with a warning, when defined in the project settings). Legacy `pypeman.remoteadmin`
+  module removed.
+* Channels fire `events.msg_processing_start` / `events.msg_processing_end` around the
+  processing of every message. Handlers (typically registered by a plugin from its
+  `task_start`) may enrich `msg.meta` before the message store copy, and a raising
+  handler is logged instead of breaking the channel (`Event.fire_safely`).
+* New opt-in plugin `pypeman.plugins.proctime.ProcTimePlugin`, tagging every message
+  with the time its channel took to process it (`msg.meta["process_time"]`, also added
+  to the message store entry).
+* FIX settings loading no longer fails when the project leaves `RETRY_STORE_PATH = None`.
+* FIX remote admin ws RPC rejected every call with parameters; `view_msg` (and the
+  `/view` + `/preview` routes) crashed; `shell` host/port arguments were ignored and
+  several shell outputs were wrong.
+
 ## [0.6.6](https://github.com/mhcomm/pypeman/compare/0.6.5...0.6.6)
 * FileWriter node: Don't raise "group not exist" error at startup
 

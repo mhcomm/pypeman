@@ -39,6 +39,7 @@ setup(
         "pypeman.helpers",
         "pypeman.plugins",
         "pypeman.plugins.remoteadmin",
+        "pypeman.plugins.tests",
         "pypeman.tests",
         "pypeman.tests.test_app",
         "pypeman.tests.test_app_testing",
@@ -52,7 +53,9 @@ setup(
             "pypeman = pypeman.commands:main",
         ]
     },
-    test_suite="nose.collector",
+    scripts=[
+        "bin/pypeman-startproject",
+    ],
     install_requires=[
         "python-dateutil",
         "aiohttp",

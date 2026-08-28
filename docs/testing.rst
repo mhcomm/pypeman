@@ -10,7 +10,7 @@ a module visible from your project. To use pypeman specifics helpers, your test 
 
 To launch tests, just execute : ::
 
-    pypeman test
+    python -m pytest tests.py
 
 Specific helpers
 ----------------

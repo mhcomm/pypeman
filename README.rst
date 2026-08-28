@@ -42,13 +42,13 @@ Basic usage
 
 Create a fresh project with: ::
 
-    pypeman startproject <project_dirname>
+    pypeman-startproject <project_dirname>
 
 Above command will create a new directory with a "settings.py" file containing
 local configs and a "project.py" file with a channel example that
 you can uncomment to test pypeman. Follow the commented instructions then execute: ::
 
-    pypeman start # You can use the --reload option for auto-reloading on changes
+    pypeman start # Stop it with Ctrl-C
 
 Quick command overview
 -----------------------
@@ -57,15 +57,15 @@ To get command help and more details about commands: ::
 
     pypeman --help
 
-To create a fresh project (partially implemented): ::
+To create a fresh project: ::
 
-    pypeman startproject <project_name>
+    pypeman-startproject <project_name>
 
 To start pypeman: ::
 
     pypeman start
 
-To show a channel graph: ::
+To show a channel graph (as ascii art, graphviz dot or json): ::
 
-    pypeman graph
+    pypeman graph [--format {ascii,dot,json}]
 

@@ -1,0 +1,26 @@
+#!/usr/bin/env python
+"""Create a fresh pypeman project from the bundled templates."""
+
+from argparse import ArgumentParser
+
+from pypeman.pjt_templates import new_project
+
+
+def main():
+    parser = ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "dirname",
+        help="directory to create the new project in (must not exist yet)",
+    )
+    options = parser.parse_args()
+
+    try:
+        new_project(options.dirname)
+    except FileExistsError:
+        raise SystemExit(f"error: '{options.dirname}' already exists")
+    print(f"Project created in {options.dirname}.")
+    print("Edit settings.py to your needs, then run from there: pypeman start")
+
+
+if __name__ == "__main__":
+    main()

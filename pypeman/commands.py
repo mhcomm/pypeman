@@ -11,34 +11,22 @@ called when used as a module (eg `$ python -m pypeman.commands`).
 from __future__ import annotations
 
 import asyncio
-import importlib
 from argparse import ArgumentParser
 from argparse import Namespace
 from logging import getLogger
 
+from pypeman import __version__
 from pypeman.channels import all_channels
 from pypeman.conf import settings
 from pypeman.endpoints import all_endpoints
 from pypeman.plugin_mgr import manager
 from pypeman.plugins.base import CommandPluginMixin
 from pypeman.plugins.base import TaskPluginMixin
+from pypeman.project import load_project
+
+__all__ = ("load_project", "start", "amain", "main")
 
 logger = getLogger(__name__)
-
-
-def load_project():
-    """Helper to load the user project consistently.
-
-    This means:
-        * ensure settings are properly loaded
-        * import the project module
-        * logs; that's all folks
-    """
-    settings.raise_for_missing()
-
-    logger.debug(f"Loading ({settings.PROJECT_MODULE})...")
-    importlib.import_module(settings.PROJECT_MODULE)
-    logger.debug("Project loaded successfully.")
 
 
 async def start(_options: Namespace):
@@ -49,40 +37,46 @@ async def start(_options: Namespace):
     await asyncio.gather(*(it.start() for it in all_endpoints + all_channels))
     # TODO: check this point, ordering might matter (all endpoints then all channels)
 
-    # TODO/FIXME: after the line above, essentially all error within
-    #             this function are inhibited (? wth) wanna investigate
-
     logger.debug("Everything ready.")
-    try:
-        while ...:
-            await asyncio.sleep(43210)
-            logger.debug("Still live and kicking.")
-    except KeyboardInterrupt:
-        logger.debug("SIGINT!")
-    logger.debug("Loop was stopped.")
+    # TODO: graceful shutdown (loop signal handlers for SIGINT/SIGTERM
+    #       + an event instead of this idle loop) so the stop sequence
+    #       below actually runs; deliberately left for a dedicated rework
+    while ...:
+        await asyncio.sleep(43210)
+        logger.debug("Still live and kicking.")
 
     await asyncio.gather(*(it.stop() for it in all_endpoints + all_channels))
 
     await asyncio.gather(*(task.task_stop() for task in manager.get_plugins(TaskPluginMixin)))
 
 
+def enabled_plugins():
+    """`settings.PLUGINS` minus `settings.DISABLED_PLUGINS`.
+
+    An entry of `DISABLED_PLUGINS` not found in `PLUGINS` fails at
+    startup, like a typo in `PLUGINS` itself would.
+    """
+    unknown = [it for it in settings.DISABLED_PLUGINS if it not in settings.PLUGINS]
+    if unknown:
+        raise ValueError(f"DISABLED_PLUGINS entries not found in PLUGINS: {', '.join(unknown)}")
+    return [it for it in settings.PLUGINS if it not in settings.DISABLED_PLUGINS]
+
+
 async def amain():
-    parser = ArgumentParser()
+    parser = ArgumentParser(prog="pypeman")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subpar = parser.add_subparsers(dest="command", required=True)
 
-    # `start` isn't moved to a plugin (lucky little one)
-    subpar.add_parser("start").set_defaults(_func=start)
+    # `start` is the only command not provided through a plugin
+    subpar.add_parser("start", help="start the pypeman project").set_defaults(_func=start)
 
-    manager.register_plugins(*settings.PLUGINS)
-    # side-note: the 'discovery' of plugins relies solely on "settings.py"
-    #            and i dont like "settings.py"
-    # also there is a world in which we `parser.parse_known_args` early
-    # to collect a list of "--plugin <badibooda>" for example, or even
-    # "--no-plugin" to disable some, etc..
+    manager.register_plugins(*enabled_plugins())
     manager.instantiate_plugins()
 
     for com in manager.get_plugins(CommandPluginMixin):
-        com_parser = subpar.add_parser(com.command_name())
+        doc = (type(com).__doc__ or "").strip().splitlines()
+        help_line = doc[0] if doc else None
+        com_parser = subpar.add_parser(com.command_name(), help=help_line, description=help_line)
         com.command_parse(com_parser)
         com_parser.set_defaults(_func=com.command)
 
@@ -114,4 +108,7 @@ def main():
 
 
 if "__main__" == __name__:
-    asyncio.run(amain())
+    # running the file as a script has the same sys.path quirk as the
+    # console script (the script's directory replaces the CWD), so go
+    # through main() for its sys.path fixup
+    main()

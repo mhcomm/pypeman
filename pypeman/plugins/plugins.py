@@ -16,11 +16,7 @@ class ListPluginsPlugin(BasePlugin, CommandPluginMixin):
 
     @classmethod
     def command_parse(cls, parser: ArgumentParser):
-        parser.add_argument(
-            "--dot",
-            action="store_true",
-            help="generate output in graphviz 'dot' format",
-        )
+        pass  # no option nor argument
 
     async def command(self, options: Namespace):
         for it in manager.get_all_plugins():
@@ -28,6 +24,12 @@ class ListPluginsPlugin(BasePlugin, CommandPluginMixin):
             doc = cls.__doc__ or "(this plugin has no documentation)"
             print(f"{cls.__module__} {cls.__name__}:")
             print("   ", doc.strip())
+            print()
+
+        if settings.DISABLED_PLUGINS:
+            print("Deactivated by settings.DISABLED_PLUGINS:")
+            for path in settings.DISABLED_PLUGINS:
+                print("   ", path)
             print()
 
         # afterward, after listing the effective plugins,

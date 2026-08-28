@@ -4,26 +4,15 @@ Remote Admin
 Getting started
 ---------------
 
-Pypeman allow you to access remote instance two ways:
+Pypeman allows you to access a remote instance through a custom command
+shell.
 
-- With a python shell that give access to a client module.
-- With a custom command shell
-
-You need to add `--remote-admin` at pypeman startup to enable remote admin websocket.
-
-Python shell
-------------
-
-Python shell allow you to programatically administrate a remote pypeman instance through
-python command. You can start the python shell by executing: ::
-
-    pypeman pyshell
-
-It starts a ipython instance with a RemoteAdminClient instance named `client`. The client instance API is:
-
-.. autoclass:: pypeman.remoteadmin.RemoteAdminClient
-    :members:
-    :noindex:
+The remote admin server is provided by the `RemoteAdminPlugin` (enabled
+by default) and starts with `pypeman start`. It is served as part of the
+shared plugins web app: host and port are configured through
+`settings.WEBAPP_PLUGINS_CONFIG`, and an optional remote admin URL prefix
+through `settings.REMOTE_ADMIN_CONFIG["url"]` (empty by default: the API
+is served at the root, `http://localhost:8091/...`).
 
 Custom command shell
 --------------------
@@ -31,9 +20,9 @@ Custom command shell
 The custom command shell has simple commands to ease administration for rapid tasks but with less
 possibility.
 
-To launch remote shell, execute: ::
+To launch the remote shell, execute: ::
 
-    pypeman shell
+    pypeman shell [host] [port]
 
 You can show command help this way: ::
 

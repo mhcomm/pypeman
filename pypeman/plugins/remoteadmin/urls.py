@@ -1,13 +1,15 @@
 """URL exposed by the remoteadmin web server plugin task.
 
-:func:`init_urls` adds the request handlers that re-expose the remote
-methods from :mod:`methods` in two ways:
+:func:`make_routes` builds the request handlers that re-expose the
+remote methods from :mod:`methods` in two ways:
     * normal direct HTTP(s) (GET only) endpoints;
     * a websocket-based endpoint which :mod:`shell` delegates to.
 
 The websocket part is handled by the private (but mentionned for doc
 purpose) :func:`_rpc_url_handler` which implements WS JSON RPC server.
 """
+
+from __future__ import annotations
 
 import inspect
 import json
@@ -19,6 +21,26 @@ from aiohttp import web
 from pypeman.plugins.remoteadmin import methods
 
 logger = getLogger(__name__)
+
+
+def _check_params(rfn, params):
+    """Validate JSON RPC params against the remote procedure.
+
+    The functools.wraps chain of `_remote_proc` is unwrapped to
+    inspect the actual method's signature: every keyword-only argument
+    without a default is required, and unknown names are only allowed
+    when the method has a `**kwargs`.
+
+    :return: (valid, list of the method's keyword-only args)
+    """
+    spec = inspect.getfullargspec(inspect.unwrap(rfn))
+    required = set(spec.kwonlyargs) - set(spec.kwonlydefaults or {})
+    valid = (
+        isinstance(params, dict)
+        and required <= params.keys()
+        and (spec.varkw is not None or params.keys() <= set(spec.kwonlyargs))
+    )
+    return valid, spec.kwonlyargs
 
 
 async def _rpc_url_handler(request: web.Request):
@@ -39,11 +61,11 @@ async def _rpc_url_handler(request: web.Request):
     await ws.prepare(request)
     logger.info("websocket connection established")
 
-    async def err(code: int, message: str, data: ..., exc: BaseException | None = None):
+    async def err(code: int, message: str, data: object, exc: BaseException | None = None):
         """log + answer with error
         if exc is given, data must be a dict, cause we'll add ['error']
         """
-        logger.error(f"(in rpc processing) {message} %s", data, exc_info=exc)
+        logger.error("(in rpc processing) %s %s", message, data, exc_info=exc)
         if exc is not None:
             data["error"] = str(exc)
         await ws.send_json({"error": {"code": code, "message": message, "data": data}})
@@ -66,13 +88,16 @@ async def _rpc_url_handler(request: web.Request):
                 continue
 
             params = rpc["params"]
-            expects = inspect.getfullargspec(rfn).kwonlyargs
-            if not isinstance(params, dict) or set(expects) < params.keys():
+            valid, expects = _check_params(rfn, params)
+            if not valid:
                 await err(-32602, "Invalid params", {"given": params, "expects": expects})
                 continue
 
             try:
                 res = await rfn(**params)
+            except LookupError as e:
+                await err(-32000, f"Not found in {rpc['method']}", {"params": params}, e)
+                continue
             except BaseException as e:
                 await err(-32603, f"Internal error in {rpc['method']}", {"params": params}, e)
                 continue
@@ -85,22 +110,22 @@ async def _rpc_url_handler(request: web.Request):
     return ws
 
 
-def init_urls(app: web.Application, prefix: str):
+def make_routes() -> list[web.RouteDef]:
     """Create the pypeman remoteadmin routing.
 
-    Please see the module-level documentation for actual detail.
+    Paths are relative to the plugin's URL prefix (the webapp bundle
+    mounts them). Please see the module-level documentation for
+    actual detail.
     """
-    app.add_routes(
-        [
-            # web API:
-            web.get(prefix + "/channels", methods.list_channels),
-            web.get(prefix + "/channels/{channelname}/start", methods.start_channel),
-            web.get(prefix + "/channels/{channelname}/stop", methods.stop_channel),
-            web.get(prefix + "/channels/{channelname}/messages", methods.list_msgs),
-            web.get(prefix + "/channels/{channelname}/messages/{message_id}/replay", methods.replay_msg),
-            web.get(prefix + "/channels/{channelname}/messages/{message_id}/view", methods.view_msg),
-            web.get(prefix + "/channels/{channelname}/messages/{message_id}/preview", methods.view_msg),
-            # websocket:
-            web.get(prefix + "/", _rpc_url_handler),
-        ]
-    )
+    return [
+        # web API:
+        web.get("/channels", methods.list_channels),
+        web.get("/channels/{channelname}/start", methods.start_channel),
+        web.get("/channels/{channelname}/stop", methods.stop_channel),
+        web.get("/channels/{channelname}/messages", methods.list_msgs),
+        web.get("/channels/{channelname}/messages/{message_id}/replay", methods.replay_msg),
+        web.get("/channels/{channelname}/messages/{message_id}/view", methods.view_msg),
+        web.get("/channels/{channelname}/messages/{message_id}/preview", methods.preview_msg),
+        # websocket:
+        web.get("/", _rpc_url_handler),
+    ]

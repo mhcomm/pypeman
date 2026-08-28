@@ -73,8 +73,47 @@ Events
 .. automodule:: pypeman.events
     :members:
 
+Plugins
+-------
+
+Plugin manager
+..............
+
+.. automodule:: pypeman.plugin_mgr
+    :members:
+
+Base classes
+............
+
+.. automodule:: pypeman.plugins.base
+    :members:
+
+Channel statistics
+..................
+
+.. automodule:: pypeman.plugins.stats
+    :members:
+
+Health
+......
+
+.. automodule:: pypeman.plugins.health
+    :members:
+
+Metrics
+.......
+
+.. automodule:: pypeman.plugins.metrics
+    :members:
+
+Message meta extender
+.....................
+
+.. automodule:: pypeman.plugins.msgmetaextender
+    :members:
+
 Remote admin
-------------
+............
 
 .. automodule:: pypeman.plugins.remoteadmin.methods
     :members:

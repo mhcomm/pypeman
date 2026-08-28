@@ -108,6 +108,18 @@ LOGGING = {
 #     "url": "/remoteadmin",
 # }
 
+# Health report URL prefix on the shared web app, and how recent a
+# channel error must be (seconds) to degrade the overall status.
+# HEALTH_CONFIG = {
+#     "url": "/health",
+#     "degraded_error_window": 300,
+# }
+
+# Metrics (JSON stats + Prometheus) URL prefix on the shared web app.
+# METRICS_CONFIG = {
+#     "url": "/metrics",
+# }
+
 # Deactivate some default plugins (dotted paths from
 # pypeman.default_settings.PLUGINS) without redefining the whole list.
 # DISABLED_PLUGINS = [

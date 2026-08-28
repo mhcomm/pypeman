@@ -238,6 +238,8 @@ class RetryStoreTests(TestCase):
         assert msgs_retry_store[0]["meta"]["nodename"] == init_node.name
         assert chan.status == BaseChannel.PAUSED
         assert retry_store.state == RetryFileMsgStore.RETRY_MODE
+        assert retry_store.retry_mode_since is not None
+        assert retry_store.retry_attempts == 0
         assert forked_chan.status == BaseChannel.WAITING
         assert conditional_chan.status == BaseChannel.WAITING
 
@@ -255,6 +257,7 @@ class RetryStoreTests(TestCase):
         assert msgs_retry_store[0]["meta"]["nodename"] == init_node.name
         assert chan.status == BaseChannel.PAUSED
         assert retry_store.state == RetryFileMsgStore.RETRY_MODE
+        assert retry_store.retry_attempts == 1
         assert forked_chan.status == BaseChannel.WAITING
         assert conditional_chan.status == BaseChannel.WAITING
         stored_msg = self.loop.run_until_complete(msgstore.get(id=msg.uuid))
@@ -397,6 +400,8 @@ class RetryStoreTests(TestCase):
         assert cnt_msgs_retrystore == 0
         assert chan.status == BaseChannel.WAITING
         assert retry_store.state == RetryFileMsgStore.STOPPED
+        assert retry_store.retry_mode_since is None
+        assert retry_store.retry_attempts > 1
         assert forked_chan.status == BaseChannel.WAITING
         assert conditional_chan.status == BaseChannel.WAITING
         stored_msg = self.loop.run_until_complete(msgstore.get(id=msg.uuid))

@@ -1,7 +1,7 @@
 """Plugin tagging the messages with their processing time.
 
-Not enabled by default: add `"pypeman.plugins.proctime.ProcTimePlugin"`
-to `settings.PLUGINS` to use it.
+Enabled by default; deactivate it by adding
+`"pypeman.plugins.proctime.ProcTimePlugin"` to `settings.DISABLED_PLUGINS`.
 """
 
 from __future__ import annotations

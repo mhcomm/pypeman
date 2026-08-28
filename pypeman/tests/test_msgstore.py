@@ -319,6 +319,41 @@ async def test_span_select_many(factory: MessageStoreFactory):
     await tester(msgs[2].timestamp, msgs[4].timestamp, slice(2, 4))
 
 
+async def test_get_message_metas(factory: MessageStoreFactory):
+    """Meta-only span query :meth:`MessageStore.get_message_metas`:
+    metas come back in timestamp order without deserializing messages.
+    """
+    store = factory.get_store("a")
+    await store.start()
+
+    # empty store short-circuits (contract: _span_select not called)
+    assert await store.get_message_metas() == []
+
+    msgs = [Message(payload=char) for char in "abc"]
+    first_dt = msgs[0].timestamp
+    for shift, msg in enumerate(msgs[1:], start=1):
+        msg.timestamp = first_dt + timedelta(shift)
+    ids = [await store.store(msg) for msg in msgs]
+    await store.add_message_meta_infos(ids[1], "state", Message.ERROR)
+    await store.add_message_meta_infos(ids[1], "process_time", 0.25)
+
+    metas = await store.get_message_metas()
+    assert len(metas) == 3
+    assert [m["state"] for m in metas] == [Message.PENDING, Message.ERROR, Message.PENDING]
+    assert metas[1]["process_time"] == 0.25
+
+    # half-open and closed bounds (start inclusive, end exclusive)
+    assert len(await store.get_message_metas(start_dt=msgs[1].timestamp)) == 2
+    assert len(await store.get_message_metas(end_dt=msgs[1].timestamp)) == 1
+    assert len(await store.get_message_metas(msgs[0].timestamp, msgs[2].timestamp)) == 2
+
+    # empty or backward span is refused
+    with pytest.raises(ValueError):
+        await store.get_message_metas(msgs[1].timestamp, msgs[0].timestamp)
+    with pytest.raises(ValueError):
+        await store.get_message_metas(first_dt, first_dt)
+
+
 # for every search tests: the tested function is in base :class:`MessageStore`
 # which is abstract; :meth:`search` is not to be overriden, so we can pick any
 # (lightweight and easily cleaned) concrete implementing class

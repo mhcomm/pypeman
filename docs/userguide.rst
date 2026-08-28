@@ -144,10 +144,41 @@ messages without changing the channels themselves.
 Handlers may be sync or async and are awaited in the message path, so they must
 be quick; an handler raising is logged and does not break the processing.
 :class:`pypeman.plugins.proctime.ProcTimePlugin` is a working example, tagging
-every message with the time its channel took to process it (enable it by adding
-``"pypeman.plugins.proctime.ProcTimePlugin"`` to ``settings.PLUGINS``).
+every message with the time its channel took to process it (enabled by default,
+deactivate through ``settings.DISABLED_PLUGINS``).
 
 See :mod:`pypeman.events` for the list of events and their arguments.
+
+Health and metrics
+------------------
+
+Two default plugins expose the state of a running pypeman on the shared
+plugins web app (``settings.WEBAPP_PLUGINS_CONFIG``, ``localhost:8091`` by
+default); both can be deactivated through ``settings.DISABLED_PLUGINS``.
+
+:class:`pypeman.plugins.health.HealthPlugin` answers ``GET /health`` (prefix
+configurable via ``HEALTH_CONFIG["url"]``) with a JSON document: overall
+``ok``/``degraded`` status (degraded when a channel is paused or errored within
+``HEALTH_CONFIG["degraded_error_window"]`` seconds), pypeman version, process
+info (pid, uptime, memory), event-loop health, and per-channel status,
+in-flight processing time, retry state, store count and last message/error
+times. ``GET /health/channels/<name>`` answers for a single channel.
+
+:class:`pypeman.plugins.metrics.MetricsPlugin` answers
+``GET /metrics/channels[/<name>]`` (prefix configurable via
+``METRICS_CONFIG["url"]``) with per-channel JSON stats: message and error
+counts and mean/min/max processing time since start; with ``start_dt`` /
+``end_dt`` ISO query parameters, it also aggregates the channel's message
+store metas over that time range (counts by state, stats of the
+``process_time`` meta written by ProcTimePlugin, throughput). ``GET /metrics``
+serves the live counters and gauges in the Prometheus text format, ready to
+scrape; ``GET /metrics/live`` serves the exact same snapshot as JSON.
+
+Both read live counters from a shared event-fed collector
+(:mod:`pypeman.plugins.stats`): those figures start from zero at each
+``pypeman start`` and do not include retry replays (retry data comes from the
+channels' retry stores; time-range stats come from the message stores and
+survive restarts).
 
 Message Stores
 --------------

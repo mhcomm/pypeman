@@ -29,6 +29,21 @@ REMOTE_ADMIN_CONFIG = {
     "url": "",
 }
 
+# Health plugin specific configuration; host/port of the server come
+# from WEBAPP_PLUGINS_CONFIG. The url must not collide with another
+# plugin of the shared web app (eg REMOTE_ADMIN_CONFIG["url"]).
+HEALTH_CONFIG = {
+    "url": "/health",
+    # a channel error more recent than this many seconds makes the
+    # overall status "degraded"; 0 disables the criterion
+    "degraded_error_window": 300,
+}
+
+# Metrics plugin specific configuration; same remarks as HEALTH_CONFIG.
+METRICS_CONFIG = {
+    "url": "/metrics",
+}
+
 HTTP_ENDPOINT_CONFIG = ["0.0.0.0", "8080"]
 
 PERSISTENCE_BACKEND = None
@@ -44,6 +59,8 @@ PLUGINS = [
     "pypeman.plugins.settings.PrintSettingsPlugin",
     "pypeman.plugins.remoteadmin.RemoteAdminPlugin",
     "pypeman.plugins.proctime.ProcTimePlugin",
+    "pypeman.plugins.health.HealthPlugin",
+    "pypeman.plugins.metrics.MetricsPlugin",
 ]
 
 # Entries of PLUGINS (same dotted paths) to deactivate; lets a project

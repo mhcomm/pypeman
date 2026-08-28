@@ -63,8 +63,10 @@ class MsgMetaExtenderPlugin(BasePlugin, TaskPluginMixin):
       the returned message (absent when the processing raised or
       returned a generator);
     * `ctx_size` — total byte size of the payloads saved in the message
-      context (`msg.add_context`) during processing, unmeasurable ones
-      ignored.
+      context (`msg.add_context`), unmeasurable ones ignored. Measured
+      on the returned message; when the processing raised or ended on a
+      yielding node, only the contexts already present at channel entry
+      are counted.
 
     Reserved store-meta keys: the seven names above are written to the
     store entry by this plugin, so a project must not use any of them as
@@ -128,7 +130,10 @@ class MsgMetaExtenderPlugin(BasePlugin, TaskPluginMixin):
             if output_size is not None:
                 metas[self.META_OUTPUT_SIZE] = output_size
 
-        # contexts accumulate during processing, so measure them at exit
+        # Contexts accumulate during processing, so measure them at exit.
+        # The channel processes a copy of `msg`, so with no result message
+        # (the processing raised, or ended on a yielding node) the contexts
+        # added on the way are unreachable: only the entry ones are counted.
         ctx = getattr(result, "ctx", None)
         if not isinstance(ctx, dict):
             ctx = getattr(msg, "ctx", None)

@@ -5,6 +5,7 @@ import pytest
 from pypeman import events
 from pypeman import msgstore
 from pypeman.channels import BaseChannel
+from pypeman.nodes import BaseNode
 from pypeman.nodes import Sleep
 from pypeman.plugins.msgmetaextender import MsgMetaExtenderPlugin
 from pypeman.plugins.msgmetaextender import payload_size
@@ -94,6 +95,28 @@ async def test_error_path_stores_input_metas_only(plugin):
     assert "output_size" not in stored_meta
     assert "output_type" not in stored_meta
     assert not plugin._inflight  # entry dropped, no leak
+
+
+@pytest.mark.usefixtures("clear_graph")
+async def test_ctx_size_on_error_path_counts_entry_contexts_only(plugin):
+    """The contexts added by the nodes are unreachable when handling raised."""
+    class CtxAddingExceptNode(BaseNode):
+        def process(self, msg):
+            msg.add_context("added_on_the_way", generate_msg(message_content=b"0" * 100))
+            raise TstException()
+
+    chan = BaseChannel(
+        name="msgmetaext_ctx_chan", message_store_factory=msgstore.MemoryMessageStoreFactory())
+    chan.add(CtxAddingExceptNode(name="msgmetaext_ctx_node"))
+    await chan.start()
+
+    msg = generate_msg(message_content=b"123")
+    msg.add_context("at_entry", generate_msg(message_content=b"1234567890"))
+    with pytest.raises(TstException):
+        await chan.handle(msg)
+
+    stored_meta = await chan.message_store.get_message_meta_infos(msg.store_id)
+    assert stored_meta["ctx_size"] == 10  # the 100 bytes added by the node are lost
 
 
 async def test_task_stop_unsubscribes():

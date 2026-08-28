@@ -4,7 +4,7 @@ The script entry point is :func:`pypeman.commands.main`, this is the
 function called directly when invoking `$ pypeman` after `$ pip install`
 -ing it.
 
-:func:`pypeman.command.amain` is the actuall main function, which is
+:func:`pypeman.commands.amain` is the actuall main function, which is
 called when used as a module (eg `$ python -m pypeman.commands`).
 """
 

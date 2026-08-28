@@ -62,7 +62,6 @@ class RetryStoreTests(TestCase):
         # Avoid calling already tested channels
         channels.all_channels.clear()
         setup_settings(SETTINGS_MODULE)  # adapt config
-        conf.settings.init_settings()
 
     def tearDown(self):
         super().tearDown()

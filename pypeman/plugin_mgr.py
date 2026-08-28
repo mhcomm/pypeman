@@ -1,96 +1,79 @@
+"""Plugin manager module.
+
+Importing this module constructs :obj:`manager` (this is a no-op).
+
+Pypeman's plugin manager has a straightforward use:
+    * :meth:`PluginManager.register_plugins` any times;
+    * until :meth:`PluginManager.instantiate_plugins` once;
+    * then :meth:`PluginManager.get_module` to select by mixin.
+
+Every plugins must derive from :class:`BasePlugin`. However by itself
+it will not bring anything (its constructor is called and that's it).
+
+The mixin classes defined in :mod:`pypeman.plugins.base` make it
+possible to hook in at various stages of the application's life cycle.
 """
-The Plugin Manager shall handle pypeman plugins.
 
-The role of pypeman plugins is to allow inserting plugins, which don't really
-make part of the pypeman graph, but are intended for debugging, monitoring
-or any other code, that shall be present along the pypeman code.
-
-It can also encourage development of plugins outside of pypeman, that can lateron
-be merged into to pypeman.contrib.plugins or pypeman.plugins.
-"""
-
-import logging
+from __future__ import annotations
 
 from importlib import import_module
+from logging import getLogger
+from typing import TypeVar
 
-from pypeman.conf import settings
+from pypeman.plugins.base import BasePlugin
+from pypeman.plugins.base import MixinClasses_
+
+logger = getLogger(__name__)
 
 
-logger = logging.getLogger(__name__)
-
-
-class PluginManager():
+class PluginManager:
     def __init__(self):
-        self.imported = False
-        self.plugin_classes = []  # list of plugin modules
-        self.plugins = []
-        self.loop = None
+        self._registered_classes: set[type[BasePlugin]] = set()
+        self._instances: list[BasePlugin] | None = None
 
-    def set_loop(self, loop):
-        self.loop = loop
-        for plugin in self.plugins:
-            plugin.set_loop(loop)
+    def register_plugins(self, *plugins: str):
+        """Register one or more plugins.
 
-    def import_plugins(self):
+        This operation is invalid after :meth:`instantiate_plugins`.
         """
-        import plugin modules and store the classes in a list
-        """
-        if self.imported:
-            return
-        for plugin_name in settings.PLUGINS:
-            module_name, cls = plugin_name.rsplit(".", 1)
+        assert self._instances is None, f"invalid operation: late plugin registery {plugins}"
+
+        for plugin_path in plugins:
+            module_name, _, cls_name = plugin_path.rpartition(".")
             module = import_module(module_name)
-            plugin = getattr(module, cls)
-            self.plugin_classes.append(plugin)
+            cls = getattr(module, cls_name)
+            # being extra-defensive here as we are importing blind
+            assert isinstance(cls, type) and BasePlugin in cls.mro(), f"{cls!r} is not a plugin class"
+            self._registered_classes.add(cls)
 
-    def init_plugins(self):
-        """
-        initialize all plugins
-        """
-        # shutdown previous plugins if existing
-        if self.plugins:
-            for plugin in self.plugins:
-                if plugin.status == plugin.STARTED:
-                    plugin.do_stop()
-            for plugin in self.plugins:
-                if plugin.status == plugin.STOPPED:
-                    plugin.do_destroy()
+    def instantiate_plugins(self):
+        """Instantiate the various plugin classes.
 
-        # instantiate plugins
-        self.plugins = []
-        for plugin_cls in self.plugin_classes:
-            self.plugins.append(plugin_cls())
+        This /only/ instantiate! No plugin-specific thing is performed
+        outside of potential `__init__`s.
 
-    def ready_plugins(self):
+        This operation becomes invalid after it has been performed once.
         """
-        call ready functions for all plugins.
-        We know now, that *all* plugins are already
-        instantiated
-        """
-        for plugin, plugin_cls in zip(self.plugins, self.plugin_classes):
-            logger.info("calling ready for plugin %s", repr(plugin_cls))
-            plugin.do_ready()
+        assert self._instances is None, "invalid operation: instantiate called again"
+        self._instances = [cls() for cls in self._registered_classes]
 
-    def start_plugins(self):
-        """
-        call the start function for each plugin
-        """
-        loop = self.loop
-        for plugin, plugin_cls in zip(self.plugins, self.plugin_classes):
-            logger.info("starting plugin %s", repr(plugin_cls))
-            loop.run_until_complete(plugin.do_start())
-            # start whatever the plugin wants to start
-            for to_start in plugin.to_start:
-                loop.run_until_complete(to_start)
+    _MixinTypeVar_ = TypeVar("_MixinTypeVar_", bound=MixinClasses_)
 
-    def stop_plugins(self):
+    def get_plugins(self, of_type: type[_MixinTypeVar_]):
+        """Retrieve all the plugin instances of a certain type.
+
+        This is of course incorrect until :meth:`instantiate_plugins`.
         """
-        call the stop function for each plugin
+        assert self._instances is not None, "invalid operation: instantiate not called"
+        return (it for it in self._instances if isinstance(it, of_type))
+
+    def get_all_plugins(self):
+        """Retrieve all the plugin instances. See also `get_plugins`.
+
+        This is of course incorrect until :meth:`instantiate_plugins`.
         """
-        loop = self.loop
-        for plugin, plugin_cls in zip(self.plugins, self.plugin_classes):
-            logger.info("stopping plugin %s", repr(plugin_cls))
-            loop.run_until_complete(plugin.do_stop())
+        assert self._instances is not None, "invalid operation: instantiate not called"
+        return iter(self._instances)
 
 
 manager = PluginManager()

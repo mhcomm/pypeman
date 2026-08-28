@@ -9,8 +9,6 @@ import os
 import threading
 import time
 
-from importlib import reload
-
 from pypeman import channels
 from pypeman import endpoints
 from pypeman import nodes
@@ -21,32 +19,21 @@ logger = logging.getLogger(__name__)
 
 def setup_settings(module):
     """ helper allows to have specific settings for a test
+
+    Reload the settings singleton in place: modules like channels.py
+    keep a reference to it from import time, so reloading pypeman.conf
+    (which would create a new Settings object) would not reach them.
     """
     os.environ['PYPEMAN_SETTINGS_MODULE'] = module
-    import pypeman.default_settings
-    import pypeman.conf
-    reload(pypeman.default_settings)
-    reload(pypeman.conf)
-    import pypeman.tests.test_app.settings as tst_settings
-    reload(tst_settings)
-    from pypeman.conf import settings  # noqa: F401
+    from pypeman.conf import settings
+    settings.__dict__["SETTINGS_MODULE"] = module  # settings are immutable, bypass
+    settings.init_settings()
 
 
 def teardown_settings():
     """ helper allowing to reset settings to default
     """
-    os.environ['PYPEMAN_SETTINGS_MODULE'] = 'pypeman.tests.settings.test_settings_default'
-
-    # TODO: try later with del sys.modules[module_name]
-    import logging
-    logger = logging.getLogger()  # noqa: F841
-    import pypeman.default_settings
-    reload(pypeman.default_settings)
-    try:
-        import pypeman.conf
-        reload(pypeman.conf)  # ########
-    except ImportError:
-        pass
+    setup_settings('pypeman.tests.settings.test_settings_default')
 
 
 default_message_content = """{"test":1}"""

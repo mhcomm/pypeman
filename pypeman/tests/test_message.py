@@ -2,10 +2,9 @@ import logging
 
 from unittest import mock
 
-from .common import generate_msg
-
 from pypeman.message import Message
 from pypeman.test import TearDownProjectTestCase as TestCase
+from pypeman.tests.common import generate_msg
 
 
 class MessageTests(TestCase):

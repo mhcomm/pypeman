@@ -56,8 +56,8 @@ from typing import TypedDict
 import aiosqlite
 from dateutil import parser as dateutilparser
 
-from .errors import PypemanConfigError
-from .message import Message
+from pypeman.errors import PypemanConfigError
+from pypeman.message import Message
 
 
 logger = logging.getLogger(__name__)

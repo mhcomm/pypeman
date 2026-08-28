@@ -10,12 +10,12 @@ import warnings
 from pathlib import Path
 
 from pypeman import exceptions
-from pypeman import conf
 from pypeman import message, msgstore, events
-from pypeman.exceptions import EndChanProcess
-from pypeman.exceptions import Dropped
-from pypeman.exceptions import Rejected
+from pypeman.conf import settings
 from pypeman.exceptions import ChannelStopped
+from pypeman.exceptions import Dropped
+from pypeman.exceptions import EndChanProcess
+from pypeman.exceptions import Rejected
 from pypeman.helpers.itertools import flatten
 from pypeman.helpers.sleeper import Sleeper
 from pypeman.retry import RetryFileMsgStore
@@ -136,11 +136,11 @@ class BaseChannel:
             msgstore.NullMessageStoreFactory,
         )
         self.message_store = self.message_store_factory.get_store(self.name)
-        if conf.SETTINGS_IMPORTED:
-            retry_store_path = conf.settings.RETRY_STORE_PATH
-        else:
+        try:
+            retry_store_path = settings.RETRY_STORE_PATH
+        except BaseException:
             logger.warning(
-                "Caution, settings not imported before chan init"
+                "Caution, settings not imported before chan init, or no RETRY_STORE_PATH"
             )
             retry_store_path = None
         if retry_store_path is not None:
@@ -894,75 +894,6 @@ class BaseChannel:
                     chan_dict['subchannels'] = channel.subchannels()
                     res.append(chan_dict)
         return res
-
-    def graph(self, prefix='', dot=False):
-        """
-        Generate a text graph for this channel.
-        """
-        # TODO: ask to klaus how to implement and show endnodes in the graph
-        for node in self._nodes:
-            if isinstance(node, SubChannel):
-                yield prefix + '|—\\ (%s)' % node.name
-                for entry in node.graph(prefix='|  ' + prefix):
-                    yield entry
-            elif isinstance(node, ConditionSubChannel):
-                yield prefix + '|?\\ (%s)' % node.name
-                for entry in node.graph(prefix='|  ' + prefix):
-                    yield entry
-                yield prefix + '|  -> Out'
-            elif isinstance(node, Case):
-                for i, c in enumerate(node.cases):
-                    yield prefix + '|c%s\\' % i
-                    for entry in c[1].graph(prefix='|  ' + prefix):
-                        yield entry
-                    yield prefix + '|<--'
-            else:
-                yield prefix + '|-' + node.name
-
-    def graph_dot(self, end=''):
-        """
-        Generate a compatible dot graph for this channel.
-        """
-        after = []
-        cases = None
-
-        yield '#---'
-
-        previous = self.name
-
-        if end == '':
-            end = self.name
-
-        for node in self._nodes:
-            if isinstance(node, SubChannel):
-                yield '"%s"->"%s";' % (previous, node.name)
-                after.append((None, node))
-
-            elif isinstance(node, ConditionSubChannel):
-                yield '"%s"->"%s" [style=dotted];' % (previous, node.name)
-                after.append((end, node))
-
-            elif isinstance(node, Case):
-                cases = [c[1] for c in node.cases]
-
-            else:
-                if cases:
-                    for c in cases:
-                        yield '"%s"->"%s" [style=dotted];' % (previous, c.name)
-                        after.append((node.name, c))
-                    cases = None
-
-                else:
-                    yield '"%s"->"%s";' % (previous, node.name)
-
-                previous = node.name
-
-        if end:
-            yield '"%s"->"%s";' % (previous, end)
-
-        for end, sub in after:
-            for entry in sub.graph_dot(end=end):
-                yield entry
 
     def _init_end_nodes(self, *end_nodes):
         """

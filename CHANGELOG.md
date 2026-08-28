@@ -22,7 +22,10 @@
   optional `start_dt`/`end_dt` time-range stats computed from the message store metas;
   `GET /metrics` serves the Prometheus text format and `GET /metrics/live` the same
   live snapshot as JSON. Configured with `METRICS_CONFIG` (`url` prefix).
-* `RetryFileMsgStore` tracks `retry_attempts` and `retry_mode_since`;
+* `RetryFileMsgStore` tracks `retry_attempts` (failed replays since it entered retry
+  mode, back to 0 once the backlog is drained) and `retry_mode_since` (recovered from
+  the oldest still deferred message when a restart finds a non-empty store, so a
+  long-stuck channel stays visible across restarts);
   `MessageStore.get_message_metas(start_dt, end_dt)` returns store metas over a time
   span without deserializing the messages;
   `MessageStore.update_message_meta_infos(id, infos)` writes several meta infos in one

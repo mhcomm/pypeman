@@ -592,3 +592,27 @@ async def test_search_filter_order_group():
             "okiuki": {1},
         },
     )
+
+
+async def test_get_message_metas_skips_corrupt_meta():
+    """A lost or truncated `.meta` sidecar must not sink the whole span
+    query (it would 500 every /metrics range query for that channel).
+    """
+    with TemporaryDirectory() as tmpdir:
+        store = msgstore.FileMessageStoreFactory(tmpdir).get_store("a")
+        await store.start()
+
+        msgs = [Message(payload=char) for char in "abc"]
+        first_dt = msgs[0].timestamp
+        for shift, msg in enumerate(msgs[1:], start=1):
+            msg.timestamp = first_dt + timedelta(shift)
+        ids = [await store.store(msg) for msg in msgs]
+
+        assert len(await store.get_message_metas()) == 3
+
+        # a lost sidecar (LookupError) and a crash-truncated one (JSONDecodeError)
+        store._id2file(ids[0]).with_suffix(".meta").unlink()
+        store._id2file(ids[1]).with_suffix(".meta").write_text('{"state": "pen')
+
+        metas = await store.get_message_metas()
+        assert [m["state"] for m in metas] == [Message.PENDING]

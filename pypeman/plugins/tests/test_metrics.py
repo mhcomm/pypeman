@@ -250,3 +250,11 @@ def test_metrics_custom_url_and_validation(plugin_env, monkeypatch):
                 bad_plugin.webapp_urls()
 
     asyncio.run(scenario())
+
+
+def test_aggregate_metas_buckets_stateless_metas():
+    """A meta with no state must not become a JSON `null` key."""
+    from pypeman.plugins.metrics import _aggregate_metas
+
+    agg = _aggregate_metas([{"state": "processed"}, {}, {"state": None}])
+    assert agg["by_state"] == {"processed": 1, "unknown": 2}

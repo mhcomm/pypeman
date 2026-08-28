@@ -76,7 +76,7 @@ def _aggregate_metas(metas: list[dict]) -> dict:
     by_state: dict[str, int] = {}
     times = []
     for meta in metas:
-        state = meta.get("state")
+        state = meta.get("state") or "unknown"  # a stateless meta would json-encode as null
         by_state[state] = by_state.get(state, 0) + 1
         try:
             times.append(float(meta[MsgMetaExtenderPlugin.META_PROCESS_TIME]))

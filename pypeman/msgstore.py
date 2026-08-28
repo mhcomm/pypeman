@@ -418,8 +418,20 @@ class MessageStore(ABC):
         :param info: Info value.
         :raise LookupError: When the id does not name a stored message.
         """
+        await self.update_message_meta_infos(id, {meta_info_name: info})
+
+    async def update_message_meta_infos(self, id: str, infos: dict[str, Any]):
+        """Add several store-related meta infos to a message at once.
+
+        Cheaper than repeated :meth:`add_message_meta_infos` calls: the
+        stored meta dict is read and written back only once.
+
+        :param id: Store-dependant id.
+        :param infos: Meta infos to create/update.
+        :raise LookupError: When the id does not name a stored message.
+        """
         meta = await self._get_storemeta(id)
-        meta[meta_info_name] = info
+        meta.update(infos)
         await self._set_storemeta(id, meta)
 
     async def get_message_meta_infos(self, id: str, meta_info_name: str | None = None) -> Any | None:

@@ -80,7 +80,7 @@ class StatsCollector:
         self.loop_lag = 0.0
         self._stats: dict[str, ChannelStats] = {}
         # (channel name, message uuid) -> (perf_counter, time.time());
-        # same correlation key as ProcTimePlugin
+        # same correlation key as MsgMetaExtenderPlugin
         self._inflight: dict[tuple[str, str], tuple[float, float]] = {}
 
     async def start_once(self):

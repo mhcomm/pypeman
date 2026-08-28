@@ -166,6 +166,20 @@ async def test_store_state_management(factory: MessageStoreFactory):
     assert await store.get_message_state(id) == Message.PROCESSED
 
 
+async def test_update_message_meta_infos(factory: MessageStoreFactory):
+    "Bulk meta write: one call for several keys, other keys survive."
+    store = factory.get_store("a")
+    await store.start()
+
+    id = await store.store(Message())
+    await store.update_message_meta_infos(id, {"process_time": 0.25, "input_size": 42})
+
+    meta = await store.get_message_meta_infos(id)
+    assert meta["process_time"] == 0.25
+    assert meta["input_size"] == 42
+    assert meta["state"] == Message.PENDING
+
+
 async def test_double_store_message(factory: MessageStoreFactory):
     "By double store I mean twice the same, (same uuid)."
     store = factory.get_store("a")

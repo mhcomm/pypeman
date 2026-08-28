@@ -24,7 +24,9 @@
   live snapshot as JSON. Configured with `METRICS_CONFIG` (`url` prefix).
 * `RetryFileMsgStore` tracks `retry_attempts` and `retry_mode_since`;
   `MessageStore.get_message_metas(start_dt, end_dt)` returns store metas over a time
-  span without deserializing the messages.
+  span without deserializing the messages;
+  `MessageStore.update_message_meta_infos(id, infos)` writes several meta infos in one
+  read/write cycle.
 * Remote admin is served on the shared web app, under an optional URL prefix
   (`REMOTE_ADMIN_CONFIG["url"]`, empty by default: the API stays at the root);
   host/port come from `WEBAPP_PLUGINS_CONFIG`.
@@ -35,9 +37,11 @@
   processing of every message. Handlers (typically registered by a plugin from its
   `task_start`) may enrich `msg.meta` before the message store copy, and a raising
   handler is logged instead of breaking the channel (`Event.fire_safely`).
-* New opt-in plugin `pypeman.plugins.proctime.ProcTimePlugin`, tagging every message
-  with the time its channel took to process it (`msg.meta["process_time"]`, also added
-  to the message store entry).
+* New plugin `pypeman.plugins.msgmetaextender.MsgMetaExtenderPlugin` (on by default,
+  deactivatable through `settings.DISABLED_PLUGINS`), tagging every message store
+  entry with processing facts: `process_time`, `input_size`/`input_type`,
+  `output_size`/`output_type`, `content_type` and `ctx_size` (`process_time` and the
+  input metas are also written to `msg.meta`).
 * FIX settings loading no longer fails when the project leaves `RETRY_STORE_PATH = None`.
 * FIX remote admin ws RPC rejected every call with parameters; `view_msg` (and the
   `/view` + `/preview` routes) crashed; `shell` host/port arguments were ignored and

@@ -58,7 +58,7 @@ PLUGINS = [
     "pypeman.plugins.graph.GraphPlugin",
     "pypeman.plugins.settings.PrintSettingsPlugin",
     "pypeman.plugins.remoteadmin.RemoteAdminPlugin",
-    "pypeman.plugins.proctime.ProcTimePlugin",
+    "pypeman.plugins.msgmetaextender.MsgMetaExtenderPlugin",
     "pypeman.plugins.health.HealthPlugin",
     "pypeman.plugins.metrics.MetricsPlugin",
 ]

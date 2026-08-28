@@ -143,9 +143,12 @@ messages without changing the channels themselves.
 
 Handlers may be sync or async and are awaited in the message path, so they must
 be quick; an handler raising is logged and does not break the processing.
-:class:`pypeman.plugins.proctime.ProcTimePlugin` is a working example, tagging
-every message with the time its channel took to process it (enabled by default,
-deactivate through ``settings.DISABLED_PLUGINS``).
+:class:`pypeman.plugins.msgmetaextender.MsgMetaExtenderPlugin` is a working
+example, tagging every message store entry with processing facts: the time the
+channel took (``process_time``), the byte size and type of the input and output
+payloads (``input_size``/``input_type``/``output_size``/``output_type``), the
+``content_type`` and the total size of the saved contexts (``ctx_size``). It is
+enabled by default; deactivate through ``settings.DISABLED_PLUGINS``.
 
 See :mod:`pypeman.events` for the list of events and their arguments.
 
@@ -170,7 +173,7 @@ times. ``GET /health/channels/<name>`` answers for a single channel.
 counts and mean/min/max processing time since start; with ``start_dt`` /
 ``end_dt`` ISO query parameters, it also aggregates the channel's message
 store metas over that time range (counts by state, stats of the
-``process_time`` meta written by ProcTimePlugin, throughput). ``GET /metrics``
+``process_time`` meta written by MsgMetaExtenderPlugin, throughput). ``GET /metrics``
 serves the live counters and gauges in the Prometheus text format, ready to
 scrape; ``GET /metrics/live`` serves the exact same snapshot as JSON.
 

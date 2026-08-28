@@ -1,7 +1,7 @@
 
 # First time requirements: #
 ```
-pip install twine wheel
+pip install build twine
 ```
 Create account on pypi and pypitest by going on websites.
 
@@ -28,11 +28,13 @@ vim pypeman/__init__.py # or 'bumpversion patch' if installed
 ```
 - [ ] Install the package again for local development, but with the new version number:
 ```
-python setup.py develop
+pip install -e .
 ```
-- [ ] Run the tests and fix eventual errors:
+- [ ] Run the checks and fix eventual errors (same as the CI, see
+  .github/workflows/build.yml):
 ```
-tox
+python -m flake8 pypeman setup.py --exclude pypeman/client
+pytest
 ```
 - [ ] Commit the changes:
 ```
@@ -57,27 +59,10 @@ git push --tags
         - Release Title can be anything you want.
     - Click Publish release at the bottom of the page
     - Now under Releases you can view all of your releases.
-    - download the tar file (pypeman-<tag>.tar.gz) and unpack it  (tar xvf pypeman-<tag>.tar.gz)
-    - cd pypeman-<tag>
 
-- [ ] Install npm with any of below options if not existing (needed to build web client)
-   - use nodeenv (pip install nodeenv ; nodeenv install -p )
-   - use nvm
-   - install node from the node web page ( https://nodejs.org/en/download/ )
-
-- [ ] Generate webclient:
+- [ ] Generate packages (sdist + wheel, in dist/):
 ```
-cd pypeman/client
-npm install
-npm run build
-cd ../..
-```
-If the shell freezes after the message "Build complete." then press ctrl-C and continue the instructions.
-
-- [ ] Generate packages:
-```
-pip install wheel  # if not already installed in your venv
-python setup.py sdist bdist_wheel
+python -m build
 ```
 - [ ] publish release on pypi and see result on https://testpypi.python.org/pypi :
 ```
@@ -89,15 +74,16 @@ twine upload -r testpypi dist/*
 twine upload dist/*
 ```
 
-- [ ] Test that it pip installs:
+- [ ] Test that it pip installs, in a throwaway venv:
 ```
-mktmpenv
-pip install my_project
-<try out my_project>
+python -m venv /tmp/pypeman-release-check
+. /tmp/pypeman-release-check/bin/activate
+pip install "pypeman[all]"
+pypeman --version
 deactivate
 ```
 
 - [ ] Push: `git push`
 - [ ] Push tags: `git push --tags`
 - [ ] Check the PyPI listing page to make sure that the README, release notes, and roadmap display properly. If not, copy and paste the RestructuredText into http://rst.ninjs.org/ to find out what broke the formatting.
-- [ ] Edit the release on GitHub (e.g. https://github.com/audreyr/cookiecutter/releases). Paste the release notes into the release's release page, and come up with a title for the release.
+- [ ] Edit the release on https://github.com/mhcomm/pypeman/releases: paste the release notes into the release's page, and come up with a title for the release.

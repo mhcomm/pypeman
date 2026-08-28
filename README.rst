@@ -3,8 +3,8 @@ Welcome to Pypeman
 
 Pypeman is a minimalist but pragmatic ESB / ETL / EAI in python.
 
-.. image:: https://travis-ci.org/mhcomm/pypeman.svg?branch=master
-    :target: https://travis-ci.org/mhcomm/pypeman
+.. image:: https://github.com/mhcomm/pypeman/actions/workflows/build.yml/badge.svg
+    :target: https://github.com/mhcomm/pypeman/actions/workflows/build.yml
 
 .. image:: https://badge.fury.io/py/pypeman.svg
     :target: https://badge.fury.io/py/pypeman

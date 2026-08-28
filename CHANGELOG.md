@@ -3,13 +3,21 @@
 * CLI reworked: argparse + plugin architecture (`plugin_mgr`, `pypeman.plugins`).
   Commands: `start`, `graph`, `listplugins`, `printsettings`, `shell`.
   Removed: `stop`, `pyshell`, `debug`, `test`, `pytest`, daemon mode, `--reload`,
-  `--remote-admin`, the `pypeman_tool` script (stop pypeman with Ctrl-C).
+  `--remote-admin` (stop pypeman with Ctrl-C).
   Dropped dependencies: click, daemonlite, websockets, jsonrpcserver, jsonrpcclient,
   requests, ipython.
 * `graph` now builds a structured representation of the channels first and gains
   `--format {ascii,dot,json}`; the JSON output describes channels, nodes, fork/when/case
   (with conditions) and the special end-node paths. `--special final` no longer crashes.
 * startproject revived as a standalone `pypeman-startproject` script.
+* The `pypeman_tool` script is removed, together with the `pypeman.tool_commands`
+  dispatcher and the `pypeman.tools.view_store` / `pypeman.tools.send_from_store`
+  modules it exposed. Nothing replaces them yet; a project still needing them should
+  vendor the code from 0.6.6.
+* New setting `DISABLED_PLUGINS`: dotted paths of `PLUGINS` entries to deactivate, so a
+  project can drop a default plugin without restating the whole `PLUGINS` list. An entry
+  not present in `PLUGINS` raises at startup (typo protection), and `listplugins` reports
+  the deactivated ones.
 * Plugins can expose web endpoints through a shared web app (`BundledWebappPluginMixin`,
   configured with `settings.WEBAPP_PLUGINS_CONFIG`).
 * New `HealthPlugin` (on by default): `GET /health` on the shared web app reports an

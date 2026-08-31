@@ -26,7 +26,12 @@ def payload_size(payload):
     if isinstance(payload, memoryview):
         return payload.nbytes
     if isinstance(payload, str):
-        return len(payload.encode("utf-8"))
+        if payload.isascii():  # C-speed scan, no allocation
+            return len(payload)
+        # exact utf-8 size without allocating a full-size copy: slicing a
+        # str cannot split a code point, so the chunked sum is exact
+        return sum(len(payload[i:i + 2 ** 16].encode("utf-8"))
+                   for i in range(0, len(payload), 2 ** 16))
     return None
 
 
@@ -47,25 +52,37 @@ class MsgMetaExtenderPlugin(BasePlugin, TaskPluginMixin):
     """Tag every message with facts about its processing by a channel.
 
     Written to the message store entry of the message the channel took
-    in (the store got its copy before most of them were known):
+    in, and only there: the metas never touch `msg.meta`, so they cannot
+    reach the nodes nor the payloads they build.
 
-    * `process_time` — channel processing duration in seconds, also
-      written to `msg.meta` of the entry and returned messages;
+    * `process_time` — channel processing duration in seconds;
     * `input_size` / `input_type` — byte size (see :func:`payload_size`)
-      and type name of the payload at channel entry, also written to
-      `msg.meta` of the entry message before it is stored/processed;
-    * `content_type` — the message's content type at channel entry
-      (also in `msg.meta`, same as the input metas);
+      and type name of the payload at channel entry;
+    * `content_type` — the message's content type at channel entry;
     * `output_size` / `output_type` — same as input for the payload of
       the returned message (absent when the processing raised or
       returned a generator);
     * `ctx_size` — total byte size of the payloads saved in the message
-      context (`msg.add_context`) during processing, unmeasurable ones
-      ignored.
+      context (`msg.add_context`), unmeasurable ones ignored. Measured
+      on the returned message; when the processing raised or ended on a
+      yielding node, only the contexts already present at channel entry
+      are counted.
+
+    Reserved store-meta keys: the seven names above are written to the
+    store entry by this plugin, so a project must not use any of them as
+    a node `store_meta` key.
 
     A message forked or routed to a subchannel is tagged once per
-    channel it goes through, the innermost channel being the one whose
-    values end up in the returned message.
+    channel it goes through, each channel writing to its own store
+    entry. Forks are covered although a `SubChannel` stores its copy
+    before its own events fire (see :mod:`pypeman.events`): the metas
+    are written to the store from the end handler, not carried by the
+    message.
+
+    When a message is deferred by the retry machinery, the recorded
+    `process_time` is the duration up to the deferral; the later replay
+    goes through `inject()`, which fires no events, so the stored value
+    is never corrected.
 
     This plugin doubles as a reference for :mod:`pypeman.events` based
     plugins: subscribe in `task_start`, unsubscribe in `task_stop`.
@@ -102,9 +119,6 @@ class MsgMetaExtenderPlugin(BasePlugin, TaskPluginMixin):
         content_type = getattr(msg, "content_type", None)
         if content_type is not None:
             entry_metas[self.META_CONTENT_TYPE] = content_type
-        if isinstance(msg.meta, dict):
-            # fired before the store copy: seen by the nodes and stored
-            msg.meta.update(entry_metas)
         self._inflight[(channel.name, msg.uuid)] = (perf_counter(), entry_metas)
 
     async def _on_end(self, channel, msg, result, exc):
@@ -124,16 +138,15 @@ class MsgMetaExtenderPlugin(BasePlugin, TaskPluginMixin):
             if output_size is not None:
                 metas[self.META_OUTPUT_SIZE] = output_size
 
-        # contexts accumulate during processing, so measure them at exit
+        # Contexts accumulate during processing, so measure them at exit.
+        # The channel processes a copy of `msg`, so with no result message
+        # (the processing raised, or ended on a yielding node) the contexts
+        # added on the way are unreachable: only the entry ones are counted.
         ctx = getattr(result, "ctx", None)
         if not isinstance(ctx, dict):
             ctx = getattr(msg, "ctx", None)
         if isinstance(ctx, dict):
             metas[self.META_CTX_SIZE] = context_size(ctx)
-
-        for tagged in (msg, result):
-            if isinstance(getattr(tagged, "meta", None), dict):
-                tagged.meta[self.META_PROCESS_TIME] = process_time
 
         if msg.store_id and msg.store_chan_name == channel.short_name:
             await channel.message_store.update_message_meta_infos(msg.store_id, metas)

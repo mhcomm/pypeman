@@ -121,6 +121,37 @@ async def test_start_handler_may_enrich_the_message():
 
 
 @pytest.mark.usefixtures("clear_graph")
+async def test_forked_subchannel_stores_before_start_event():
+    """A fork stores its copy first, so its own start event cannot enrich it."""
+    async def tag(channel, msg):
+        msg.meta["tagged_by_" + channel.short_name] = True
+
+    events.msg_processing_start.add_handler(tag)
+    try:
+        chan = BaseChannel(
+            name="evt_fork_chan", wait_subchans=True,
+            message_store_factory=msgstore.MemoryMessageStoreFactory())
+        fork = chan.fork(
+            name="evt_fork_sub", message_store_factory=msgstore.MemoryMessageStoreFactory())
+        fork.add(TstNode(name="evt_fork_node"))
+        for channel in channels.all_channels:
+            await channel.start()
+
+        msg = generate_msg()
+        await chan.handle(msg)
+
+        # the parent stores after its own start event fired ...
+        parent_stored = await chan.message_store.get(msg.store_id)
+        assert parent_stored["message"].meta["tagged_by_evt_fork_chan"] is True
+        # ... the fork stores before its own, so it only carries the parent tag
+        fork_stored = await fork.message_store.get(msg.uuid)
+        assert fork_stored["message"].meta["tagged_by_evt_fork_chan"] is True
+        assert "tagged_by_evt_fork_sub" not in fork_stored["message"].meta
+    finally:
+        events.msg_processing_start.remove_handler(tag)
+
+
+@pytest.mark.usefixtures("clear_graph")
 async def test_end_event_reports_the_exception(recorded_msg_events):
     chan = mk_channel("evt_exc_chan")
     chan.add(ExceptNode(name="evt_exc_node"))

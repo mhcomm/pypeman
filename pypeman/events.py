@@ -3,7 +3,8 @@
 An :class:`Event` is a set of handlers (sync or async callables) which
 are awaited whenever the event is fired. Handlers are registered with
 :meth:`Event.add_handler` (or the :meth:`Event.receiver` decorator) and
-removed with :meth:`Event.remove_handler`.
+removed with :meth:`Event.remove_handler`. Being a set, it carries no
+order: several handlers of the same event run in an undefined one.
 
 The events pypeman itself fires are the module level ones below; a
 plugin typically subscribes to them from its `task_start` and
@@ -107,6 +108,12 @@ Handlers are awaited before the message is stored and processed, and
 receive `channel` and `msg` as keyword arguments. `msg` is the very
 message the channel is about to process: enriching its `meta` from a
 handler is seen by the nodes and by the message store.
+
+Exception: a forked :class:`~pypeman.channels.SubChannel` stores its
+copy BEFORE its own events fire, so what its start handlers add to
+`msg.meta` is missing from that stored copy (it still carries what the
+parent's start handlers added, and store META written by end handlers
+is unaffected).
 """
 
 msg_processing_end = Event("msg_processing_end")
@@ -120,5 +127,8 @@ arguments the `channel`, the `msg` the start event was fired with, the
 
 # Both are fired once per `handle` call: a message going through a
 # forked or conditional subchannel fires a pair for the parent channel
-# and another one for the subchannel. Handlers being awaited in the
+# and another one for the subchannel. A conditional subchannel's pair is
+# nested in the parent's, a fork's is not: with the default
+# `wait_subchans=False` the fork runs as a background task and its whole
+# pair fires after the parent's end. Handlers being awaited in the
 # message path, a slow handler slows the channel down.

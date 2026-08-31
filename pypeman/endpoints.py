@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import socket
 
@@ -40,7 +39,9 @@ class SocketEndpoint(BaseEndpoint):
                 or bound socket object
         """
         super().__init__()
-        self.loop = loop or asyncio.get_event_loop()
+        # Endpoints are usually built at import time, outside of any running loop.
+        # An explicit loop is honored, else it is resolved at start().
+        self.loop = loop
         self.reuse_port = reuse_port
 
         self.sock = self.normalize_socket(sock, default_port=default_port)

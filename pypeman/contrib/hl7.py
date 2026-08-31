@@ -32,7 +32,7 @@ class MLLPProtocol(asyncio.Protocol):
         self.end_block = b'\x1c'  # <FS>, file separator
         self.carriage_return = b'\x0d'  # <CR>, \r
         self.handler = handler
-        self.loop = loop or asyncio.get_event_loop()
+        self.loop = loop
 
     def connection_made(self, transport):
         """
@@ -97,7 +97,6 @@ class MLLPEndpoint(endpoints.SocketEndpoint):
         self.handlers = []
         self.address = address
         self.port = port
-        self.loop = loop or asyncio.get_event_loop()
         self.handler = None
         if address or port:
             warnings.warn(
@@ -122,6 +121,8 @@ class MLLPEndpoint(endpoints.SocketEndpoint):
         self.handler = handler
 
     async def start(self):
+        if self.loop is None:
+            self.loop = asyncio.get_running_loop()
         self.make_socket()
         if self.handler:
             srv = await self.loop.create_server(

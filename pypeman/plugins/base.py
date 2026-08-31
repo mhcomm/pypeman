@@ -44,12 +44,7 @@ class CommandPluginMixin(ABC):
         any "Plugin" suffix. By convention and to match this behavior,
         it should be alphabetic lowercase [a-z] only (no '-' or '_').
         """
-        # if you're here after 3.9,
-        # please change it for a simple `return cls...removesuffix("plugin")`
-        name = cls.__name__.lower()
-        if name.endswith("plugin"):
-            name = name[: -len("plugin")]
-        return name
+        return cls.__name__.lower().removesuffix("plugin")
 
     @classmethod
     @abstractmethod

@@ -18,8 +18,6 @@ MsgMetaExtenderPlugin). Since-start figures come from the shared
 figures, do not survive restarts nor cover retry replays.
 """
 
-from __future__ import annotations
-
 import asyncio
 import platform
 from datetime import datetime

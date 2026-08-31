@@ -14,8 +14,6 @@ The mixin classes defined in :mod:`pypeman.plugins.base` make it
 possible to hook in at various stages of the application's life cycle.
 """
 
-from __future__ import annotations
-
 from importlib import import_module
 from logging import getLogger
 from typing import TypeVar

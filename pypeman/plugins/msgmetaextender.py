@@ -5,8 +5,6 @@ Enabled by default; deactivate it by adding
 `settings.DISABLED_PLUGINS`.
 """
 
-from __future__ import annotations
-
 from time import perf_counter
 
 from pypeman import events

@@ -8,8 +8,6 @@ function called directly when invoking `$ pypeman` after `$ pip install`
 called when used as a module (eg `$ python -m pypeman.commands`).
 """
 
-from __future__ import annotations
-
 import asyncio
 from argparse import ArgumentParser
 from argparse import Namespace

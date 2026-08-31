@@ -1,7 +1,6 @@
 import asyncio
 import json
 import os
-import sys
 import unittest
 
 from unittest import mock
@@ -424,8 +423,6 @@ class NodesTests(TestCase):
             fake_ftp.upload_file.assert_called_once_with('test_write.part', 'message_content')
             fake_ftp.rename.assert_called_once_with('test_write.part', 'test_write')
 
-    @unittest.skipIf((sys.version_info[:2] == (3, 7)),
-                     "difficulty to mock async with statement in py3.7")  # TODO: rm in py3.8+
     def test_httprequest_node(self):
         """ Whether HttpRequest node is functional """
 
@@ -605,8 +602,6 @@ class NodesTests(TestCase):
 
             mock_session.reset_mock()
 
-    @unittest.skipIf((sys.version_info[:2] == (3, 7)),
-                     "difficulty to mock async with statement in py3.7")  # TODO: rm in py3.8+
     def test_httprequest_node2_new_parsing(self):
         """ Whether HttpRequest node recursive url parser is functional """
 

@@ -405,8 +405,9 @@ class BaseChannel:
         :param msg: Message to process
         :return: Processed message.
         """
-        loop = self.loop or asyncio.get_event_loop()
-        return loop.run_until_complete(self.handle(msg))
+        if self.loop is None:
+            return asyncio.run(self.handle(msg))
+        return self.loop.run_until_complete(self.handle(msg))
 
     def _has_callback(self):
         return hasattr(self, "_callback")

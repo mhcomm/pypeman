@@ -12,8 +12,6 @@ attempts and deferrals only. Exact retry data lives on
 `channel.retry_store` (`retry_attempts`, `retry_mode_since`).
 """
 
-from __future__ import annotations
-
 import asyncio
 import contextlib
 import os

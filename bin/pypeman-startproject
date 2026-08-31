@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Create a fresh pypeman project from the bundled templates."""
 
 from argparse import ArgumentParser

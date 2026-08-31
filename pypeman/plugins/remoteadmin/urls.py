@@ -9,8 +9,6 @@ The websocket part is handled by the private (but mentionned for doc
 purpose) :func:`_rpc_url_handler` which implements WS JSON RPC server.
 """
 
-from __future__ import annotations
-
 import inspect
 import json
 from logging import getLogger

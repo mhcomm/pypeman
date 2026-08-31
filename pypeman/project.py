@@ -5,8 +5,6 @@ by default "project") which declares the channels, nodes and endpoints
 when imported. See :func:`load_project`.
 """
 
-from __future__ import annotations
-
 import importlib
 from logging import getLogger
 

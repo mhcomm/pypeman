@@ -19,12 +19,9 @@ logger = logging.getLogger(__name__)
 _backend = None
 
 
-async def get_backend(loop):
+async def get_backend():
     """
     Return the configured backend instance.
-
-    :param loop: Asyncio loop to use. Passed backend instance.
-        If None, the backend keeps the loop it bound at start.
     """
     global _backend
     if not _backend:
@@ -34,12 +31,9 @@ async def get_backend(loop):
 
         module, _, class_ = settings.PERSISTENCE_BACKEND.rpartition('.')
         loaded_module = importlib.import_module(module)
-        _backend = getattr(loaded_module, class_)(loop=loop, **settings.PERSISTENCE_CONFIG)
+        _backend = getattr(loaded_module, class_)(**settings.PERSISTENCE_CONFIG)
 
         await _backend.start()
-    if loop is not None and _backend.loop != loop:
-        logger.warning("Backend loop not the same as loop argument, changing it")
-        _backend.loop = loop
     return _backend
 
 
@@ -48,8 +42,7 @@ class MemoryBackend():
     Memory persistence backend.
     Only for testing purpose as this is not really persistent.
     """
-    def __init__(self, loop=None):
-        self.loop = loop
+    def __init__(self):
         self._data = defaultdict(dict)
 
     async def start(self):
@@ -98,19 +91,13 @@ class SqliteBackend():
 
     :param path: Path of sqlite file.
     :param thread_pool: If you want a specific thread_pool you can give one here.
-    :param loop: Loop used for the executor.
     """
-    def __init__(self, path, thread_pool=None, loop=None):
-        self.loop = loop
+    def __init__(self, path, thread_pool=None):
         self.executor = thread_pool or ThreadPoolExecutor(max_workers=1)
         self.path = path
 
     async def start(self):
-        """
-        Only bind the loop used by the executor, if none was given.
-        """
-        if self.loop is None:
-            self.loop = asyncio.get_running_loop()
+        pass
 
     def _sync_store(self, namespace, key, value):
         with SqliteDict(self.path, tablename=namespace) as pdict:
@@ -143,7 +130,8 @@ class SqliteBackend():
         :param key: Access key.
         :param value: Value to save.
         """
-        await self.loop.run_in_executor(self.executor, self._sync_store, namespace, key, value)
+        await asyncio.get_running_loop().run_in_executor(
+            self.executor, self._sync_store, namespace, key, value)
 
     async def get(self, namespace, key, default=SENTINEL):
         """
@@ -153,11 +141,13 @@ class SqliteBackend():
         :param key: Key to get.
         :param default: Default value if key missing.
         """
-        return await self.loop.run_in_executor(self.executor, self._sync_get, namespace, key, default)
+        return await asyncio.get_running_loop().run_in_executor(
+            self.executor, self._sync_get, namespace, key, default)
 
     async def get_num_entries(self, namespace):
-        return await self.loop.run_in_executor(self.executor, self._get_table_length, namespace)
+        return await asyncio.get_running_loop().run_in_executor(
+            self.executor, self._get_table_length, namespace)
 
     async def search_ids_by_value(self, namespace, value):
-        return await self.loop.run_in_executor(
+        return await asyncio.get_running_loop().run_in_executor(
             self.executor, self._search_ids_by_value, namespace, value)

@@ -320,7 +320,7 @@ class BaseNode:
         :param key: Key of saved data.
         :param value: Value saved.
         """
-        await (await get_backend(self.channel.loop)).store(self.fullpath(), key, value)
+        await (await get_backend()).store(self.fullpath(), key, value)
 
     async def restore_data(self, key, default=SENTINEL):
         """
@@ -331,9 +331,9 @@ class BaseNode:
         :return: Saved data if exist or default value if specified.
         """
         if default is not SENTINEL:
-            return await (await get_backend(self.channel.loop)).get(self.fullpath(), key, default)
+            return await (await get_backend()).get(self.fullpath(), key, default)
         else:
-            return await (await get_backend(self.channel.loop)).get(self.fullpath(), key)
+            return await (await get_backend()).get(self.fullpath(), key)
 
     # Allow to mock input or
     def mock(self, input=None, output=None):
@@ -453,7 +453,7 @@ class ThreadNode(BaseNode):
     def run(self, msg):
         # Copy the context so logs from the executor thread keep the msg id contextvar
         ctx = contextvars.copy_context()
-        result = self.channel.loop.run_in_executor(self.executor, ctx.run, self.process, msg)
+        result = asyncio.get_running_loop().run_in_executor(self.executor, ctx.run, self.process, msg)
 
         return result
 

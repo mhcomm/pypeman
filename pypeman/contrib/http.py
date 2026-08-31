@@ -68,7 +68,7 @@ class HTTPEndpoint(endpoints.SocketEndpoint):
             raise PypemanParamError("There can only be one (parameter host or sock)")
         sock = sock or host or ''
 
-        super().__init__(loop=loop, sock=sock, reuse_port=reuse_port)
+        super().__init__(sock=sock, reuse_port=reuse_port)
 
     def add_route(self, *args, **kwargs):
         """
@@ -81,11 +81,9 @@ class HTTPEndpoint(endpoints.SocketEndpoint):
         self._app.router.add_route(*args, **kwargs)
 
     async def start(self):
-        if self.loop is None:
-            self.loop = asyncio.get_running_loop()
         self.make_socket()
         if self._app is not None:
-            srv = await self.loop.create_server(
+            srv = await asyncio.get_running_loop().create_server(
                 protocol_factory=self._app.make_handler(),
                 sock=self.sock_obj,
                 ssl=self.ssl_context,
@@ -289,7 +287,6 @@ class HttpRequest(nodes.BaseNode):
     async def handle_request(self, msg):
         """ generate url and handle request """
         url = self.generate_request_url(msg)
-        loop = self.channel.loop
         conn = None
         ssl_context = None
         if self.client_cert:
@@ -304,9 +301,9 @@ class HttpRequest(nodes.BaseNode):
             except FileNotFoundError:
                 logger.error("loading certs %s failed", self.client_cert)
                 raise
-            conn = aiohttp.TCPConnector(ssl=ssl_context, loop=loop)
+            conn = aiohttp.TCPConnector(ssl=ssl_context)
         else:
-            conn = aiohttp.TCPConnector(ssl=self.verify, loop=loop)
+            conn = aiohttp.TCPConnector(ssl=self.verify)
 
         headers = nodes.choose_first_not_none(self.headers, msg.meta.get('headers'))
         cookies = nodes.choose_first_not_none(self.cookies, msg.meta.get('cookies'))

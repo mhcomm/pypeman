@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 
 from pypeman import channels, message
@@ -22,7 +23,7 @@ class CronChannel(channels.BaseChannel):
 
     async def start(self):
         await super().start()
-        crontab(self.cron, func=self.tic, start=True, loop=self.loop)
+        crontab(self.cron, func=self.tic, start=True, loop=asyncio.get_running_loop())
 
     async def tic(self):
         self.logger.debug("cron %r fired, triggering channel", self.cron)

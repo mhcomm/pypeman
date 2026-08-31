@@ -32,7 +32,6 @@ class MLLPProtocol(asyncio.Protocol):
         self.end_block = b'\x1c'  # <FS>, file separator
         self.carriage_return = b'\x0d'  # <CR>, \r
         self.handler = handler
-        self.loop = loop
 
     def connection_made(self, transport):
         """
@@ -115,18 +114,16 @@ class MLLPEndpoint(endpoints.SocketEndpoint):
             warnings.warn("MLLPEndpoint 'encoding' parameters is deprecated", DeprecationWarning)
         self.encoding = encoding
 
-        super().__init__(loop=loop, sock=sock, default_port='2100', reuse_port=reuse_port)
+        super().__init__(sock=sock, default_port='2100', reuse_port=reuse_port)
 
     def set_handler(self, handler):
         self.handler = handler
 
     async def start(self):
-        if self.loop is None:
-            self.loop = asyncio.get_running_loop()
         self.make_socket()
         if self.handler:
-            srv = await self.loop.create_server(
-                protocol_factory=lambda: MLLPProtocol(self.handler, loop=self.loop),
+            srv = await asyncio.get_running_loop().create_server(
+                protocol_factory=lambda: MLLPProtocol(self.handler),
                 sock=self.sock_obj,
             )
             logger.debug("MLLP server started at %s", repr(self.sock))

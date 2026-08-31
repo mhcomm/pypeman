@@ -31,6 +31,7 @@ class BaseEndpoint:
 class SocketEndpoint(BaseEndpoint):
     def __init__(self, loop=None, sock=None, default_port='8080', reuse_port=None):
         """
+            :param loop: deprecated, unused. Kept for backward compatibility.
             :param reuse_port: bool if true then the listening port specified in the url parameter)
                 will be shared with other processes on same port
                 no effect with bound socket object
@@ -39,9 +40,6 @@ class SocketEndpoint(BaseEndpoint):
                 or bound socket object
         """
         super().__init__()
-        # Endpoints are usually built at import time, outside of any running loop.
-        # An explicit loop is honored, else it is resolved at start().
-        self.loop = loop
         self.reuse_port = reuse_port
 
         self.sock = self.normalize_socket(sock, default_port=default_port)

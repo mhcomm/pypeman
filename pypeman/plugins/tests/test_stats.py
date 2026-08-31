@@ -227,3 +227,23 @@ async def test_stop_once_unsubscribes_and_cancels_heartbeat():
 async def test_stop_once_without_start_is_a_noop():
     stats_collector._reset()
     await stats_collector.stop_once()
+
+
+async def test_collector_restarts_after_stop():
+    """A stop/start cycle must resubscribe: `_started` is reset on stop."""
+    stats_collector._reset()
+    await stats_collector.start_once()
+    first_heartbeat = stats_collector._heartbeat_task
+    await stats_collector.stop_once()
+
+    await stats_collector.start_once()
+    try:
+        assert stats_collector._on_start in events.msg_processing_start.handlers
+        assert stats_collector._on_end in events.msg_processing_end.handlers
+        assert stats_collector._on_state_change in events.channel_change_state.handlers
+        heartbeat = stats_collector._heartbeat_task
+        assert heartbeat is not None and heartbeat is not first_heartbeat
+        assert not heartbeat.done()
+    finally:
+        await stats_collector.stop_once()
+        stats_collector._reset()

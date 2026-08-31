@@ -76,7 +76,7 @@ def _aggregate_metas(metas: list[dict]) -> dict:
     by_state: dict[str, int] = {}
     times = []
     for meta in metas:
-        state = meta.get("state")
+        state = meta.get("state") or "unknown"  # a stateless meta would json-encode as null
         by_state[state] = by_state.get(state, 0) + 1
         try:
             times.append(float(meta[MsgMetaExtenderPlugin.META_PROCESS_TIME]))
@@ -101,8 +101,9 @@ class MetricsPlugin(BasePlugin, BundledWebappPluginMixin):
     def __init__(self):
         conf = settings.METRICS_CONFIG
         # never raise here (plugin ctors run for every CLI command):
-        # the url is validated in webapp_urls, at bundle start
-        self._url = str(conf.get("url") or DEFAULT_URL).rstrip("/")
+        # the url is validated (and stripped) in webapp_urls, at bundle
+        # start -- kept as configured so the error can name it
+        self._url = str(conf.get("url") or DEFAULT_URL)
         super().__init__()  # registers into the webapp bundle
 
     async def task_start(self):
@@ -119,14 +120,15 @@ class MetricsPlugin(BasePlugin, BundledWebappPluginMixin):
         return ""
 
     def webapp_urls(self) -> list[web.RouteDef]:
-        if not self._url.startswith("/") or "/" == self._url:
+        url = self._url.rstrip("/")
+        if not url.startswith("/"):
             raise ValueError(
                 f"METRICS_CONFIG['url'] must start with '/' and not be '/' (got {self._url!r})")
         return [
-            web.get(self._url, self._get_prometheus),
-            web.get(self._url + "/live", self._get_live),
-            web.get(self._url + "/channels", self._get_channels),
-            web.get(self._url + "/channels/{channelname}", self._get_channel),
+            web.get(url, self._get_prometheus),
+            web.get(url + "/live", self._get_live),
+            web.get(url + "/channels", self._get_channels),
+            web.get(url + "/channels/{channelname}", self._get_channel),
         ]
 
     async def _get_channels(self, request: web.Request) -> web.Response:
@@ -325,15 +327,17 @@ def _render_prometheus(snapshot: dict) -> str:
         lines.append(_sample("pypeman_channel_processing_seconds_count", labels,
                              chan["processing_seconds"]["count"]))
 
-    for bound in ("min", "max"):
+    # '_minimum'/'_maximum', not '_min'/'_max': the latter read as
+    # samples of the SUMMARY family above (promtool flags them)
+    for bound, suffix in (("min", "minimum"), ("max", "maximum")):
         samples = [
-            _sample(f"pypeman_channel_processing_seconds_{bound}",
+            _sample(f"pypeman_channel_processing_seconds_{suffix}",
                     {"channel": chan["name"]}, chan["processing_seconds"][bound])
             for chan in chans if chan["processing_seconds"][bound] is not None
         ]
         if samples:
-            family(f"pypeman_channel_processing_seconds_{bound}", "gauge",
-                   f"{bound.capitalize()} message processing time since start.")
+            family(f"pypeman_channel_processing_seconds_{suffix}", "gauge",
+                   f"{suffix.capitalize()} message processing time since start.")
             lines.extend(samples)
 
     for name, help_text, key in (

@@ -5,7 +5,7 @@ Importing this module constructs :obj:`manager` (this is a no-op).
 Pypeman's plugin manager has a straightforward use:
     * :meth:`PluginManager.register_plugins` any times;
     * until :meth:`PluginManager.instantiate_plugins` once;
-    * then :meth:`PluginManager.get_module` to select by mixin.
+    * then :meth:`PluginManager.get_plugins` to select by mixin.
 
 Every plugins must derive from :class:`BasePlugin`. However by itself
 it will not bring anything (its constructor is called and that's it).

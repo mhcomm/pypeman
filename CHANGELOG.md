@@ -58,6 +58,14 @@
 * FIX remote admin ws RPC rejected every call with parameters; `view_msg` (and the
   `/view` + `/preview` routes) crashed; `shell` host/port arguments were ignored and
   several shell outputs were wrong.
+* FIX `MessageStore.get_message_metas` (hence the `/metrics` time-range stats) no
+  longer fails outright when a single message has a missing or corrupt store meta:
+  that message is skipped with a warning.
+* FIX remote admin no longer puts the url-decoded message id into the HTTP reason
+  phrase of its 404s (a newline in the id made older aiohttp answer 500 instead).
+* The `/metrics` Prometheus min/max processing-time gauges are renamed
+  `pypeman_channel_processing_seconds_minimum` / `_maximum` (they used to hide under
+  the `_seconds` SUMMARY family name).
 * Logging revamp:
 * - New `pypeman.helpers.logging.LogContextFilter` logging filter injecting `%(msg_id)s` (msg uuid) and `%(channel)s` (channel short name, omitted on records already emitted through the channel's own logger) in all records emitted while a message is processed, empty outside message processing. Wired in default LOGGING and startproject template; add `%(channel)s%(msg_id)s` to your formatter + the filter to your handlers to use it
 * - Per-channel loggers renamed from `pypeman.channels.<full.dotted.path>` to `pypeman.channels.<short_name>`

@@ -179,9 +179,14 @@ def test_metrics_prometheus(plugin_env):
         assert any(line.startswith("pypeman_info{version=") for line in lines)
         assert any(line.startswith("pypeman_process_start_time_seconds ") for line in lines)
         assert any(line.startswith("pypeman_event_loop_lag_seconds ") for line in lines)
+        assert "# TYPE pypeman_channel_processing_seconds_minimum gauge" in lines
         assert any(
-            line.startswith('pypeman_channel_processing_seconds_min{channel="metrics_chan"} ')
+            line.startswith(
+                'pypeman_channel_processing_seconds_minimum{channel="metrics_chan"} ')
             for line in lines)
+        # not '_min'/'_max': those read as samples of the SUMMARY family
+        assert not any("pypeman_channel_processing_seconds_min{" in line for line in lines)
+        assert not any("pypeman_channel_processing_seconds_max{" in line for line in lines)
 
         await plugin.task_stop()
 
@@ -236,7 +241,6 @@ def test_metrics_custom_url_and_validation(plugin_env, monkeypatch):
     async def scenario():
         monkeypatch.setitem(settings.__dict__, "METRICS_CONFIG", {"url": "/stats/"})
         plugin = MetricsPlugin()
-        assert plugin._url == "/stats"
         await plugin.task_start()
         async with ClientSession() as cs:
             async with cs.get(_server_url() + "/stats/channels") as resp:
@@ -245,8 +249,17 @@ def test_metrics_custom_url_and_validation(plugin_env, monkeypatch):
 
         for bad_url in ("oops", "/"):
             monkeypatch.setitem(settings.__dict__, "METRICS_CONFIG", {"url": bad_url})
+            # the message must name the url as configured, not stripped
             bad_plugin = MetricsPlugin()  # ctor must not raise
-            with pytest.raises(ValueError):
+            with pytest.raises(ValueError, match=repr(bad_url)):
                 bad_plugin.webapp_urls()
 
     asyncio.run(scenario())
+
+
+def test_aggregate_metas_buckets_stateless_metas():
+    """A meta with no state must not become a JSON `null` key."""
+    from pypeman.plugins.metrics import _aggregate_metas
+
+    agg = _aggregate_metas([{"state": "processed"}, {}, {"state": None}])
+    assert agg["by_state"] == {"processed": 1, "unknown": 2}

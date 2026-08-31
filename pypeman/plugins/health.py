@@ -18,6 +18,7 @@ import asyncio
 import os
 import platform
 import resource
+import sys
 import time
 from datetime import datetime
 from logging import getLogger
@@ -37,6 +38,18 @@ logger = getLogger(__name__)
 DEFAULT_URL = "/health"
 
 
+def _peak_rss_bytes() -> int | None:
+    """Peak resident set size of the process, or None off linux.
+
+    `ru_maxrss` is in KiB on linux but in bytes on the BSDs and macOS,
+    and there is no portable way to tell: rather report nothing than a
+    figure off by 1024 (`rss_bytes` already degrades the same way).
+    """
+    if not sys.platform.startswith("linux"):
+        return None
+    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024
+
+
 def _iso(epoch: float | None) -> str | None:
     return datetime.fromtimestamp(epoch).isoformat() if epoch is not None else None
 
@@ -53,8 +66,9 @@ class HealthPlugin(BasePlugin, BundledWebappPluginMixin):
     def __init__(self):
         conf = settings.HEALTH_CONFIG
         # never raise here (plugin ctors run for every CLI command):
-        # the url is validated in webapp_urls, at bundle start
-        self._url = str(conf.get("url") or DEFAULT_URL).rstrip("/")
+        # the url is validated (and stripped) in webapp_urls, at bundle
+        # start -- kept as configured so the error can name it
+        self._url = str(conf.get("url") or DEFAULT_URL)
         self._error_window = conf.get("degraded_error_window", 300)
         super().__init__()  # registers into the webapp bundle
 
@@ -72,12 +86,13 @@ class HealthPlugin(BasePlugin, BundledWebappPluginMixin):
         return ""
 
     def webapp_urls(self) -> list[web.RouteDef]:
-        if not self._url.startswith("/") or "/" == self._url:
+        url = self._url.rstrip("/")
+        if not url.startswith("/"):
             raise ValueError(
                 f"HEALTH_CONFIG['url'] must start with '/' and not be '/' (got {self._url!r})")
         return [
-            web.get(self._url, self._get_health),
-            web.get(self._url + "/channels/{channelname}", self._get_channel_health),
+            web.get(url, self._get_health),
+            web.get(url + "/channels/{channelname}", self._get_channel_health),
         ]
 
     async def _get_health(self, request: web.Request) -> web.Response:
@@ -100,8 +115,7 @@ class HealthPlugin(BasePlugin, BundledWebappPluginMixin):
                 "started_at": _iso(started_at),
                 "uptime_seconds": round(now - started_at, 3) if started_at else None,
                 "rss_bytes": rss_bytes(),
-                # ru_maxrss is in KiB on linux
-                "peak_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024,
+                "peak_rss_bytes": _peak_rss_bytes(),
             },
             "event_loop": {
                 "pending_tasks": len(asyncio.all_tasks()),

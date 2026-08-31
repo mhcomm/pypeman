@@ -97,6 +97,7 @@ class StatsCollector:
         self._heartbeat_task = asyncio.get_running_loop().create_task(self._heartbeat())
 
     async def stop_once(self):
+        self._started = False  # a later start_once() must rebuild the subscriptions
         task, self._heartbeat_task = self._heartbeat_task, None
         if task is not None:
             task.cancel()

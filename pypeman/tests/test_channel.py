@@ -1091,10 +1091,10 @@ class ChannelsTests(TestCase):
                 assert mock_sock.called
                 sock_params = out_params.get('sock', 'localhost:8080')
                 sock_host, sock_port = sock_params.split(":")
-                assert fake_socket.bind.called_with(sock_host, sock_port)
+                fake_socket.bind.assert_called_with((sock_host, int(sock_port)))
 
             if in_params.get('reuse_port'):
-                assert fake_socket.setsockopt(SOL_SOCKET, 15, 1)
+                fake_socket.setsockopt.assert_called_with(SOL_SOCKET, 15, 1)
 
             for key, value in out_params.items():
                 self.assertEqual(getattr(endp, key), value, check_msg)

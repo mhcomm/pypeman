@@ -42,6 +42,14 @@
   entry with processing facts: `process_time`, `input_size`/`input_type`,
   `output_size`/`output_type`, `content_type` and `ctx_size` (`process_time` and the
   input metas are also written to `msg.meta`).
+* Health and metrics count deliberately dropped messages apart from errors: new
+  `dropped` key (`/health` channel docs and totals, `/metrics/channels` since_start),
+  `dropped_total` in `/metrics/live` and the `pypeman_channel_dropped_total` Prometheus
+  counter.
+* FIX `/health` stayed `degraded` forever as soon as a fork dropped a message, and
+  messages refused by a stopping channel were counted as errors.
+* FIX `MergeChannel` counted the messages of its input channels twice in the health and
+  metrics totals; they are now reported under the merge channel only.
 * FIX settings loading no longer fails when the project leaves `RETRY_STORE_PATH = None`.
 * FIX remote admin ws RPC rejected every call with parameters; `view_msg` (and the
   `/view` + `/preview` routes) crashed; `shell` host/port arguments were ignored and

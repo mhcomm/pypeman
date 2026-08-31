@@ -82,6 +82,7 @@ def test_metrics_since_start_and_range(plugin_env):
             since = doc["since_start"]
             assert since["messages"] == 3
             assert since["errors"] == 1
+            assert since["dropped"] == 0
             assert since["retry_deferred"] == 0
             assert since["process_time"]["min"] <= since["process_time"]["mean"] \
                 <= since["process_time"]["max"]
@@ -168,6 +169,7 @@ def test_metrics_prometheus(plugin_env):
         assert "# TYPE pypeman_channel_messages_total counter" in lines
         assert 'pypeman_channel_messages_total{channel="metrics_chan"} 3' in lines
         assert 'pypeman_channel_errors_total{channel="metrics_chan"} 1' in lines
+        assert 'pypeman_channel_dropped_total{channel="metrics_chan"} 0' in lines
         assert 'pypeman_channel_retry_deferred_total{channel="metrics_chan"} 0' in lines
         assert 'pypeman_channel_state{channel="metrics_chan",state="WAITING"} 1' in lines
         assert 'pypeman_channel_state{channel="metrics_chan",state="PAUSED"} 0' in lines
@@ -209,6 +211,7 @@ def test_metrics_live_json(plugin_env):
         assert chan_doc["state"] == "WAITING"
         assert chan_doc["messages_total"] == 3
         assert chan_doc["errors_total"] == 1
+        assert chan_doc["dropped_total"] == 0
         assert chan_doc["retry_deferred_total"] == 0
         proc = chan_doc["processing_seconds"]
         assert proc["count"] == 3

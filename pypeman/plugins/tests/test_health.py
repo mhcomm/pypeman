@@ -8,6 +8,8 @@ from aiohttp import ClientSession
 from pypeman import msgstore
 from pypeman.channels import BaseChannel
 from pypeman.conf import settings
+from pypeman.exceptions import Dropped
+from pypeman.nodes import Drop
 from pypeman.nodes import Sleep
 from pypeman.plugins.base import webapp_bundle
 from pypeman.plugins.health import HealthPlugin
@@ -60,13 +62,16 @@ def test_health_document(plugin_env):
         assert doc["process"]["uptime_seconds"] >= 0
         assert doc["event_loop"]["pending_tasks"] >= 1
         assert doc["channels_by_state"] == {"WAITING": 1}
-        assert doc["totals"] == {"messages": 1, "errors": 0, "retry_deferred": 0}
+        assert doc["totals"] == {
+            "messages": 1, "errors": 0, "dropped": 0, "retry_deferred": 0}
 
         (chan_doc,) = doc["channels"]
         assert chan_doc["name"] == "health_chan"
         assert chan_doc["status"] == "WAITING"
         assert chan_doc["processing_seconds"] is None
         assert chan_doc["messages"] == 1
+        assert chan_doc["errors"] == 0
+        assert chan_doc["dropped"] == 0
         assert chan_doc["last_message"]["seconds_ago"] >= 0
         assert chan_doc["last_error"] is None
         assert chan_doc["retry"] is None  # no RETRY_STORE_PATH configured
@@ -113,6 +118,39 @@ def test_health_degraded_and_channel_route(plugin_env, monkeypatch):
             async with cs.get(_server_url() + "/health") as resp:
                 assert (await resp.json())["status"] == "degraded"
             chan.status = BaseChannel.WAITING
+
+        await plugin.task_stop()
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.usefixtures("clear_graph")
+def test_dropped_does_not_degrade(plugin_env):
+    """`chan.fork().add(Drop())` is deliberate flow control, not an error."""
+    async def scenario():
+        chan = BaseChannel(name="health_drop_chan", wait_subchans=True)
+        forked = chan.fork(name="health_drop_fork")
+        forked.add(Drop(name="health_drop_node"))
+
+        plugin = HealthPlugin()
+        await plugin.task_start()
+        await chan.start()
+        await forked.start()
+        with pytest.raises(Dropped):  # propagated by the gathered subchan task
+            await chan.handle(generate_msg())
+
+        async with ClientSession() as cs:
+            async with cs.get(_server_url() + "/health") as resp:
+                doc = await resp.json()
+
+        assert doc["status"] == "ok"
+        assert doc["totals"] == {
+            "messages": 1, "errors": 0, "dropped": 1, "retry_deferred": 0}
+        by_name = {chan_doc["name"]: chan_doc for chan_doc in doc["channels"]}
+        for name in ("health_drop_chan", "health_drop_chan.health_drop_fork"):
+            assert by_name[name]["dropped"] == 1
+            assert by_name[name]["errors"] == 0
+            assert by_name[name]["last_error"] is None
 
         await plugin.task_stop()
 

@@ -7,6 +7,8 @@ import pytest
 from pypeman import events
 from pypeman import exceptions
 from pypeman.channels import BaseChannel
+from pypeman.channels import MergeChannel
+from pypeman.nodes import Drop
 from pypeman.nodes import Sleep
 from pypeman.plugins.stats import stats_collector
 from pypeman.tests.common import ExceptNode
@@ -83,6 +85,82 @@ async def test_retry_deferred_is_not_an_error(collector):
 
 
 @pytest.mark.usefixtures("clear_graph")
+async def test_dropped_is_not_an_error(collector):
+    chan = BaseChannel(name="stats_dropped_chan")
+    await chan.start()
+
+    msg = generate_msg()
+    await events.msg_processing_start.fire(channel=chan, msg=msg)
+    await events.msg_processing_end.fire(
+        channel=chan, msg=msg, result=None, exc=exceptions.Dropped())
+
+    stats = collector.channel_stats("stats_dropped_chan")
+    assert stats.msg_count == 1
+    assert stats.dropped_count == 1
+    assert stats.error_count == 0
+    assert stats.last_error_at is None
+
+
+@pytest.mark.usefixtures("clear_graph")
+async def test_channel_stopped_is_not_counted(collector):
+    """A message refused by a stopping channel was never processed."""
+    chan = BaseChannel(name="stats_stopped_chan")
+    await chan.start()
+    await chan.stop()
+    await asyncio.sleep(0)  # state events are fired via create_task
+
+    with pytest.raises(exceptions.ChannelStopped):
+        await chan.handle(generate_msg())
+
+    stats = collector.channel_stats("stats_stopped_chan")
+    assert stats.msg_count == 0
+    assert stats.error_count == 0
+    assert stats.dropped_count == 0
+    assert stats.last_error_at is None
+    assert not collector._inflight  # the start entry was popped
+
+
+@pytest.mark.usefixtures("clear_graph")
+async def test_dropped_in_forked_subchannel(collector):
+    """The canonical `chan.fork().add(..., Drop())` pattern is not an error."""
+    chan = BaseChannel(name="stats_drop_fork_chan", wait_subchans=True)
+    forked = chan.fork(name="stats_drop_forked")
+    forked.add(Drop(name="stats_drop_node"))
+    await chan.start()
+    await forked.start()
+
+    # with wait_subchans the parent gathers the subchan task, so the Dropped
+    # of the fork also ends the parent's handle()
+    with pytest.raises(exceptions.Dropped):
+        await chan.handle(generate_msg())
+
+    sub_stats = collector.channel_stats("stats_drop_fork_chan.stats_drop_forked")
+    assert sub_stats.dropped_count == 1
+    assert sub_stats.error_count == 0
+    assert sub_stats.last_error_at is None
+
+    parent_stats = collector.channel_stats("stats_drop_fork_chan")
+    assert parent_stats.dropped_count == 1
+    assert parent_stats.error_count == 0
+    assert parent_stats.last_error_at is None
+
+
+@pytest.mark.usefixtures("clear_graph")
+async def test_merge_channel_counts_once(collector):
+    """Input channels report under the merge channel, they don't double-count."""
+    input1 = BaseChannel(name="stats_merge_in1")
+    input2 = BaseChannel(name="stats_merge_in2")
+    merge = MergeChannel(name="stats_merge_chan", chans=[input1, input2])
+    await merge.start()
+
+    await input1.handle(generate_msg())
+
+    assert collector.channel_stats("stats_merge_chan").msg_count == 1
+    assert collector.channel_stats("stats_merge_in1").has_parent is True
+    assert collector.global_totals()["messages"] == 1
+
+
+@pytest.mark.usefixtures("clear_graph")
 async def test_paused_since(collector):
     chan = BaseChannel(name="stats_paused_chan")
     await chan.start()
@@ -123,7 +201,8 @@ async def test_global_totals_skip_subchannels(collector):
     assert collector.channel_stats("stats_fork_chan").msg_count == 1
     assert collector.channel_stats("stats_fork_chan.stats_forked").msg_count == 1
     # ...but global totals only count the top-level channel
-    assert collector.global_totals() == {"messages": 1, "errors": 0, "retry_deferred": 0}
+    assert collector.global_totals() == {
+        "messages": 1, "errors": 0, "dropped": 0, "retry_deferred": 0}
 
 
 async def test_stop_once_unsubscribes_and_cancels_heartbeat():

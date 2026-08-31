@@ -1241,8 +1241,13 @@ class MergeChannel(BaseChannel):
     """
     This class permits to have multiple channel classes (watchers/listeners/..)
     as inputs to a single channel
-    TODO: CAUTION: Not sure that input channels works with end nodes + they don't
-        appears in graph
+
+    Input channels are removed from `all_channels` and get the merge channel as
+    parent: their traffic is reported under the merge channel and they don't
+    appear in channel lists (graph, /health, /metrics). Same accounting model as
+    subchannels.
+
+    TODO: CAUTION: Not sure that input channels works with end nodes
 
     TODO: check why we need
         if channel.loop != self.loop:
@@ -1268,6 +1273,9 @@ class MergeChannel(BaseChannel):
         self.channels = chans
         for channel in self.channels:
             all_channels.remove(channel)
+            # parent set so the stats collector reports the input's messages
+            # under the merge channel instead of counting them a second time
+            channel.parent = self
             channel.add = None
             # Lambda function in the following line permits dropping args and
             # kwargs as "handle" doesn't support other param than the msg and will be unuseful in

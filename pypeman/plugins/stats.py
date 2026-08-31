@@ -47,6 +47,7 @@ class ChannelStats:
         self.has_parent = has_parent  # subchannels are excluded from global totals
         self.msg_count = 0  # completed handle() calls, errors and deferrals included
         self.error_count = 0
+        self.dropped_count = 0  # ended on Dropped: deliberate, not an error
         self.retry_deferred_count = 0  # ended on RetryException/PausedChanException
         self.time_count = 0  # messages with a measured duration
         self.time_sum = 0.0
@@ -126,6 +127,11 @@ class StatsCollector:
         self._inflight[(channel.name, msg.uuid)] = (perf_counter(), time.time())
 
     async def _on_end(self, channel, msg, result, exc):
+        if isinstance(exc, exceptions.ChannelStopped):
+            # the channel refused the message before processing it (normal
+            # during a shutdown): neither a handled message nor an error
+            self._inflight.pop((channel.name, msg.uuid), None)
+            return
         entry = self._inflight.pop((channel.name, msg.uuid), None)
         stats = self._stats_for(channel)
         now = time.time()
@@ -133,6 +139,10 @@ class StatsCollector:
         stats.last_msg_end_at = now
         if isinstance(exc, (exceptions.RetryException, exceptions.PausedChanException)):
             stats.retry_deferred_count += 1
+        elif isinstance(exc, exceptions.Dropped):
+            # deliberate flow control (`Drop` node, filtering forks): a
+            # dropped message is fully handled, not a failure
+            stats.dropped_count += 1
         elif exc is not None:
             stats.error_count += 1
             stats.last_error_at = now
@@ -170,12 +180,13 @@ class StatsCollector:
         Subchannels fire their own event pair for the same message, so
         including them would double-count.
         """
-        totals = {"messages": 0, "errors": 0, "retry_deferred": 0}
+        totals = {"messages": 0, "errors": 0, "dropped": 0, "retry_deferred": 0}
         for stats in self._stats.values():
             if stats.has_parent:
                 continue
             totals["messages"] += stats.msg_count
             totals["errors"] += stats.error_count
+            totals["dropped"] += stats.dropped_count
             totals["retry_deferred"] += stats.retry_deferred_count
         return totals
 

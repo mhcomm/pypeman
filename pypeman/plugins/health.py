@@ -139,6 +139,7 @@ class HealthPlugin(BasePlugin, BundledWebappPluginMixin):
             "processing_seconds": stats_collector.processing_seconds(chan.name),
             "messages": stats.msg_count if stats else 0,
             "errors": stats.error_count if stats else 0,
+            "dropped": stats.dropped_count if stats else 0,
             "retry_deferred": stats.retry_deferred_count if stats else 0,
             "last_message": _ago(stats.last_msg_end_at, now) if stats else None,
             "last_error": (

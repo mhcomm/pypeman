@@ -17,8 +17,8 @@ The various shell commands need to call out to async methods from
     * :func:`asyncio.run_coroutine_threadsafe`,
     * :func:`asyncio.to_thread`.
 
-This last one is >=3.9 so unavailable (and not desirable in the context
-of mutiple individual small calls).
+This last one is not desirable in the context of multiple individual
+small calls.
 `run_until_complete` (and by extension `asyncio.run`) **cannot** be
 nested! Moreover, at least in the main thread, the event loop is already
 in the running state (from all the way back in :func:`commands.amain`).

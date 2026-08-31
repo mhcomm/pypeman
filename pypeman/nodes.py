@@ -1,6 +1,6 @@
 import asyncio
 import base64
-import collections
+import collections.abc
 import contextvars
 import grp
 import json

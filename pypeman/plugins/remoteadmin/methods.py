@@ -11,12 +11,14 @@ import json
 from datetime import datetime
 from functools import wraps
 from logging import getLogger
-from typing import TYPE_CHECKING
 from typing import Any
 from typing import Awaitable
 from typing import Callable
 from typing import Literal
+from typing import ParamSpec
 from typing import TypedDict
+from typing import TypeVar
+from typing import overload
 
 from aiohttp import ClientWebSocketResponse
 from aiohttp import web
@@ -29,107 +31,73 @@ from pypeman.message import Message
 
 logger = getLogger(__name__)
 
-if TYPE_CHECKING:
-    # ParamSpec doesn't exit before 3.10;
-    # if you're here after that, you can merge the branches by
-    # moving the implementation into the typed version
-    from typing import ParamSpec
-    from typing import TypeVar
-    from typing import overload
+_R_ = TypeVar("_R_")
+_P_ = ParamSpec("_P_")
 
-    _R_ = TypeVar("_R_")
-    _P_ = ParamSpec("_P_")
 
-    def _remote_proc(_rfn: Callable[_P_, Awaitable[_R_]]):
-        """Make a function into a compatible remote procedure.
+def _remote_proc(rfn: Callable[_P_, Awaitable[_R_]]):
+    """Make a function into a compatible remote procedure.
 
-        This means it get 2 new overloads on top of the normal call:
-            * the first one makes it a compatible aiohttp URL handler;
-            * the second one makes it perform a RPC through websocket.
+    This means it get 2 new overloads on top of the normal call:
+        * the first one makes it a compatible aiohttp URL handler;
+        * the second one makes it perform a RPC through websocket.
 
-        Each of these are used in difference places that needs to
-        access the exact same functionality. This makes it consistent
-        accros these places:
-            * aiohttp URL handler;
-            * remoteadmin CLI (both client- and server- side);
-            * normal function call.
+    Each of these are used in difference places that needs to
+    access the exact same functionality. This makes it consistent
+    accros these places:
+        * aiohttp URL handler;
+        * remoteadmin CLI (both client- and server- side);
+        * normal function call.
 
-        For consistency again, decorated functions must only take
-        keyword arguments:
+    For consistency again, decorated functions must only take
+    keyword arguments:
 
-            @_remote_proc
-            async def hello(*, world): ...
-        """
+        @_remote_proc
+        async def hello(*, world): ...
+    """
 
-        @overload
-        async def fn(req: web.Request) -> web.Response:
-            """called from aiohttp registered url"""
+    @overload
+    async def fn(req: web.Request) -> web.Response:
+        """called from aiohttp registered url"""
 
-        @overload
-        async def fn(ws: ClientWebSocketResponse, *_: _P_.args, **kwargs: _P_.kwargs) -> _R_:
-            """called from remoteadmin CLI (websocket client-side)"""
+    @overload
+    async def fn(ws: ClientWebSocketResponse, *_: _P_.args, **kwargs: _P_.kwargs) -> _R_:
+        """called from remoteadmin CLI (websocket client-side)"""
 
-        @overload
-        async def fn(*_: _P_.args, **kwargs: _P_.kwargs) -> _R_:
-            """called from websocket server-side (regular call)"""
+    @overload
+    async def fn(*_: _P_.args, **kwargs: _P_.kwargs) -> _R_:
+        """called from websocket server-side (regular call)"""
 
-        async def fn(*_a: ..., **_ka: ...) -> ...: ...
+    @wraps(rfn)
+    async def fn(maybe_req_or_ws=None, /, **kwargs):
+        # called from aiohttp registered url
+        if isinstance(maybe_req_or_ws, web.Request):
+            req = maybe_req_or_ws
+            try:
+                res = await rfn(**req.match_info, **req.rel_url.query)
+            except LookupError as e:
+                # the detail carries user-controlled text (the url
+                # id): a newline in it makes aiohttp reject the
+                # reason phrase and answer 500 instead of 404
+                logger.info("%s not found: %s", req.rel_url, e)
+                raise web.HTTPNotFound(reason="not found")
+            return web.json_response(res)
 
-        return fn
+        # called from remoteadmin CLI (websocket client-side)
+        if isinstance(maybe_req_or_ws, ClientWebSocketResponse):
+            ws = maybe_req_or_ws
+            await ws.send_json({"method": rfn.__name__, "params": kwargs})
+            res = await ws.receive_json()
+            if "error" in res:
+                raise RuntimeError(res["error"]["message"])
+            return res["result"]
 
-else:
+        # called from aiohttp websocket server-side
+        # (or any other regular call uses)
+        return await rfn(**kwargs)
 
-    def _remote_proc(rfn):
-        """Make a function into a compatible remote procedure.
-
-        This means it get 2 new overloads on top of the normal call:
-            * the first one makes it a compatible aiohttp URL handler;
-            * the second one makes it perform a RPC through websocket.
-
-        Each of these are used in difference places that needs to
-        access the exact same functionality. This makes it consistent
-        accros these places:
-            * aiohttp URL handler;
-            * remoteadmin CLI (both client- and server- side);
-            * normal function call.
-
-        For consistency again, decorated functions must only take
-        keyword arguments:
-
-            @_remote_proc
-            async def hello(*, world): ...
-        """
-
-        @wraps(rfn)
-        async def fn(maybe_req_or_ws=None, /, **kwargs):
-            # called from aiohttp registered url
-            if isinstance(maybe_req_or_ws, web.Request):
-                req = maybe_req_or_ws
-                try:
-                    res = await rfn(**req.match_info, **req.rel_url.query)
-                except LookupError as e:
-                    # the detail carries user-controlled text (the url
-                    # id): a newline in it makes aiohttp reject the
-                    # reason phrase and answer 500 instead of 404
-                    logger.info("%s not found: %s", req.rel_url, e)
-                    raise web.HTTPNotFound(reason="not found")
-                return web.json_response(res)
-
-            # called from remoteadmin CLI (websocket client-side)
-            if isinstance(maybe_req_or_ws, ClientWebSocketResponse):
-                ws = maybe_req_or_ws
-                await ws.send_json({"method": rfn.__name__, "params": kwargs})
-                res = await ws.receive_json()
-                if "error" in res:
-                    raise RuntimeError(res["error"]["message"])
-                return res["result"]
-
-            # called from aiohttp websocket server-side
-            # (or any other regular call uses)
-            return await rfn(**kwargs)
-
-        fn.is_remote_proc = True
-        return fn
+    fn.is_remote_proc = True
+    return fn
 
 
 def _get_channel(channelname: str) -> BaseChannel:

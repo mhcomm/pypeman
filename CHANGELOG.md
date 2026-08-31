@@ -3,13 +3,21 @@
 * CLI reworked: argparse + plugin architecture (`plugin_mgr`, `pypeman.plugins`).
   Commands: `start`, `graph`, `listplugins`, `printsettings`, `shell`.
   Removed: `stop`, `pyshell`, `debug`, `test`, `pytest`, daemon mode, `--reload`,
-  `--remote-admin`, the `pypeman_tool` script (stop pypeman with Ctrl-C).
+  `--remote-admin` (stop pypeman with Ctrl-C).
   Dropped dependencies: click, daemonlite, websockets, jsonrpcserver, jsonrpcclient,
   requests, ipython.
 * `graph` now builds a structured representation of the channels first and gains
   `--format {ascii,dot,json}`; the JSON output describes channels, nodes, fork/when/case
   (with conditions) and the special end-node paths. `--special final` no longer crashes.
 * startproject revived as a standalone `pypeman-startproject` script.
+* The `pypeman_tool` script is removed, together with the `pypeman.tool_commands`
+  dispatcher and the `pypeman.tools.view_store` / `pypeman.tools.send_from_store`
+  modules it exposed. Nothing replaces them yet; a project still needing them should
+  vendor the code from 0.6.6.
+* New setting `DISABLED_PLUGINS`: dotted paths of `PLUGINS` entries to deactivate, so a
+  project can drop a default plugin without restating the whole `PLUGINS` list. An entry
+  not present in `PLUGINS` raises at startup (typo protection), and `listplugins` reports
+  the deactivated ones.
 * Plugins can expose web endpoints through a shared web app (`BundledWebappPluginMixin`,
   configured with `settings.WEBAPP_PLUGINS_CONFIG`).
 * New `HealthPlugin` (on by default): `GET /health` on the shared web app reports an
@@ -79,6 +87,30 @@
 * Breaking Changes:
 * - Channel *short* names must now be unique (duplicate subchannel short names raise NameError at import)
 * - Log level pins on full dotted subchannel logger names must use the subchannel short name instead
+
+### Breaking for downstream projects
+
+Upgrading a project to this release needs code changes; check these before deploying.
+
+* The `pypeman.graph` module is gone. `load_project()` moved to `pypeman.project`; the
+  graph drawing helpers were replaced by the `graph` command's structured builders in
+  `pypeman.plugins.graph`.
+* `pypeman start` takes no options any more: `--no-daemon`, `--reload` and
+  `--remote-admin` were removed along with daemon mode, so a launcher passing them now
+  dies on an argparse error. Run plain `pypeman start` under your process supervisor and
+  stop it with Ctrl-C / SIGINT; the `stop`, `debug`, `pyshell`, `test` and `pytest`
+  commands are gone too.
+* Remote admin host and port now come exclusively from `WEBAPP_PLUGINS_CONFIG`
+  (default `localhost:8091`); host/port set in `REMOTE_ADMIN_CONFIG` or in the
+  deprecated `REMOTE_ADMIN_WEBSOCKET_CONFIG` / `REMOTE_ADMIN_WEB_CONFIG` are ignored,
+  and the separate web-client server (port 8090 by default) no longer exists - the API
+  and the client are served by the same web app. A client hardcoding
+  `http://127.0.0.1:8091` can fail against the `localhost` default when that resolves
+  to `::1` first; such projects should pin
+  `WEBAPP_PLUGINS_CONFIG = {"host": "127.0.0.1", "port": 8091}`.
+* `pypeman.helpers.logging` still has no `LogContextFilter`: a project whose logging
+  configuration declares that filter needs the pending logging rework, so this release
+  and that one have to be deployed together.
 
 ## [0.6.6](https://github.com/mhcomm/pypeman/compare/0.6.5...0.6.6)
 * FileWriter node: Don't raise "group not exist" error at startup

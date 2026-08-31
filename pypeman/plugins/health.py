@@ -12,8 +12,6 @@ Counters and timestamps come from the shared
 the channels' retry stores (retry replays don't fire message events).
 """
 
-from __future__ import annotations
-
 import asyncio
 import os
 import platform

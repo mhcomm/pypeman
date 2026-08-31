@@ -61,9 +61,9 @@ setup(
     ],
     install_requires=[
         "python-dateutil",
-        "aiohttp",
+        "aiohttp>=3.12",
         "aiosqlite",
-        "sqlitedict>=2.1",  # Python 3.10 DeprecationWarning: setDaemon() is deprecated
+        "sqlitedict>=2.1",
     ],
     extras_require={
         "hl7": ["hl7"],

@@ -11,7 +11,7 @@ plugin typically subscribes to them from its `task_start` and
 unsubscribes from its `task_stop` (see :mod:`pypeman.plugins.base`).
 """
 
-import asyncio
+import inspect
 import logging
 
 from pypeman.helpers.aio_compat import awaitify
@@ -60,7 +60,7 @@ class Event:
         to (un)subscribe handlers while the event is being fired.
         """
         for handler in tuple(self.handlers):
-            yield handler if asyncio.iscoroutinefunction(handler) else awaitify(handler)
+            yield handler if inspect.iscoroutinefunction(handler) else awaitify(handler)
 
     async def fire(self, *args, **kargs):
         """

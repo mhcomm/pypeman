@@ -1194,7 +1194,7 @@ class ChannelsTests(TestCase):
                                                **ftp_config)
             n = nodes.Log(name="test_ftp_chan2")
             chan2.add(n)
-            chan2.watch_for_file = asyncio.coroutine(mock.Mock())
+            chan2.watch_for_file = awaitify(mock.Mock())
             self.start_channels()
             self.loop.run_until_complete(chan2.tick())
             self.clean_loop()

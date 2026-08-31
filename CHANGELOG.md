@@ -1,5 +1,8 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
 ## unreleased
+* Add python 3.11, 3.12, 3.13 and 3.14 compatibility
+* remove python 3.8 and 3.9 from supported versions
+* the `pytest-asyncio<1.0` test pin is lifted (pytest-asyncio 1.x is required for py3.14)
 * CLI reworked: argparse + plugin architecture (`plugin_mgr`, `pypeman.plugins`).
   Commands: `start`, `graph`, `listplugins`, `printsettings`, `shell`.
   Removed: `stop`, `pyshell`, `debug`, `test`, `pytest`, daemon mode, `--reload`,

@@ -11,7 +11,6 @@ from abc import ABC
 from abc import abstractmethod
 from argparse import ArgumentParser
 from argparse import Namespace
-from typing import Union
 
 from aiohttp import web
 
@@ -223,8 +222,8 @@ class BundledWebappPluginMixin(TaskPluginMixin, ABC):
         await webapp_bundle.stop_once()
 
 
-MixinClasses_ = Union[
-    CommandPluginMixin,
-    TaskPluginMixin,
-    BundledWebappPluginMixin,
-]
+MixinClasses_ = (
+    CommandPluginMixin
+    | TaskPluginMixin
+    | BundledWebappPluginMixin
+)

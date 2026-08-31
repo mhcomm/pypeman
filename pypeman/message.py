@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import datetime
 import uuid
 import copy

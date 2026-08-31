@@ -10,6 +10,8 @@ from pypeman.channels import BaseChannel
 from pypeman.conf import settings
 from pypeman.exceptions import Dropped
 from pypeman.nodes import Drop
+from pypeman.exceptions import PausedChanException
+from pypeman.nodes import BaseNode
 from pypeman.nodes import Sleep
 from pypeman.plugins.base import webapp_bundle
 from pypeman.plugins.health import HealthPlugin
@@ -174,5 +176,74 @@ def test_health_custom_url_and_validation(plugin_env, monkeypatch):
             bad_plugin = HealthPlugin()  # ctor must not raise
             with pytest.raises(ValueError):
                 bad_plugin.webapp_urls()
+
+    asyncio.run(scenario())
+
+
+class RetryingNode(BaseNode):
+    """Node deferring its message until `raise_exc` is cleared."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.raise_exc = True
+
+    def process(self, msg):
+        if self.raise_exc:
+            raise TstException()
+        return msg
+
+
+@pytest.mark.usefixtures("clear_graph")
+def test_health_retry_document(plugin_env, monkeypatch, tmp_path):
+    monkeypatch.setitem(settings.__dict__, "RETRY_STORE_PATH", tmp_path)
+
+    async def scenario():
+        chan = BaseChannel(
+            name="health_retry_chan", message_store_factory=msgstore.MemoryMessageStoreFactory())
+        node = RetryingNode(name="health_retry_node", auto_retry_exceptions=[TstException])
+        chan.add(node)
+
+        plugin = HealthPlugin()
+        await plugin.task_start()
+        chan._reset_test()  # no retry task: the replays are driven by hand below
+        await chan.start()
+        with pytest.raises(PausedChanException):
+            await chan.handle(generate_msg())
+
+        async with ClientSession() as cs:
+            async def retry_doc():
+                url = _server_url() + "/health/channels/health_retry_chan"
+                async with cs.get(url) as resp:
+                    assert resp.status == 200
+                    return (await resp.json())["retry"]
+
+            # just entered retry mode: dated, and no failed replay yet
+            doc = await retry_doc()
+            assert doc["active"] is True
+            assert doc["since"] is not None
+            assert doc["seconds_in_retry"] >= 0
+            assert doc["attempts"] == 0
+            assert doc["pending_messages"] == 1
+
+            # one replay, the node still fails
+            await chan.retry_store.retry()
+            doc = await retry_doc()
+            assert doc["active"] is True
+            assert doc["attempts"] == 1
+            assert doc["pending_messages"] == 1
+
+            # the node recovers: the successful replay is not counted as an attempt,
+            # and leaving retry mode clears the counter
+            node.raise_exc = False
+            await chan.retry_store.retry()
+            doc = await retry_doc()
+            assert doc["active"] is False
+            assert doc["since"] is None
+            assert doc["seconds_in_retry"] is None
+            assert doc["attempts"] == 0
+            assert doc["pending_messages"] == 0
+
+        await plugin.task_stop()
+        await chan.stop()
 
     asyncio.run(scenario())

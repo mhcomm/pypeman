@@ -33,8 +33,11 @@ class RetryFileMsgStore(FileMessageStore):
         self.state = self.STOPPED
         self.stop_flag = False
         self.retry_task = None
-        self.retry_attempts = 0  # message replay attempts since entering retry mode
-        self.retry_mode_since = None  # time.time() of the last retry-mode entry
+        # failed replay attempts since entering retry mode in this process (volatile)
+        self.retry_attempts = 0
+        # time.time() of the retry-mode entry, recovered from the oldest deferred
+        # message when the store is restarted with a non-empty backlog
+        self.retry_mode_since = None
         self.exit_event = asyncio.Event()
         self.test_mode = False
         super().__init__(*args, path=path, **kwargs)
@@ -51,6 +54,9 @@ class RetryFileMsgStore(FileMessageStore):
         cnt_msgs = await self.total()
         if cnt_msgs > 0:
             await self.start_retry_mode()
+            # retry mode began when the oldest still pending message was deferred,
+            # possibly in a previous run of the process, not now
+            self.retry_mode_since = self._earliest.timestamp()
 
     async def stop(self):
         if self.state != self.STOPPED:
@@ -201,12 +207,12 @@ class RetryFileMsgStore(FileMessageStore):
                     self.channel.status = BaseChannel.WAITING
                     self.state = self.STOPPED
                     self.retry_mode_since = None
+                    self.retry_attempts = 0
                     break
                 else:
                     msg_data = msgs_data[0]
                     message_store_id = msg_data["meta"]["store_id"]
             retry_exc_catched = False
-            self.retry_attempts += 1
             try:
                 await self.retry_one_store_id(msg_store_id=message_store_id)
                 logger.debug(
@@ -215,6 +221,7 @@ class RetryFileMsgStore(FileMessageStore):
                 )
                 continue
             except exceptions.RetryException:
+                self.retry_attempts += 1
                 logger.warning(
                     "Retrystore Retry %s: Retry of store_id=%s not good: "
                     "RetryExc catched, will retry later",
@@ -223,6 +230,7 @@ class RetryFileMsgStore(FileMessageStore):
                 retry_exc_catched = True
                 return
             except Exception:
+                self.retry_attempts += 1
                 logger.warning(
                     "Retrystore Retry %s: Retry of store_id=%s Done (with err)",
                     self.channel.short_name, message_store_id

@@ -74,6 +74,9 @@
 * The `/metrics` Prometheus min/max processing-time gauges are renamed
   `pypeman_channel_processing_seconds_minimum` / `_maximum` (they used to hide under
   the `_seconds` SUMMARY family name).
+* FIX the ftp channel test failing at random: its last assert did not wait for the
+  fire-and-forget download task before checking the mock (the other asserts of that
+  test were already fixed for the same race in 0.5.1).
 * Logging revamp:
 * - New `pypeman.helpers.logging.LogContextFilter` logging filter injecting `%(msg_id)s` (msg uuid) and `%(channel)s` (channel short name, omitted on records already emitted through the channel's own logger) in all records emitted while a message is processed, empty outside message processing. Wired in default LOGGING and startproject template; add `%(channel)s%(msg_id)s` to your formatter + the filter to your handlers to use it
 * - Per-channel loggers renamed from `pypeman.channels.<full.dotted.path>` to `pypeman.channels.<short_name>`

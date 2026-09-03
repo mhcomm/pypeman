@@ -205,16 +205,13 @@ class BaseNode:
         :param msg: incoming message
         :return: modified message after a process call and some treatment
         """
-        self.logger.debug(
-            "node %s: enter, msg %s (payload %s)",
-            self.name, msg.short_uuid, type(msg.payload).__name__)
         start_time = time.monotonic()
         # TODO : Make sure exceptions are well raised (does not happen if i.e 1/0 here atm)
         if self.store_input_as:
             msg.add_context(self.store_input_as, msg)
             self.logger.debug(
-                "node %s: msg %s stored in ctx as %r",
-                self.name, msg.short_uuid, self.store_input_as)
+                "node %s: input stored in ctx as %r",
+                self.name, self.store_input_as)
         if self.passthrough or self.auto_retry_exceptions:
             old_msg = msg.copy()
         # Allow process as coroutine function
@@ -223,8 +220,8 @@ class BaseNode:
                 result = await self._call_run(msg)
             except self.auto_retry_exceptions as exc:
                 self.logger.warning(
-                    "node %s: catch retry Exception %r for msg %s",
-                    self.name, exc, msg.short_uuid)
+                    "node %s: catch retry Exception %r",
+                    self.name, exc)
                 if self.channel.retry_store:
                     await self.channel.retry_store.store_until_retry(msg=old_msg, nodename=self.name)
                     raise exceptions.RetryException(exc)
@@ -239,9 +236,8 @@ class BaseNode:
             result = await result
 
         self.logger.debug(
-            "node %s: exit after %.3fs, result is msg %s (payload %s)",
+            "node %s: ok %.3fs -> %s",
             self.name, time.monotonic() - start_time,
-            getattr(result, "short_uuid", result),
             type(getattr(result, "payload", result)).__name__)
 
         if not isinstance(result, types.GeneratorType) and getattr(result, 'store_id', None) is not None:
@@ -255,8 +251,8 @@ class BaseNode:
         if self.store_output_as:
             result.add_context(self.store_output_as, result)
             self.logger.debug(
-                "node %s: result msg %s stored in ctx as %r",
-                self.name, result.short_uuid, self.store_output_as)
+                "node %s: result stored in ctx as %r",
+                self.name, self.store_output_as)
 
         if self.passthrough:
             result.payload = old_msg.payload

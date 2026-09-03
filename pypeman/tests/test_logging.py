@@ -178,7 +178,7 @@ def test_level_policy(loop):
     chan.add(TstNode(name="tst_node"))
     loop.run_until_complete(chan.start())
 
-    # Success: one receipt + one outcome line at INFO, node enter/exit at DEBUG
+    # Success: one receipt + one outcome line at INFO, one node line at DEBUG
     msg = generate_msg()
     with capture_records(chan) as records:
         loop.run_until_complete(chan.handle(msg))
@@ -189,9 +189,10 @@ def test_level_policy(loop):
     ]
     debugs = [rec.getMessage() for rec in records if rec.levelno == logging.DEBUG]
     assert any(text.startswith("msg %s infos:" % msg.short_uuid) for text in debugs)
-    assert "node tst_node: enter, msg %s (payload %s)" % (
-        msg.short_uuid, type(msg.payload).__name__) in debugs
-    assert any(text.startswith("node tst_node: exit after") for text in debugs)
+    node_lines = [text for text in debugs if text.startswith("node tst_node:")]
+    assert len(node_lines) == 1
+    assert node_lines[0].startswith("node tst_node: ok ")
+    assert node_lines[0].endswith("-> %s" % type(msg.payload).__name__)
 
     # Drop: INFO outcome
     drop_chan = BaseChannel(name="drop_chan", loop=loop)

@@ -431,7 +431,7 @@ class BaseChannel:
         }
         nodelist = node_type_to_nodelist[node_type]
         if nodelist:
-            self.logger.debug("msg %s enters %s nodes", msg.short_uuid, node_type)
+            self.logger.debug("entering %s nodes", node_type)
             if start_nodename:
                 start_node = self.get_node(start_nodename)
                 if start_node not in nodelist:
@@ -467,23 +467,23 @@ class BaseChannel:
             msg.chan_rslt = result
             if not self._has_callback() and call_endnodes:
                 await self._call_special_nodes(msg=result, node_type="join")
-            self.logger.info("msg %s processed", msg.short_uuid)
+            self.logger.info("msg processed")
             return result
         except Dropped as exc:
-            self.logger.info("msg %s dropped: %r", msg.short_uuid, exc)
+            self.logger.info("msg dropped: %r", exc)
             msg.chan_exc = exc
             msg.chan_exc_traceback = traceback.format_exc()
             if not self._has_callback() and call_endnodes:
                 try:
                     await self._call_special_nodes(msg=msg, node_type="drop")
                 except exceptions.RetryException as retry_exc:
-                    self.logger.warning("retry exception caught in drop nodes for msg %s", msg.short_uuid)
+                    self.logger.warning("retry exception caught in drop nodes")
                     retry_exc_catched = retry_exc
             if self.raise_dropped or self._has_callback():
                 raise
             return msg
         except Rejected as exc:
-            self.logger.warning("msg %s rejected: %r", msg.short_uuid, exc)
+            self.logger.warning("msg rejected: %r", exc)
             msg.chan_exc = exc
             msg.chan_exc_traceback = traceback.format_exc()
             await self.message_store.add_message_meta_infos(msg.store_id, "err_msg", str(exc))
@@ -491,24 +491,24 @@ class BaseChannel:
                 try:
                     await self._call_special_nodes(msg=msg, node_type="reject")
                 except exceptions.RetryException as retry_exc:
-                    self.logger.warning("retry exception caught in reject nodes for msg %s", msg.short_uuid)
+                    self.logger.warning("retry exception caught in reject nodes")
                     retry_exc_catched = retry_exc
             raise
         except (exceptions.RetryException, exceptions.PausedChanException) as exc:
-            self.logger.warning("retry exception caught for msg %s", msg.short_uuid)
+            self.logger.warning("retry exception caught")
             retry_exc_catched = exc
             await self.message_store.change_message_state(msg.store_id, message.Message.WAIT_RETRY)
             raise exc
         except Exception as exc:
             msg.chan_exc = exc
             msg.chan_exc_traceback = traceback.format_exc()
-            self.logger.error("error while processing msg %s: %r", msg.short_uuid, exc)
+            self.logger.error("error while processing msg: %r", exc)
             await self.message_store.add_message_meta_infos(msg.store_id, "err_msg", str(exc))
             if not self._has_callback() and call_endnodes:
                 try:
                     await self._call_special_nodes(msg=msg, node_type="fail")
                 except exceptions.RetryException as retry_exc:
-                    self.logger.warning("retry exception caught in fail nodes for msg %s", msg.short_uuid)
+                    self.logger.warning("retry exception caught in fail nodes")
                     retry_exc_catched = retry_exc
             raise
         finally:
@@ -535,7 +535,7 @@ class BaseChannel:
                     subchan_endnodes_fut.add_done_callback(self._reset_sub_chan_endnodes)
                     if self.wait_subchans:
                         await subchan_endnodes_fut
-                self.logger.debug("end handle of msg %s", msg.short_uuid)
+                self.logger.debug("end of msg handling")
             if retry_exc_catched:
                 raise retry_exc_catched
 
@@ -577,7 +577,7 @@ class BaseChannel:
             CHANNEL_CTXVAR.reset(chanctxvartoken)
 
     async def _inject(self, msg, start_nodename, call_endnodes=True, set_state=True):
-        self.logger.debug("inject msg %s in node %r", msg.short_uuid, start_nodename)
+        self.logger.debug("inject in node %r", start_nodename)
 
         async with self.lock:
             if not start_nodename or start_nodename == "_initial":
@@ -592,7 +592,7 @@ class BaseChannel:
             start_node = self.get_node(name=start_nodename)
             if not start_node:
                 raise ValueError("Node %s not found", start_nodename)
-            self.logger.debug("inject msg %s in node %r", msg.short_uuid, start_node)
+            self.logger.debug("inject in node %r", start_node)
             if self.init_nodes and start_node in self.init_nodes:
                 # Inject in specific init_node, then run the process and returns resulting message
                 msg = await self._call_special_nodes(
@@ -715,30 +715,28 @@ class BaseChannel:
             if msg_store_id is not None:
                 msg.store_id = msg_store_id
                 msg.store_chan_name = self.short_name
-                self.logger.debug("msg %s stored with id %r", msg.short_uuid, msg_store_id)
+                self.logger.debug("msg stored with id %r", msg_store_id)
         # TODO: Maybe think to add PENDING status to incoming message, this status is never set and
         # is currently unuseful. Uncomment next line if it's a good idea
         # await self.message_store.change_message_state(msg.store_id, message.Message.PENDING)
 
         if self.status in [BaseChannel.STOPPED, BaseChannel.STOPPING]:
             raise ChannelStopped("Channel is stopped so you can't send message.")
-        self.logger.info("channel %s handling new msg %s", self.short_name, msg.short_uuid)
+        self.logger.info("handling new msg")
         try:
             payload_len = len(msg.payload)
         except TypeError:
             payload_len = "-"
         self.logger.debug(
-            "msg %s infos: timestamp=%s, payload type=%s, payload len=%s, meta=%r",
-            msg.short_uuid, msg.timestamp_str(), type(msg.payload).__name__, payload_len, msg.meta)
+            "msg infos: timestamp=%s, payload type=%s, payload len=%s, meta=%r",
+            msg.timestamp_str(), type(msg.payload).__name__, payload_len, msg.meta)
         setattr(msg, "chan_rslt", None)
         setattr(msg, "chan_exc", None)
         setattr(msg, "chan_exc_traceback", None)
         # Only one message processing at time
         async with self.lock:
             if self.status == BaseChannel.PAUSED:
-                self.logger.warning(
-                    "channel %s paused, msg %s sent to retry store",
-                    self.short_name, msg.short_uuid)
+                self.logger.warning("channel paused, msg sent to retry store")
                 await self.message_store.change_message_state(msg.store_id, message.Message.WAIT_RETRY)
                 if self.retry_store:
                     await self.retry_store.store_until_retry(msg=msg, nodename=None)
@@ -753,8 +751,7 @@ class BaseChannel:
             try:
                 return await self._call_base_handling(msg=msg)
             except exceptions.RetryException as exc:
-                self.logger.warning(
-                    "Retry Exception caught: Set Channel %s in retry mode", self.short_name)
+                self.logger.warning("Retry Exception caught: set channel in retry mode")
                 self.status = BaseChannel.PAUSED
                 raise exceptions.PausedChanException(exc)
             finally:
@@ -1081,12 +1078,12 @@ class SubChannel(BaseChannel):
             if self.join_nodes:
                 endnode_task = asyncio.create_task(self._call_special_nodes(result.copy(), node_type="join"))
                 endnodes_tasks.append(endnode_task)
-            self.logger.debug("subchan join, rslt is msg %s", result.short_uuid)
+            self.logger.debug("subchan join done")
         except EndChanProcess:
             if self.join_nodes:
                 endnode_task = asyncio.create_task(self._call_special_nodes(result.copy(), node_type="join"))
                 endnodes_tasks.append(endnode_task)
-            self.logger.debug("subchan join, rslt is msg %s", result.short_uuid)
+            self.logger.debug("subchan join done")
         except Dropped as exc:
             entrymsg.chan_exc = exc
             entrymsg.chan_exc_traceback = traceback.format_exc()
@@ -1094,7 +1091,7 @@ class SubChannel(BaseChannel):
                 endnode_task = asyncio.create_task(
                     self._call_special_nodes(entrymsg.copy(), node_type="drop"))
                 endnodes_tasks.append(endnode_task)
-            self.logger.debug("subchan callback: msg %s dropped", entrymsg.short_uuid)
+            self.logger.debug("subchan callback: msg dropped")
         except Rejected as exc:
             entrymsg.chan_exc = exc
             entrymsg.chan_exc_traceback = traceback.format_exc()
@@ -1102,7 +1099,7 @@ class SubChannel(BaseChannel):
                 endnode_task = asyncio.create_task(
                     self._call_special_nodes(entrymsg.copy(), node_type="reject"))
                 endnodes_tasks.append(endnode_task)
-            self.logger.debug("subchan callback: msg %s rejected", entrymsg.short_uuid)
+            self.logger.debug("subchan callback: msg rejected")
             raise
         except exceptions.RetryException as exc:
             retry_exc = exc
@@ -1114,8 +1111,7 @@ class SubChannel(BaseChannel):
                 endnode_task = asyncio.create_task(
                     self._call_special_nodes(entrymsg.copy(), node_type="fail"))
                 endnodes_tasks.append(endnode_task)
-            self.logger.error(
-                "error while processing msg %s in subchan: %r", entrymsg.short_uuid, exc)
+            self.logger.error("error while processing msg in subchan: %r", exc)
             raise
         finally:
             if self.has_message_store:
@@ -1128,7 +1124,7 @@ class SubChannel(BaseChannel):
                 endnodes_tasks.append(endnode_task)
             self.parent.sub_chan_endnodes.extend(endnodes_tasks)
             self.parent.sub_chan_tasks.remove(fut)
-            self.logger.debug("subchan end process of msg %s", entrymsg.short_uuid)
+            self.logger.debug("subchan end process")
 
     async def handle(self, msg):
         msg_store_id = await self.message_store.store(msg)
@@ -1144,9 +1140,7 @@ class SubChannel(BaseChannel):
             # of subchannel to the first message
             copied_msg.store_id = None
             copied_msg.store_chan_name = None
-        self.logger.debug(
-            "msg %s forked from channel %s to subchan %s",
-            msg.short_uuid, self.parent.short_name, self.short_name)
+        self.logger.debug("forked from channel %s", self.parent.short_name)
         fut = asyncio.create_task(super().handle(copied_msg))
         fut.add_done_callback(self._callback, context=ctx)
         self.parent.sub_chan_tasks.append(fut)
@@ -1181,14 +1175,13 @@ class ConditionSubChannel(BaseChannel):
     async def handle(self, msg):
         if self.test_condition(msg):
             self.logger.debug(
-                "msg %s matched condition, taking path %s and ending parent processing",
-                msg.short_uuid, self.short_name)
+                "matched condition, taking path %s and ending parent processing",
+                self.short_name)
             await super().handle(msg)
             raise EndChanProcess(f"cond subchan {self.short_name} ask to end parent")
         else:
             self.logger.debug(
-                "msg %s didn't match condition of %s, staying on parent path",
-                msg.short_uuid, self.short_name)
+                "didn't match condition of %s, staying on parent path", self.short_name)
             return msg
 
 
@@ -1226,12 +1219,11 @@ class Case():
         for cond, channel in self.cases:
             if self.test_condition(cond, msg):
                 channel.logger.debug(
-                    "msg %s matched case condition, routing to case channel %s",
-                    msg.short_uuid, channel.short_name)
+                    "matched case condition, routing to case channel %s", channel.short_name)
                 result = await channel.handle(msg)
                 break
         else:
-            logger.debug("msg %s matched no case condition", msg.short_uuid)
+            logger.debug("matched no case condition")
 
         if self.next_node:
             result = await self.next_node.handle(result)

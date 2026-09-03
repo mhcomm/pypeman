@@ -140,10 +140,7 @@ def test_context_in_records_during_processing(loop):
     started = [rec for rec in records if rec.getMessage() == "channel logging_chan started"]
     assert started and started[0].msg_id == "" and started[0].channel == ""
 
-    processing_texts = (
-        "channel logging_chan handling new msg %s" % msg.short_uuid,
-        "msg %s processed" % msg.short_uuid,
-    )
+    processing_texts = ("handling new msg", "msg processed")
     processing = [rec for rec in records if rec.getMessage() in processing_texts]
     assert len(processing) == 2
     for rec in processing:
@@ -183,12 +180,9 @@ def test_level_policy(loop):
     with capture_records(chan) as records:
         loop.run_until_complete(chan.handle(msg))
     infos = [rec.getMessage() for rec in records if rec.levelno == logging.INFO]
-    assert infos == [
-        "channel levels_chan handling new msg %s" % msg.short_uuid,
-        "msg %s processed" % msg.short_uuid,
-    ]
+    assert infos == ["handling new msg", "msg processed"]
     debugs = [rec.getMessage() for rec in records if rec.levelno == logging.DEBUG]
-    assert any(text.startswith("msg %s infos:" % msg.short_uuid) for text in debugs)
+    assert any(text.startswith("msg infos:") for text in debugs)
     node_lines = [text for text in debugs if text.startswith("node tst_node:")]
     assert len(node_lines) == 1
     assert node_lines[0].startswith("node tst_node: ok ")
@@ -202,7 +196,7 @@ def test_level_policy(loop):
     with capture_records(drop_chan) as records:
         loop.run_until_complete(drop_chan.handle(msg))
     dropped = [rec for rec in records
-               if rec.getMessage().startswith("msg %s dropped" % msg.short_uuid)]
+               if rec.getMessage().startswith("msg dropped")]
     assert dropped and dropped[0].levelno == logging.INFO
 
     # Reject: WARNING outcome
@@ -214,7 +208,7 @@ def test_level_policy(loop):
         with pytest.raises(Rejected):
             loop.run_until_complete(reject_chan.handle(msg))
     rejected = [rec for rec in records
-                if rec.getMessage().startswith("msg %s rejected" % msg.short_uuid)]
+                if rec.getMessage().startswith("msg rejected")]
     assert rejected and rejected[0].levelno == logging.WARNING
 
     # Failure: single ERROR without traceback text

@@ -82,6 +82,16 @@ class NodesTests(TestCase):
             assert m is not None
         assert "exists already" in str(exc._excinfo)
 
+    def test_setctx_default_name(self):
+        """ an unnamed SetCtx is named after its ctx key, an explicit name wins """
+        first = nodes.SetCtx("stay_info")
+        second = nodes.SetCtx("stay_info")
+        assert first.name.startswith("SetCtx_stay_info_")
+        assert second.name.startswith("SetCtx_stay_info_")
+        # the counter still ensures uniqueness
+        assert first.name != second.name
+        assert nodes.SetCtx("stay_info", name="explicit").name == "explicit"
+
     def test_base_logging(self):
         """ whether BaseNode() node logging works"""
 

@@ -203,6 +203,10 @@ class MessageStore(ABC):
     def __init__(self):
         self._active = False
 
+    def __str__(self):
+        """Short store identity for logs; subclasses add what they are backed by."""
+        return "<%s>" % type(self).__name__
+
     async def _start(self):
         """(implementation) Called at startup to initialize the store.
 
@@ -301,13 +305,13 @@ class MessageStore(ABC):
         await self._start()
         self._active = True
         self._cached_total = await self._total()
-        logger.debug("store started successfully %r: %s message(s)", self, self._cached_total)
+        logger.debug("store started successfully %s: %s message(s)", self, self._cached_total)
 
     async def stop(self):
         """Called at teardown to finalize the store."""
         await self._stop()
         self._active = False
-        logger.debug("store stopped %r", self)
+        logger.debug("store stopped %s", self)
 
     async def store(self, msg: Message) -> str:
         """Store a message in the store.
@@ -949,7 +953,7 @@ class MemoryMessageStoreFactory(MessageStoreFactory):
     """
 
     def _new_store(self, store_id: str) -> MessageStore:
-        return MemoryMessageStore()
+        return MemoryMessageStore(store_id)
 
     async def _delete_store(self, store: MessageStore):
         assert isinstance(store, MemoryMessageStore)  # type narrowing
@@ -964,13 +968,17 @@ class MemoryMessageStore(MessageStore):
         message: dict[str, Any]  # for now messages are still `to_dict`-ified, this may change
         timestamp: datetime
 
-    def __init__(self):
+    def __init__(self, store_id: str):
         super().__init__()
+        self._store_id = store_id
         # this is a list so that it can be sort-inserted by timestamp
         self._sorted: list[MemoryMessageStore.MemoryStoredEntry_] = []
         # accompanying mapping for direct accesses by id
         self._mapped: dict[str, MemoryMessageStore.MemoryStoredEntry_] = {}
         # 2 references are stored to the same entry for 2 different usage
+
+    def __str__(self):
+        return "<%s %s>" % (type(self).__name__, self._store_id)
 
     async def _store(self, msg: Message, ini_meta: dict[str, Any]) -> str:
         if msg.uuid in self._mapped:
@@ -1130,6 +1138,9 @@ class FileMessageStore(MessageStore):
         # TODO: see if property name and parameter names can be changed/harmonized/privatized
         self.base_path = Path(path, store_id)
         # reminder: don't touch file system here! wait for `start`
+
+    def __str__(self):
+        return "<%s %s>" % (type(self).__name__, self.base_path)
 
     async def _start(self):
         self.base_path.mkdir(parents=True, exist_ok=True)
@@ -1391,6 +1402,9 @@ class DatabaseMessageStore(MessageStore):
         # the factory acts as a proxy to the connection (then to the database)
         self._db = factory_handle
         self._store_id = store_id
+
+    def __str__(self):
+        return "<%s %s %s>" % (type(self).__name__, self._db._path, self._store_id)
 
     async def _start(self):
         # notify that we are starting; after that only is the connection ensured to exist

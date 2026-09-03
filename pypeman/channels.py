@@ -208,7 +208,6 @@ class BaseChannel:
         Start the channel. Called before starting processus. Can be overloaded to specify specific
         start procedure.
         """
-        self.logger.debug("channel %s starting ...", self.short_name)
         if self.loop is None:
             self.loop = asyncio.get_running_loop()
         self.lock = asyncio.Lock()
@@ -237,7 +236,6 @@ class BaseChannel:
         - pypeman shuts down.
         - a channel is stopped (e.g. via the admin interface)
         """
-        self.logger.debug("channel %s stopping ...", self.short_name)
         self.status = BaseChannel.STOPPING
         # Verify that all messages are processed
         async with self.lock:

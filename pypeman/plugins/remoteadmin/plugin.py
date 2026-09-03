@@ -1,7 +1,5 @@
 """See package-level documentation."""
 
-from __future__ import annotations
-
 import asyncio
 from argparse import ArgumentParser
 from argparse import Namespace

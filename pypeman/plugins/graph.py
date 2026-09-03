@@ -18,8 +18,6 @@ The special end-node paths (init/join/drop/reject/fail/final) appear
 under the channel's `"specials"` (only the non-empty ones).
 """
 
-from __future__ import annotations
-
 import json
 from argparse import SUPPRESS
 from argparse import ArgumentParser

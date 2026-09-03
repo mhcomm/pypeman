@@ -17,8 +17,6 @@ the default values for as long as pypeman doesn't require user settings.
 are eventually required.
 """
 
-from __future__ import annotations
-
 from importlib import import_module
 from logging import getLogger
 from os import environ

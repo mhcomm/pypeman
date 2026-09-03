@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 
 """ Helpers for testing
 - helpers for testing pypeman itself

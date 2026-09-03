@@ -20,7 +20,6 @@ from pypeman import message
 from pypeman.channels import BaseChannel
 from pypeman.exceptions import Dropped, Rejected
 from pypeman.exceptions import PypemanParamError
-from pypeman.helpers.aio_compat import awaitify
 from pypeman.test import TearDownProjectTestCase as TestCase
 from pypeman.tests.common import ExceptNode
 from pypeman.tests.common import generate_msg
@@ -1124,7 +1123,7 @@ class ChannelsTests(TestCase):
                                               basedir="testdir",  # delete_after=True,
                                               **ftp_config)
 
-            chan.watch_for_file = awaitify(mock.Mock())  # TODO: use AsyncMock when py3.8+
+            chan.watch_for_file = mock.AsyncMock()
 
             n = nodes.Log(name="test_ftp_chan")
             chan.add(n)
@@ -1194,7 +1193,7 @@ class ChannelsTests(TestCase):
                                                **ftp_config)
             n = nodes.Log(name="test_ftp_chan2")
             chan2.add(n)
-            chan2.watch_for_file = awaitify(mock.Mock())
+            chan2.watch_for_file = mock.AsyncMock()
             self.start_channels()
             self.loop.run_until_complete(chan2.tick())
             self.clean_loop()

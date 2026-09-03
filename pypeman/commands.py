@@ -38,8 +38,11 @@ async def start(_options: Namespace):
         if chan.loop is None:
             chan.loop = loop
 
-    await asyncio.gather(*(it.start() for it in all_endpoints + all_channels))
-    # TODO: check this point, ordering might matter (all endpoints then all channels)
+    # channels must be fully started first: their start() registers the
+    # handlers/routes the endpoints need before listening (an endpoint
+    # without a handler binds its socket but never calls listen())
+    await asyncio.gather(*(chan.start() for chan in all_channels))
+    await asyncio.gather(*(endp.start() for endp in all_endpoints))
 
     logger.debug("Everything ready.")
     # TODO: graceful shutdown (loop signal handlers for SIGINT/SIGTERM

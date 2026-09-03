@@ -61,7 +61,6 @@ class PypeTestCase(TestCase):
         for chan in channels.all_channels:
             self.loop.run_until_complete(chan.stop())
         self.loop.close()
-        self.loop.stop()
         self.loop = None
         asyncio.set_event_loop(None)
 

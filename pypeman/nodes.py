@@ -1,8 +1,9 @@
 import asyncio
 import base64
-import collections
+import collections.abc
 import contextvars
 import grp
+import inspect
 import json
 import logging
 import os
@@ -190,7 +191,7 @@ class BaseNode:
         self._logger = value
 
     async def _call_run(self, msg):
-        if asyncio.iscoroutinefunction(self.process):
+        if inspect.iscoroutinefunction(self.process):
             result = await self.async_run(msg)
         else:
             result = self.run(msg)
@@ -1021,7 +1022,7 @@ class MsgFuncNode(BaseNode):
         self.fn = fn
 
     async def process(self, msg):
-        if asyncio.iscoroutinefunction(self.fn):
+        if inspect.iscoroutinefunction(self.fn):
             await self.fn(msg)
         else:
             self.fn(msg)
@@ -1056,7 +1057,7 @@ class FuncNode(BaseNode):
     async def process(self, msg):
         msg.payload = (
             await self.fn(msg.payload)
-            if asyncio.iscoroutinefunction(self.fn)
+            if inspect.iscoroutinefunction(self.fn)
             else self.fn(msg.payload)
         )
         return msg

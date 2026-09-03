@@ -37,7 +37,7 @@ def mk_msgs_w_ctx(*ctx_ids):
 
 
 @pytest.mark.usefixtures("clear_graph")
-def test_combine_ctx_not_two_names(event_loop):
+def test_combine_ctx_not_two_names():
     with pytest.raises(NodeException):
         CombineCtx([], name="ctx1")
     with pytest.raises(NodeException):
@@ -45,45 +45,42 @@ def test_combine_ctx_not_two_names(event_loop):
 
 
 @pytest.mark.usefixtures("clear_graph")
-def test_combine_ctx_2_names(event_loop):
-    loop = event_loop
-    asyncio.set_event_loop(loop)
+async def test_combine_ctx_2_names():
+    loop = asyncio.get_running_loop()
     # nut == Node Under Test
     nut = CombineCtx(["a", "b"], name="ctx1")
     nut.channel = FakeChannel(loop)
     msg, ctx_msgs = mk_msgs_w_ctx("a", "b")
 
-    rslt = loop.run_until_complete(nut.handle(msg))
+    rslt = await nut.handle(msg)
     assert rslt.payload["a"] == ctx_msgs[0].payload
     assert rslt.payload["b"] == ctx_msgs[1].payload
     assert rslt.meta == ctx_msgs[0].meta
 
 
 @pytest.mark.usefixtures("clear_graph")
-def test_combine_ctx_2_names_w_meta(event_loop):
-    loop = event_loop
-    asyncio.set_event_loop(loop)
+async def test_combine_ctx_2_names_w_meta():
+    loop = asyncio.get_running_loop()
     # nut == Node Under Test
     nut = CombineCtx(["a", "b"], meta_from="b", name="ctx1")
     nut.channel = FakeChannel(loop)
     msg, ctx_msgs = mk_msgs_w_ctx("a", "b")
 
-    rslt = loop.run_until_complete(nut.handle(msg))
+    rslt = await nut.handle(msg)
     assert rslt.payload["a"] == ctx_msgs[0].payload
     assert rslt.payload["b"] == ctx_msgs[1].payload
     assert rslt.meta == ctx_msgs[1].meta
 
 
 @pytest.mark.usefixtures("clear_graph")
-def test_combine_ctx_2_names_flat(event_loop):
-    loop = event_loop
-    asyncio.set_event_loop(loop)
+async def test_combine_ctx_2_names_flat():
+    loop = asyncio.get_running_loop()
     # nut == Node Under Test
     nut = CombineCtx(["a", "b"], name="ctx1", flatten=True)
     nut.channel = FakeChannel(loop)
     msg, ctx_msgs = mk_msgs_w_ctx("a", "b")
 
-    rslt = loop.run_until_complete(nut.handle(msg))
+    rslt = await nut.handle(msg)
     exp_payload = dict(ctx_msgs[0].payload)
     exp_payload.update(ctx_msgs[1].payload)
     assert rslt.payload == exp_payload

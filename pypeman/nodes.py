@@ -422,8 +422,13 @@ class Empty(BaseNode):
 class SetCtx(BaseNode):
     """ Push the message in the context with the key `ctx_name` """
 
-    def __init__(self, ctx_name, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, ctx_name, *args, name: "str | None" = None, **kwargs):
+        # An unnamed SetCtx logs as "SetCtx_90", which says nothing and shifts as
+        # soon as a node is added earlier in the project. Default to a name built
+        # from the ctx key; uniqueness still comes from the counter, which is
+        # len(all_nodes) + 1 here (BaseNode appends itself before reading it).
+        name = name or "SetCtx_%s_%s" % (ctx_name, len(all_nodes) + 1)
+        super().__init__(*args, name=name, **kwargs)
         self.ctx_name = ctx_name
 
     def process(self, msg):

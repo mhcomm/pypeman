@@ -1,5 +1,5 @@
 # Mandatory
-aiohttp
+aiohttp>=3.12
 python-dateutil
-sqlitedict>=2.1  # Python 3.10 DeprecationWarning: setDaemon() is deprecated
+sqlitedict>=2.1
 aiosqlite

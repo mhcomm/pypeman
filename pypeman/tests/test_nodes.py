@@ -802,7 +802,6 @@ class TestsFileNodes(TestCase):
         fmover_node.process(msg)
         self.assertFalse(src_fpath_pth.exists(), msg="file not moved (already in indir)")
         self.assertTrue(dst_fpath_pth.exists(), msg="file not moved (not in outdir)")
-        return msg
 
     def test_filecleaner(self):
         indir_pth = Path(self.tmpdir_obj.name)
@@ -817,7 +816,6 @@ class TestsFileNodes(TestCase):
         fcleaner_node.process(msg)
         self.assertFalse(src_fpath_pth.exists(), msg="file 1 not rm")
         self.assertFalse(src2_fpath_pth.exists(), msg="file 2 not rm")
-        return msg
 
 
 class TestsCsvContrib(TestCase):
@@ -850,7 +848,6 @@ class TestsCsvContrib(TestCase):
         # Test without to_dict and headers params
         processed_msg2 = csv2py_node2.process(msg2)
         self.assertListEqual(self.py_data_nodict, processed_msg2.payload)
-        return msg
 
     def test_csvstr2python(self):
         csv2py_node = nodes.CSVstr2Python(to_dict=True, headers=True)
@@ -863,21 +860,18 @@ class TestsCsvContrib(TestCase):
         # Test without to_dict and headers params
         processed_msg2 = csv2py_node2.process(msg2)
         self.assertListEqual(self.py_data_nodict, processed_msg2.payload)
-        return msg
 
     def test_python2csvstr(self):
         py2csv_node = nodes.Python2CSVstr(header=True)
         msg = message.Message(payload=self.py_data_dict)
         processed_msg = py2csv_node.process(msg)
         self.assertEqual(self.csv_str_data, processed_msg.payload)
-        return msg
 
     def test_emptymeta(self):
         emptymeta_node = nodes.EmptyMeta()
         msg = message.Message(payload={}, meta={"titi": "toto"})
         processed_msg = emptymeta_node.process(msg)
         self.assertEqual(processed_msg.meta, {})
-        return msg
 
     def test_usemetafrom(self):
         ctx_name = "totoctx"
@@ -889,4 +883,3 @@ class TestsCsvContrib(TestCase):
         processed_msg = metafrom_node.process(msg)
         self.assertEqual(processed_msg.payload, msg.payload)
         self.assertEqual(processed_msg.meta, msg_stored.meta)
-        return msg

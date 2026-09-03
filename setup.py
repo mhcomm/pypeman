@@ -15,9 +15,11 @@ setup(
     classifiers=[
         "Development Status :: 4 - Beta",
         "License :: OSI Approved :: Apache Software License",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Programming Language :: Python :: 3 :: Only",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
@@ -33,7 +35,7 @@ setup(
     author="Jeremie Pardou",
     author_email="jeremie@jeremiez.net",
     license="Apache Software License",
-    python_requires=">=3.8",
+    python_requires=">=3.10",
     packages=[
         "pypeman",
         "pypeman.contrib",
@@ -59,9 +61,9 @@ setup(
     ],
     install_requires=[
         "python-dateutil",
-        "aiohttp",
+        "aiohttp>=3.12",
         "aiosqlite",
-        "sqlitedict>=2.1",  # Python 3.10 DeprecationWarning: setDaemon() is deprecated
+        "sqlitedict>=2.1",
     ],
     extras_require={
         "hl7": ["hl7"],

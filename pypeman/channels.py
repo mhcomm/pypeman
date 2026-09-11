@@ -126,8 +126,6 @@ class BaseChannel:
         # inside the loop uses `asyncio.get_running_loop()` at call time.
         self.loop = loop
 
-        self.logger = logging.getLogger('pypeman.channels.%s' % self.short_name)
-
         self.next_node = None
 
         self.message_store_factory = message_store_factory or msgstore.NullMessageStoreFactory()
@@ -136,6 +134,16 @@ class BaseChannel:
             msgstore.NullMessageStoreFactory,
         )
         self.message_store = self.message_store_factory.get_store(self.name)
+
+        # Records are filed under the nearest channel with a message store (the
+        # root channel failing that): a fork/when/case without its own store
+        # logs under its parent's name, so splitting logs per channel gives one
+        # file per store, not one per sub channel.
+        if self.parent and not self.has_message_store:
+            self.log_name = self.parent.log_name
+        else:
+            self.log_name = self.short_name
+        self.logger = logging.getLogger('pypeman.channels.%s' % self.log_name)
         try:
             retry_store_path = settings.RETRY_STORE_PATH
         except Exception:
@@ -1140,7 +1148,7 @@ class SubChannel(BaseChannel):
             # of subchannel to the first message
             copied_msg.store_id = None
             copied_msg.store_chan_name = None
-        self.logger.debug("forked from channel %s", self.parent.short_name)
+        self.logger.debug("sub channel %s forked from %s", self.short_name, self.parent.short_name)
         fut = asyncio.create_task(super().handle(copied_msg))
         fut.add_done_callback(self._callback, context=ctx)
         self.parent.sub_chan_tasks.append(fut)

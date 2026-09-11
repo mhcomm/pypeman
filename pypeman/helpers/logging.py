@@ -18,10 +18,11 @@ class LogContextFilter(logging.Filter):
 
     - ``%(msg_id)s``: ``"[<msg uuid>] "`` while a message is being
       processed, empty string otherwise.
-    - ``%(channel)s``: ``"(<channel short_name>) "`` while a message is
+    - ``%(channel)s``: ``"(<channel log_name>) "`` while a message is
       being processed, except on records already emitted through the
       channel's own logger (their ``%(name)s`` carries it), empty string
-      otherwise.
+      otherwise. ``log_name`` is the short name of the nearest channel with
+      a message store (see ``BaseChannel.__init__``).
 
     Attach it to handlers (not loggers) so records from project or
     third-party code also get the attributes.
@@ -32,7 +33,7 @@ class LogContextFilter(logging.Filter):
         record.msg_id = "[%s] " % uuid if uuid else ""
         chan = CHANNEL_CTXVAR.get()
         if chan is not None and record.name != chan.logger.name:
-            record.channel = "(%s) " % chan.short_name
+            record.channel = "(%s) " % chan.log_name
         else:
             record.channel = ""
         return True

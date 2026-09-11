@@ -41,6 +41,7 @@ setup(
         "pypeman.contrib",
         "pypeman.helpers",
         "pypeman.plugins",
+        "pypeman.plugins.metrics",
         "pypeman.plugins.remoteadmin",
         "pypeman.plugins.tests",
         # shipped because interop resets PYPEMAN_SETTINGS_MODULE to

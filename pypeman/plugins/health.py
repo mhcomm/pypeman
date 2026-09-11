@@ -8,7 +8,7 @@ store count, last message/error). `GET /health/channels/<name>`
 answers the entry of a single channel.
 
 Counters and timestamps come from the shared
-:obj:`pypeman.plugins.stats.stats_collector`; retry data comes from
+:obj:`pypeman.plugins.metrics.stats.stats_collector`; retry data comes from
 the channels' retry stores (retry replays don't fire message events).
 """
 
@@ -28,8 +28,8 @@ from pypeman import channels
 from pypeman.conf import settings
 from pypeman.plugins.base import BasePlugin
 from pypeman.plugins.base import BundledWebappPluginMixin
-from pypeman.plugins.stats import rss_bytes
-from pypeman.plugins.stats import stats_collector
+from pypeman.plugins.metrics.stats import rss_bytes
+from pypeman.plugins.metrics.stats import stats_collector
 
 logger = getLogger(__name__)
 

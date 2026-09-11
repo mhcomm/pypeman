@@ -91,7 +91,7 @@ Base classes
 Channel statistics
 ..................
 
-.. automodule:: pypeman.plugins.stats
+.. automodule:: pypeman.plugins.metrics.stats
     :members:
 
 Health

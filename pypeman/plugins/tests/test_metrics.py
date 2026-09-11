@@ -11,7 +11,7 @@ from pypeman.channels import BaseChannel
 from pypeman.conf import settings
 from pypeman.plugins.base import webapp_bundle
 from pypeman.plugins.metrics import MetricsPlugin
-from pypeman.plugins.stats import stats_collector
+from pypeman.plugins.metrics.stats import stats_collector
 from pypeman.tests.common import generate_msg
 from pypeman.tests.common import TstException
 from pypeman.tests.pytest_helpers import clear_graph  # noqa: F401 (fixture)
@@ -230,7 +230,7 @@ def test_metrics_live_json(plugin_env):
 
 
 def test_prometheus_label_escaping():
-    from pypeman.plugins.metrics import _sample
+    from pypeman.plugins.metrics.plugin import _sample
 
     line = _sample("some_metric", {"channel": 'na"me\\with\nfun'}, 1.5)
     assert line == 'some_metric{channel="na\\"me\\\\with\\nfun"} 1.5'
@@ -259,7 +259,7 @@ def test_metrics_custom_url_and_validation(plugin_env, monkeypatch):
 
 def test_aggregate_metas_buckets_stateless_metas():
     """A meta with no state must not become a JSON `null` key."""
-    from pypeman.plugins.metrics import _aggregate_metas
+    from pypeman.plugins.metrics.plugin import _aggregate_metas
 
     agg = _aggregate_metas([{"state": "processed"}, {}, {"state": None}])
     assert agg["by_state"] == {"processed": 1, "unknown": 2}

@@ -15,7 +15,7 @@ from pypeman.nodes import BaseNode
 from pypeman.nodes import Sleep
 from pypeman.plugins.base import webapp_bundle
 from pypeman.plugins.health import HealthPlugin
-from pypeman.plugins.stats import stats_collector
+from pypeman.plugins.metrics.stats import stats_collector
 from pypeman.tests.common import ExceptNode
 from pypeman.tests.common import generate_msg
 from pypeman.tests.common import TstException

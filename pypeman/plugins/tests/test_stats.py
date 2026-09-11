@@ -10,7 +10,7 @@ from pypeman.channels import BaseChannel
 from pypeman.channels import MergeChannel
 from pypeman.nodes import Drop
 from pypeman.nodes import Sleep
-from pypeman.plugins.stats import stats_collector
+from pypeman.plugins.metrics.stats import stats_collector
 from pypeman.tests.common import ExceptNode
 from pypeman.tests.common import generate_msg
 from pypeman.tests.common import TstException

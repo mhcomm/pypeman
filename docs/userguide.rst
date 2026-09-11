@@ -182,7 +182,7 @@ serves the live counters and gauges in the Prometheus text format, ready to
 scrape; ``GET /metrics/live`` serves the exact same snapshot as JSON.
 
 Both read live counters from a shared event-fed collector
-(:mod:`pypeman.plugins.stats`): those figures start from zero at each
+(:mod:`pypeman.plugins.metrics.stats`): those figures start from zero at each
 ``pypeman start`` and do not include retry replays (retry data comes from the
 channels' retry stores; time-range stats come from the message stores and
 survive restarts).

@@ -17,6 +17,7 @@ from pypeman.helpers.logging import CHANNEL_CTXVAR
 from pypeman.helpers.logging import DebugLogHandler
 from pypeman.helpers.logging import LogContextFilter
 from pypeman.helpers.logging import MSG_CTXVAR
+from pypeman.msgstore import MemoryMessageStoreFactory
 from pypeman.tests.common import generate_msg
 from pypeman.tests.common import TstNode
 from pypeman.tests.pytest_helpers import clear_graph  # noqa: F401
@@ -106,6 +107,16 @@ def test_context_filter_channel(loop):
     finally:
         CHANNEL_CTXVAR.reset(token)
 
+    # Inside a sub channel without its own store: the parent's name is injected
+    sub = chan.fork(name="ctx_sub")
+    token = CHANNEL_CTXVAR.set(sub)
+    try:
+        record = make_record("myapp.mynodes")
+        flt.filter(record)
+        assert record.channel == "(ctx_chan) "
+    finally:
+        CHANNEL_CTXVAR.reset(token)
+
 
 class AppLoggerNode(nodes.BaseNode):
     """ Mimics project code logging through its own module logger. """
@@ -140,10 +151,7 @@ def test_context_in_records_during_processing(loop):
     started = [rec for rec in records if rec.getMessage() == "channel logging_chan started"]
     assert started and started[0].msg_id == "" and started[0].channel == ""
 
-    processing_texts = (
-        "channel logging_chan handling new msg %s" % msg.short_uuid,
-        "msg %s processed" % msg.short_uuid,
-    )
+    processing_texts = ("handling new msg", "msg processed")
     processing = [rec for rec in records if rec.getMessage() in processing_texts]
     assert len(processing) == 2
     for rec in processing:
@@ -162,10 +170,18 @@ def test_context_in_records_during_processing(loop):
 def test_channel_logger_short_name(loop):
     chan = BaseChannel(name="parent_chan", loop=loop)
     sub = chan.fork(name="sub_chan")
+    stored_sub = chan.fork(name="stored_sub", message_store_factory=MemoryMessageStoreFactory())
+    sub_of_stored = stored_sub.when(lambda msg: True, name="sub_of_stored")
 
     assert chan.logger.name == "pypeman.channels.parent_chan"
     assert sub.name == "parent_chan.sub_chan"
-    assert sub.logger.name == "pypeman.channels.sub_chan"
+    # A sub channel without its own message store logs under the nearest
+    # channel that has one (the root channel failing that)
+    assert sub.log_name == "parent_chan"
+    assert sub.logger is chan.logger
+    assert stored_sub.log_name == "stored_sub"
+    assert stored_sub.logger.name == "pypeman.channels.stored_sub"
+    assert sub_of_stored.log_name == "stored_sub"
 
     # Short names must be unique, even between top level channels and subchannels
     with pytest.raises(NameError):
@@ -178,20 +194,18 @@ def test_level_policy(loop):
     chan.add(TstNode(name="tst_node"))
     loop.run_until_complete(chan.start())
 
-    # Success: one receipt + one outcome line at INFO, node enter/exit at DEBUG
+    # Success: one receipt + one outcome line at INFO, one node line at DEBUG
     msg = generate_msg()
     with capture_records(chan) as records:
         loop.run_until_complete(chan.handle(msg))
     infos = [rec.getMessage() for rec in records if rec.levelno == logging.INFO]
-    assert infos == [
-        "channel levels_chan handling new msg %s" % msg.short_uuid,
-        "msg %s processed" % msg.short_uuid,
-    ]
+    assert infos == ["handling new msg", "msg processed"]
     debugs = [rec.getMessage() for rec in records if rec.levelno == logging.DEBUG]
-    assert any(text.startswith("msg %s infos:" % msg.short_uuid) for text in debugs)
-    assert "node tst_node: enter, msg %s (payload %s)" % (
-        msg.short_uuid, type(msg.payload).__name__) in debugs
-    assert any(text.startswith("node tst_node: exit after") for text in debugs)
+    assert any(text.startswith("msg infos:") for text in debugs)
+    node_lines = [text for text in debugs if text.startswith("node tst_node:")]
+    assert len(node_lines) == 1
+    assert node_lines[0].startswith("node tst_node: ok ")
+    assert node_lines[0].endswith("-> %s" % type(msg.payload).__name__)
 
     # Drop: INFO outcome
     drop_chan = BaseChannel(name="drop_chan", loop=loop)
@@ -201,7 +215,7 @@ def test_level_policy(loop):
     with capture_records(drop_chan) as records:
         loop.run_until_complete(drop_chan.handle(msg))
     dropped = [rec for rec in records
-               if rec.getMessage().startswith("msg %s dropped" % msg.short_uuid)]
+               if rec.getMessage().startswith("msg dropped")]
     assert dropped and dropped[0].levelno == logging.INFO
 
     # Reject: WARNING outcome
@@ -213,7 +227,7 @@ def test_level_policy(loop):
         with pytest.raises(Rejected):
             loop.run_until_complete(reject_chan.handle(msg))
     rejected = [rec for rec in records
-                if rec.getMessage().startswith("msg %s rejected" % msg.short_uuid)]
+                if rec.getMessage().startswith("msg rejected")]
     assert rejected and rejected[0].levelno == logging.WARNING
 
     # Failure: single ERROR without traceback text

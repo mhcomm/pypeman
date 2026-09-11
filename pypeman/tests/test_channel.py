@@ -1137,8 +1137,10 @@ class ChannelsTests(TestCase):
 
             mock_list_dir.assert_called_once_with("testdir")
 
-            fake_ftp.download_file.assert_any_call("testdir/file1")
-            fake_ftp.download_file.assert_called_with("testdir/file2")
+            # Downloads run concurrently in the thread pool: order is not deterministic.
+            self.assertCountEqual(
+                fake_ftp.download_file.call_args_list,
+                [mock.call("testdir/file1"), mock.call("testdir/file2")])
 
             # TODO Delete should be tested with a fixed version of run in executor
             # otherwise we fall in bug : https://bugs.python.org/issue25599#msg256903

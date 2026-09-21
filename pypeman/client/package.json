@@ -14,7 +14,7 @@
     "lint": "eslint --ext .js,.vue src test/unit/specs test/e2e/specs"
   },
   "dependencies": {
-    "jsonrpc-websocket-client": "^0.2.0",
+    "jsonrpc-websocket-client": "^0.7.2",
     "vue": "^2.5.2",
     "vue-config": "^1.0.0",
     "vue-router": "^3.0.1",

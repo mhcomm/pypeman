@@ -847,6 +847,40 @@ class ChannelsTests(TestCase):
         self.assertEqual(n4.processed, 1, "Sub Channel not working")
         self.assertEqual(n5.processed, 1, "Sub Channel not working")
 
+    def test_sub_channel_pending_tasks_keep_one_callback(self):
+        """ Whether the messages a fork queues are left alone by the next ones
+
+        Without wait_subchans a fork queues its task and the parent goes on: the
+        parent must not gather every pending task after each message it handles,
+        a dropped gather hangs one more done callback on each of them per message
+        (quadratic RAM on a burst of messages for a slow sub channel)
+        """
+        release = asyncio.Event()
+
+        class HoldNode(nodes.BaseNode):
+            async def process(self, msg):
+                await release.wait()
+                return msg
+
+        chan = BaseChannel(name="test_subchan_pending", loop=self.loop)
+        sub = chan.fork(name="held")
+        sub.add(HoldNode(name="hold"))
+
+        self.start_channels()
+        for _ in range(3):
+            self.loop.run_until_complete(chan.handle(generate_msg()))
+
+        # asserted once released: tearDown waits for the held tasks otherwise
+        nb_pending = len(chan.sub_chan_tasks)
+        callbacks_per_task = [len(task._callbacks) for task in chan.sub_chan_tasks]
+        release.set()
+        self.clean_loop()
+
+        self.assertEqual(nb_pending, 3, "fork tasks not pending")
+        # the only done callback of a pending task is the sub channel's own
+        self.assertEqual(callbacks_per_task, [1, 1, 1])
+        self.assertEqual(chan.sub_chan_tasks, [], "fork tasks not released")
+
     def test_cond_channel(self):
         """ Whether Conditionnal channel is working """
 

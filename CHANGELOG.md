@@ -1,4 +1,9 @@
 # [Changelog](https://github.com/mhcomm/pypeman/releases)
+## [0.6.8](https://github.com/mhcomm/pypeman/compare/0.6.7...0.6.8)
+* A channel no longer gathers its pending fork tasks after every message it handles
+  unless `wait_subchans` is set: the dropped gather hung one more done callback on
+  each pending task per message, quadratic RAM on a burst of messages for a slow
+  sub channel.
 ## [0.6.7](https://github.com/mhcomm/pypeman/compare/0.6.6...0.6.7)
 * Add python 3.11, 3.12, 3.13 and 3.14 compatibility
 * remove python 3.8 and 3.9 from supported versions

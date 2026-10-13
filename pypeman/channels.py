@@ -531,11 +531,11 @@ class BaseChannel:
                 if not self._has_callback() and call_endnodes:
                     await self._call_special_nodes(msg=msg, node_type="final")
             try:
-                if self.sub_chan_tasks:
-                    # Launch sub chans handle()
-                    subchantasks = asyncio.gather(*self.sub_chan_tasks)
-                    if self.wait_subchans:
-                        await subchantasks
+                if self.sub_chan_tasks and self.wait_subchans:
+                    # Wait for the sub chans handle(): the tasks run anyway, so
+                    # gathering them only to drop the future would just pile one
+                    # done-callback per handled msg on every pending task
+                    await asyncio.gather(*self.sub_chan_tasks)
             finally:
                 if self.sub_chan_endnodes:
                     # Launch and wait for sub chans callbacks
